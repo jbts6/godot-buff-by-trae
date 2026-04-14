@@ -68,10 +68,10 @@
 	  "name": "灼烧：火焰DOT（3回合/回合结束结算）",
 	  "buff_type": "EXPLICIT",
 	  "tags": ["DEBUFF", "DOT", "FIRE"],
-	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
 	  "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
 	  "dot": {
-		"tick_phase": "TURN_END",
+		"tick_phase": "TURN_START",
 		"element": "FIRE",
 		"base_ratio": 0.3,
 		"read_source_stat": "ATK"
