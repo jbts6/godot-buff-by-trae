@@ -1,7 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bxjsveyncgnqg"]
 
-[ext_resource type="Script" path="res://addons/omnibuff/demo/demo_runner.gd" id="1"]
+[ext_resource type="Script" uid="uid://82uoujdv6ud2" path="res://addons/omnibuff/demo/demo_runner.gd" id="1"]
 
-[node name="Demo" type="Node"]
+[node name="Demo" type="Node" unique_id=1231830245]
 script = ExtResource("1")
-
