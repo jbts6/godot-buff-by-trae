@@ -14,14 +14,15 @@ static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: D
 	var ds := OmniCompiledDataset.new()
 
 	# stats
-	var stat_defs := sources["stat_defs"].get("stats", [])
+	# 注意：这里不要用 `:=` 让编译器推断类型；默认空数组 `[]` 会导致推断失败。
+	var stat_defs: Array = sources.get("stat_defs", {}).get("stats", [])
 	for i in range(stat_defs.size()):
 		var s: Dictionary = stat_defs[i]
 		ds.stat_id_to_int[String(s["id"])] = i
 		ds.stat_defs.append(s)
 
 	# buffs
-	var buff_defs := sources["buff_defs"].get("buffs", [])
+	var buff_defs: Array = sources.get("buff_defs", {}).get("buffs", [])
 	for i in range(buff_defs.size()):
 		var b: Dictionary = buff_defs[i]
 		ds.buff_id_to_int[String(b["id"])] = i
