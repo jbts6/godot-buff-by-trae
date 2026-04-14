@@ -36,6 +36,9 @@ class DamageTrace:
 	## 攻击方/防守方实体
 	var attacker_id: int
 	var defender_id: int
+	## 命中/暴击
+	var hit: bool = true
+	var crit: bool = false
 	## ctx 输入/输出
 	var base_damage: float
 	var final_damage: float
@@ -93,11 +96,13 @@ func record_cast_skill(turn: int, actor_id: int, skill_id: String, targets: Pack
 
 func trace_damage(turn: int, ctx: RefCounted, triggered_inst_ids: PackedInt32Array, stage_triggers: Dictionary) -> void:
 	## 记录一次伤害追帧
-	## ctx 约定字段：attacker_id/defender_id/base_damage/final_damage/tags_mask
+	## ctx 约定字段：attacker_id/defender_id/hit/crit/base_damage/final_damage/tags_mask
 	var t := DamageTrace.new()
 	t.turn = turn
 	t.attacker_id = int(ctx.attacker_id)
 	t.defender_id = int(ctx.defender_id)
+	t.hit = bool(ctx.hit)
+	t.crit = bool(ctx.crit)
 	t.base_damage = float(ctx.base_damage)
 	t.final_damage = float(ctx.final_damage)
 	t.tags_mask = int(ctx.tags_mask)
@@ -126,8 +131,8 @@ func debug_dump_last_damage() -> String:
 	if damage_traces.is_empty():
 		return "[DamageTrace] <empty>"
 	var t: DamageTrace = damage_traces[damage_traces.size() - 1]
-	return "[DamageTrace] turn=%s atk=%s def=%s base=%.2f final=%.2f triggered=%s" % [
-		t.turn, t.attacker_id, t.defender_id, t.base_damage, t.final_damage, t.triggered_inst_ids
+	return "[DamageTrace] turn=%s atk=%s def=%s hit=%s crit=%s base=%.2f final=%.2f triggered=%s" % [
+		t.turn, t.attacker_id, t.defender_id, t.hit, t.crit, t.base_damage, t.final_damage, t.triggered_inst_ids
 	]
 
 func debug_dump_damage_range(from_index: int) -> String:
@@ -142,8 +147,8 @@ func debug_dump_damage_range(from_index: int) -> String:
 	var lines: Array[String] = []
 	for i in range(from_index, damage_traces.size()):
 		var t: DamageTrace = damage_traces[i]
-		lines.append("[DamageTrace] turn=%s atk=%s def=%s base=%.2f final=%.2f tags=%s triggered=%s" % [
-			t.turn, t.attacker_id, t.defender_id, t.base_damage, t.final_damage, t.tags_mask, t.triggered_inst_ids
+		lines.append("[DamageTrace] turn=%s atk=%s def=%s hit=%s crit=%s base=%.2f final=%.2f tags=%s triggered=%s" % [
+			t.turn, t.attacker_id, t.defender_id, t.hit, t.crit, t.base_damage, t.final_damage, t.tags_mask, t.triggered_inst_ids
 		])
 	return "\n".join(lines)
 
