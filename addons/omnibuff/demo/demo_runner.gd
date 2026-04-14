@@ -25,3 +25,11 @@ func _ready() -> void:
 	print("[OmniBuffDemo] ATK(before equip buff)=", s.get_final(atk))
 	buff.apply_buff(s, "buff_equip_weapon_001", s.entity_id)
 	print("[OmniBuffDemo] ATK(after equip buff)=", s.get_final(atk))
+
+	# 伤害Pipeline骨架验证：attacker默认ATK=10，装备后ATK=30；defender DEF=5；base_damage=20 => final=45，HP:100->55
+	var attacker := OmniStatsComponent.new(101, ds)
+	buff.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
+	var defender := OmniStatsComponent.new(202, ds)
+	var pipe := OmniDamagePipeline.new()
+	var ctx := pipe.deal_damage(attacker, defender, ds, 20.0)
+	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
