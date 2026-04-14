@@ -37,12 +37,13 @@ func mark_dirty(stat_id: int) -> void:
 	dirty[stat_id] = 1
 
 func recompute(stat_id: int) -> void:
-	# 本Task只回写base（modifier累加在Task 6补齐）
-	final_values[stat_id] = base_values[stat_id]
+	var v := base_values[stat_id]
+	for m in modifiers_by_stat[stat_id]:
+		v += float(m.add_value)
+	final_values[stat_id] = v
 
 func get_final(stat_id: int) -> float:
 	if dirty[stat_id] == 1:
 		recompute(stat_id)
 		dirty[stat_id] = 0
 	return final_values[stat_id]
-

@@ -20,3 +20,8 @@ func _ready() -> void:
 	s.add_base(atk, 5.0)
 	print("[OmniBuffDemo] ATK2=", s.get_final(atk))
 	print("[OmniBuffDemo] ATK3(no recompute)=", s.get_final(atk))
+
+	var buff := OmniBuffCore.new(ds)
+	print("[OmniBuffDemo] ATK(before equip buff)=", s.get_final(atk))
+	buff.apply_buff(s, "buff_equip_weapon_001", s.entity_id)
+	print("[OmniBuffDemo] ATK(after equip buff)=", s.get_final(atk))
