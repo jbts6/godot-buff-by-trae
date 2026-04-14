@@ -43,3 +43,41 @@ func _ready() -> void:
 	var pipe := OmniDamagePipeline.new()
 	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
+
+	# DOT（按来源独立实例）+ TurnEnd tick 验证：
+	# - 两个来源对同一目标施加同种DOT（灼烧）
+	# - 每跳读取来源当前ATK（StatCache），计算 dmg=ATK*base_ratio
+	# - DOT默认在 TURN_END 结算，持续3回合
+	var src_a := OmniStatsComponent.new(301, ds)
+	var src_a_buff := OmniBuffCore.new(ds, enums_rt)
+	src_a_buff.apply_buff(src_a, "buff_equip_weapon_001", src_a.entity_id) # ATK=30
+
+	var src_b := OmniStatsComponent.new(302, ds)
+	var src_b_buff := OmniBuffCore.new(ds, enums_rt)
+	src_b_buff.apply_buff(src_b, "buff_equip_weapon_001", src_b.entity_id) # ATK=30
+	src_b.add_base(ds.stat_id("ATK"), 20.0) # 让B更强：ATK=50
+
+	var target := OmniStatsComponent.new(303, ds)
+	var target_buff := OmniBuffCore.new(ds, enums_rt)
+
+	# 同种DOT按来源独立实例：两次施加会创建两个 DotInstance
+	target_buff.apply_buff(target, "buff_dot_fire_3t", src_a.entity_id)
+	target_buff.apply_buff(target, "buff_dot_fire_3t", src_b.entity_id)
+
+	var stats_by_entity := {
+		301: src_a,
+		302: src_b,
+		303: target
+	}
+	var buff_by_entity := {
+		301: src_a_buff,
+		302: src_b_buff,
+		303: target_buff
+	}
+	var turn := OmniTurnComponent.new()
+	var ids := PackedInt32Array([301, 302, 303])
+	ids.sort()
+
+	for i in range(3):
+		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds)
+		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))

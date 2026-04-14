@@ -13,6 +13,10 @@ extends RefCounted
 ## - triggers 仅支持：
 ##   - filters.tag_mask_any（可选）
 ##   - action.kind="ADD_BASE_DAMAGE"（在 BEFORE_DEAL 等阶段修改 ctx.base_damage）
+## - DOT 仅支持：
+##   - buff_defs.json 中存在 `dot` 字段即视为DOT型buff
+##   - DOT实例按来源独立（每次施加创建一个 DotInstance）
+##   - tick 时动态读取来源 StatCache（禁止遍历来源buff）
 
 class OmniModifierRef:
 	## 目标 stat（编译后 int 索引）
@@ -36,6 +40,27 @@ class BuffInst:
 	## 该实例注入到 StatsCore 的 modifier 引用（用于将来撤销/重建聚合视图）
 	var modifier_refs: Array[OmniModifierRef] = []
 
+class DotInstance:
+	extends RefCounted
+	## DOT实例ID（运行时递增，用于稳定排序/追帧）
+	var dot_inst_id: int
+	## 该DOT归属的 buff inst_id（便于追溯来源buff实例）
+	var owner_buff_inst_id: int
+	## 目标实体ID（DOT挂在谁身上）
+	var target_entity_id: int
+	## 来源实体ID（谁施加的DOT；每跳读取其StatCache）
+	var source_entity_id: int
+	## 剩余回合数（每次tick扣减，到0移除）
+	var remaining_turns: int
+	## tick阶段：字符串 "TURN_START"/"TURN_END"（本demo仅用TURN_END）
+	var tick_phase: String
+	## DOT基础系数：damage = source_stat * base_ratio
+	var base_ratio: float
+	## DOT读取的来源属性（字符串，如 "ATK"）
+	var read_source_stat: String
+	## 事件tag掩码（用于 filters 与追帧；通常包含 DOT + 元素等）
+	var tags_mask: int
+
 ## 编译数据集（只读）
 var ds: OmniCompiledDataset
 
@@ -48,8 +73,19 @@ var event_index: OmniEventIndex
 ## 分配 inst_id 的自增计数器
 var next_inst_id := 1
 
+## 分配 dot_inst_id 的自增计数器（用于DOT按来源独立实例）
+var next_dot_inst_id := 1
+
 ## 最近一次 emit_event 命中的 buff inst_id 列表（用于追帧/调试）
 var _triggered_inst_ids_last_emit: PackedInt32Array = PackedInt32Array()
+
+## DOT池：target_entity_id -> Array[DotInstance]
+## 注意：本最小实现将DOT存放在“目标实体的 BuffCore”中（最贴近逻辑归属）。
+var dots_by_target: Dictionary = {}
+
+## 该 BuffCore 的归属实体（目标实体）；
+## 当前实现通过首次 apply_buff 的 stats.entity_id 自动绑定，用于tick阶段定位。
+var owner_entity_id: int = -1
 
 func _init(dataset: OmniCompiledDataset, enums_runtime: OmniEnumsRuntime = null) -> void:
 	ds = dataset
@@ -78,6 +114,12 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	inst.source_entity_id = source_entity_id
 	inst.stacks = 1
 	inst.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", -1))
+
+	# 绑定 BuffCore 的归属实体（用于 tick）
+	if owner_entity_id < 0:
+		owner_entity_id = stats.entity_id
+	elif owner_entity_id != stats.entity_id:
+		push_warning("[Buff] owner_entity_id mismatch. expected=%s got=%s" % [owner_entity_id, stats.entity_id])
 
 	# === effects -> StatsCore（属性型：变动时维护聚合视图）===
 	var effects: Array = ds.buff_defs[bdid].get("effects", [])
@@ -128,7 +170,83 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 			l.action_value = float(action.get("value", 0.0))
 			event_index.register_listener(key, l)
 
+	# === DOT实例（按来源独立）===
+	# 规则：只要 buff_defs[bdid] 存在 dot 字段，则视为DOT型buff；每次施加创建新的 DotInstance
+	var dot_def: Dictionary = ds.buff_defs[bdid].get("dot", {})
+	if not dot_def.is_empty():
+		var d := DotInstance.new()
+		d.dot_inst_id = next_dot_inst_id
+		next_dot_inst_id += 1
+		d.owner_buff_inst_id = inst.inst_id
+		d.target_entity_id = stats.entity_id
+		d.source_entity_id = source_entity_id
+		d.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", 0))
+		d.tick_phase = String(dot_def.get("tick_phase", "TURN_END"))
+		d.base_ratio = float(dot_def.get("base_ratio", 0.0))
+		d.read_source_stat = String(dot_def.get("read_source_stat", "ATK"))
+		# DOT tags：默认使用 buff 自身 tags（例如 DOT/FIRE），映射为 bitmask
+		if enums_rt != null:
+			d.tags_mask = enums_rt.tag_mask(ds.buff_defs[bdid].get("tags", []))
+		else:
+			d.tags_mask = 0
+
+		if not dots_by_target.has(stats.entity_id):
+			dots_by_target[stats.entity_id] = []
+		(dots_by_target[stats.entity_id] as Array).append(d)
+
 	return inst.inst_id
+
+func on_turn_start(_turn_index: int) -> void:
+	# 当前最小实现：DOT默认在TURN_END结算；此接口用于保持结构完整
+	pass
+
+func on_turn_end(_turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset) -> void:
+	# TurnEnd tick（DOT结算）
+	# 注意：这里不能遍历“所有buff实例”，只能遍历已建索引的数据结构（DOT池/事件索引等）
+	if owner_entity_id < 0:
+		return
+	if not dots_by_target.has(owner_entity_id):
+		return
+
+	var dots: Array = dots_by_target[owner_entity_id]
+	# 稳定顺序：dot_inst_id 升序
+	dots.sort_custom(func(a, b): return a.dot_inst_id < b.dot_inst_id)
+
+	var target_stats: OmniStatsComponent = stats_by_entity.get(owner_entity_id, null)
+	if target_stats == null:
+		return
+	var target_buff: OmniBuffCore = buff_by_entity.get(owner_entity_id, null)
+	if target_buff == null:
+		return
+
+	var kept: Array = []
+	for d in dots:
+		# 只在 TURN_END 结算（未来支持TURN_START）
+		if d.tick_phase != "TURN_END":
+			kept.append(d)
+			continue
+		if d.remaining_turns <= 0:
+			continue
+
+		var source_stats: OmniStatsComponent = stats_by_entity.get(d.source_entity_id, null)
+		var source_buff: OmniBuffCore = buff_by_entity.get(d.source_entity_id, null)
+		if source_stats == null or source_buff == null:
+			# 来源不存在：直接丢弃该DOT（避免僵尸引用）
+			continue
+
+		# 动态读取施法者当前属性：必须走 StatCache（禁止遍历来源Buff）
+		var read_stat_id := dataset.stat_id(d.read_source_stat)
+		var src_v := source_stats.get_final(read_stat_id)
+
+		var base_damage := src_v * d.base_ratio
+		pipeline.deal_damage_with_tags(source_stats, target_stats, source_buff, target_buff, dataset, base_damage, d.tags_mask)
+
+		d.remaining_turns -= 1
+		if d.remaining_turns > 0:
+			kept.append(d)
+
+	# 回写（移除到期DOT）
+	dots_by_target[owner_entity_id] = kept
 
 func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	## 触发事件（最小可用版）
