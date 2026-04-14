@@ -40,4 +40,3 @@ const DatasetCompiler := preload("res://addons/omnibuff/config/compiler/dataset_
 func _ready() -> void:
 	# 单例不承载逻辑，仅作为“命名空间入口”。
 	pass
-
