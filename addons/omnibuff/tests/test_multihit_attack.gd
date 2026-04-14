@@ -7,9 +7,11 @@ extends GutTest
 ## - 用断言替代肉眼观察控制台输出
 
 const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
+const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
+const TestBattle := preload("res://addons/omnibuff/tests/helpers/test_battle.gd")
 
 func test_multihit_damage_is_increasing_and_hp_matches() -> void:
-	var loaded := OmniTestDataset.load_base_demo(true)
+	var loaded := TestDataset.load_base_demo(true)
 	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
 	var ds: OmniCompiledDataset = loaded.ds
 
@@ -17,12 +19,12 @@ func test_multihit_damage_is_increasing_and_hp_matches() -> void:
 	var replay := ReplayScript.new()
 
 	# attacker: ATK=10 + equip(20) => 30
-	var a := OmniTestBattle.make_entity(1001, ds, enums_rt)
+	var a := TestBattle.make_entity(1001, ds, enums_rt)
 	a.buffs.apply_buff(a.stats, "buff_equip_weapon_001", 1001)
 
 	# defender: DEF default=5, HP default=100
-	var d := OmniTestBattle.make_entity(1002, ds, enums_rt)
-	var runtime := OmniTestBattle.make_runtime([a, d])
+	var d := TestBattle.make_entity(1002, ds, enums_rt)
+	var runtime := TestBattle.make_runtime([a, d])
 
 	# 让 filters.tag_mask_any 可命中（如果未来你给测试加更多触发器，也不会静默不触发）
 	var tags_mask := enums_rt.tag_mask(["BUFF"])
@@ -45,4 +47,3 @@ func test_multihit_damage_is_increasing_and_hp_matches() -> void:
 	# HP 断言：HP = 100 - sum(final)
 	var expected_hp := 100.0 - (37.0 + 39.0 + 43.0)
 	assert_eq(d.stats.get_final(ds.stat_id("HP")), expected_hp)
-

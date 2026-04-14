@@ -7,28 +7,30 @@ extends GutTest
 ## - 用 trace 断言避免肉眼观察遗漏（例如只看到最后一条 trace）
 
 const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
+const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
+const TestBattle := preload("res://addons/omnibuff/tests/helpers/test_battle.gd")
 
 func test_dot_multi_source_produces_two_traces_per_tick() -> void:
-	var loaded := OmniTestDataset.load_base_demo(true)
+	var loaded := TestDataset.load_base_demo(true)
 	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
 	var ds: OmniCompiledDataset = loaded.ds
 
 	var pipe := OmniDamagePipeline.new()
 	var replay := ReplayScript.new()
 
-	var src_a := OmniTestBattle.make_entity(3001, ds, enums_rt)
+	var src_a := TestBattle.make_entity(3001, ds, enums_rt)
 	src_a.buffs.apply_buff(src_a.stats, "buff_equip_weapon_001", 3001) # ATK=30
 
-	var src_b := OmniTestBattle.make_entity(3002, ds, enums_rt)
+	var src_b := TestBattle.make_entity(3002, ds, enums_rt)
 	src_b.buffs.apply_buff(src_b.stats, "buff_equip_weapon_001", 3002) # ATK=30
 	src_b.stats.add_base(ds.stat_id("ATK"), 20.0) # ATK=50
 
-	var tgt := OmniTestBattle.make_entity(3003, ds, enums_rt)
+	var tgt := TestBattle.make_entity(3003, ds, enums_rt)
 	# 目标身上的 BuffCore 挂 DOT（按来源独立实例）
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_3t", 3001)
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_3t", 3002)
 
-	var runtime := OmniTestBattle.make_runtime([src_a, src_b, tgt])
+	var runtime := TestBattle.make_runtime([src_a, src_b, tgt])
 	var turn := OmniTurnComponent.new()
 	var ids := PackedInt32Array([3001, 3002, 3003])
 	ids.sort()
@@ -51,4 +53,3 @@ func test_dot_multi_source_produces_two_traces_per_tick() -> void:
 	var vals := [float(t1.source_stat_value), float(t2.source_stat_value)]
 	vals.sort()
 	assert_eq(vals, [30.0, 50.0])
-

@@ -7,9 +7,11 @@ extends GutTest
 ## - 用明确的数值断言避免肉眼误判
 
 const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
+const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
+const TestBattle := preload("res://addons/omnibuff/tests/helpers/test_battle.gd")
 
 func test_def_buff_reduces_each_hit_damage() -> void:
-	var loaded := OmniTestDataset.load_base_demo(true)
+	var loaded := TestDataset.load_base_demo(true)
 	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
 	var ds: OmniCompiledDataset = loaded.ds
 
@@ -17,14 +19,14 @@ func test_def_buff_reduces_each_hit_damage() -> void:
 	var replay := ReplayScript.new()
 
 	# attacker: ATK=10 + equip(20) => 30
-	var a := OmniTestBattle.make_entity(2001, ds, enums_rt)
+	var a := TestBattle.make_entity(2001, ds, enums_rt)
 	a.buffs.apply_buff(a.stats, "buff_equip_weapon_001", 2001)
 
 	# defender: DEF default=5 + def_buff(20) => 25
-	var d := OmniTestBattle.make_entity(2002, ds, enums_rt)
+	var d := TestBattle.make_entity(2002, ds, enums_rt)
 	d.buffs.apply_buff(d.stats, "buff_def_up_20_3t", 2002)
 
-	var runtime := OmniTestBattle.make_runtime([a, d])
+	var runtime := TestBattle.make_runtime([a, d])
 	var tags_mask := enums_rt.tag_mask(["BUFF"])
 
 	var base_hits := [12.0, 14.0, 18.0]
@@ -37,4 +39,3 @@ func test_def_buff_reduces_each_hit_damage() -> void:
 	assert_eq(finals[0], 17.0)
 	assert_eq(finals[1], 19.0)
 	assert_eq(finals[2], 23.0)
-
