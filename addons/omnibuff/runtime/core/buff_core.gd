@@ -416,14 +416,12 @@ func debug_dump_stat_modifiers(stats: OmniStatsComponent, stat_id: int) -> Strin
 		lines.append("  %s/%s %s (from inst_id=%s)" % [String(m.op), String(m.phase), float(m.value), int(m.source_inst_id)])
 	return "\n".join(lines)
 
-func on_turn_start(_turn_index: int) -> void:
-	# 当前最小实现：DOT默认在TURN_END结算；此接口用于保持结构完整
-	pass
-
-func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted = null) -> void:
-	# TurnEnd tick（DOT结算）
+func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted) -> void:
+	# 内部：DOT结算（支持 TURN_START / TURN_END）
 	# 注意：这里不能遍历“所有buff实例”，只能遍历已建索引的数据结构（DOT池/事件索引等）
 	if owner_entity_id < 0:
+		return
+	if pipeline == null or dataset == null:
 		return
 	if not dots_by_target.has(owner_entity_id):
 		return
@@ -441,8 +439,8 @@ func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: D
 
 	var kept: Array = []
 	for d in dots:
-		# 只在 TURN_END 结算（未来支持TURN_START）
-		if d.tick_phase != "TURN_END":
+		# 仅处理匹配 tick_phase 的DOT；其它DOT保持不动
+		if d.tick_phase != tick_phase:
 			kept.append(d)
 			continue
 		if d.remaining_turns <= 0:
@@ -486,6 +484,17 @@ func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: D
 
 	# 回写（移除到期DOT）
 	dots_by_target[owner_entity_id] = kept
+
+func on_turn_start(turn_index: int, stats_by_entity: Dictionary = {}, buff_by_entity: Dictionary = {}, pipeline: OmniDamagePipeline = null, dataset: OmniCompiledDataset = null, replay: RefCounted = null) -> void:
+	# TurnStart tick（DOT结算）
+	# 兼容：允许旧调用只传 turn_index，此时不会触发DOT结算
+	if pipeline == null or dataset == null:
+		return
+	_tick_dots(turn_index, "TURN_START", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
+
+func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted = null) -> void:
+	# TurnEnd tick（DOT结算）
+	_tick_dots(turn_index, "TURN_END", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
 
 func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	## 触发事件（最小可用版）

@@ -13,11 +13,21 @@ extends RefCounted
 
 var turn_index: int = 1
 
-func on_turn_start(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictionary) -> void:
-	# 当前版本未实现 TurnStart tick（DOT默认在TurnEnd结算），先留接口以保持结构完整
+func on_turn_start(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictionary, stats_by_entity: Dictionary = {}, pipeline: OmniDamagePipeline = null, ds: OmniCompiledDataset = null, replay: RefCounted = null) -> void:
+	# TurnStart tick：对每个实体依次处理其 Buff/DOT（稳定顺序）
+	#
+	# 兼容：
+	# - 旧调用：on_turn_start(entity_ids_sorted, buff_by_entity) 仍可用
+	# - 当 pipeline/ds 为空时，仅调用 b.on_turn_start(turn_index)（不触发DOT结算）
+	var can_tick := (pipeline != null and ds != null and not stats_by_entity.is_empty())
 	for eid in entity_ids_sorted:
 		var b = buff_by_entity.get(int(eid), null)
-		if b != null and b.has_method("on_turn_start"):
+		if b == null or not b.has_method("on_turn_start"):
+			continue
+		if can_tick:
+			# 约定：on_turn_start(turn_index, stats_by_entity, buff_by_entity, pipeline, ds, replay)
+			b.on_turn_start(turn_index, stats_by_entity, buff_by_entity, pipeline, ds, replay)
+		else:
 			b.on_turn_start(turn_index)
 
 func on_turn_end(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictionary, stats_by_entity: Dictionary, pipeline: OmniDamagePipeline, ds: OmniCompiledDataset, replay: RefCounted = null) -> void:
