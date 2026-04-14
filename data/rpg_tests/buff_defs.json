@@ -112,6 +112,54 @@
 		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_life_replace_atk_10_2t",
+	  "name": "生命周期：REPLACE ATK+10（2回合）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_stack_atk_10_2t_max3",
+	  "name": "生命周期：ADD_STACK ATK+10（2回合，最多3层）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 3, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_multi_atk_10_2t",
+	  "name": "生命周期：MULTI_INSTANCE ATK+10（2回合）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_stack_by_source_def_5_2t_max2",
+	  "name": "生命周期：按来源叠层 DEF+5（2回合，最多2层/来源）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 2, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
+	  ],
+	  "triggers": []
 	}
   ]
 }
