@@ -163,6 +163,17 @@ static func _validate_enums(file: String, enums_obj: Dictionary, strict: bool, i
 	if not enums_obj.has("tags") or typeof(enums_obj["tags"]) != TYPE_ARRAY:
 		_add_issue(issues, error(file, "path=$.tags", "", "enums.json missing tags[]"), strict)
 
+	# 规则：关键枚举集合必须存在（作为插件契约的一部分）
+	var enums: Dictionary = enums_obj.get("enums", {})
+	var required_enums := [
+		"op_type", "apply_phase", "duration_type", "stack_mode", "refresh_policy",
+		"buff_type", "event_type", "event_phase", "damage_type", "element",
+		"condition_type", "ownership_mode", "dispel_scope", "action_kind"
+	]
+	for name in required_enums:
+		if not enums.has(name) or typeof(enums[name]) != TYPE_ARRAY:
+			_add_issue(issues, error(file, "path=$.enums." + String(name), "", "missing required enum list: " + String(name)), strict)
+
 	# 规则：tag id/code 不重复；code 非负且 <=62（当前 bitmask 使用 int，63+ 会溢出风险）
 	var seen_id := {}
 	var seen_code := {}
@@ -342,8 +353,34 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 			var ak := String(action.get("kind", ""))
 			if typeof(action) == TYPE_DICTIONARY:
 				_unknown_fields(file, p + ".triggers[%s].action" % ti, id, action, allowed_action, strict, issues)
-			if ak != "" and ak != "ADD_BASE_DAMAGE":
-				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.kind" % ti, id, "unknown action kind=" + ak), strict)
+			# action.kind 白名单（更贴近真实项目的协议治理）
+			# - 必须在 enums.action_kind 中存在，否则 strict=Error / lenient=Warning
+			if ak == "":
+				_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.kind" % ti, id, "missing action.kind"), strict)
+			elif not _enum_has(enums, "action_kind", ak):
+				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.kind" % ti, id, "action.kind not in whitelist: " + ak), strict)
+
+			# 若 action.kind 为 APPLY_BUFF/CHANCE_APPLY_BUFF，则必须声明 buff_id/apply_buff_id 且引用存在
+			if ak == "APPLY_BUFF" or ak == "CHANCE_APPLY_BUFF":
+				var target_buff_id := ""
+				if action.has("buff_id"):
+					target_buff_id = String(action.get("buff_id", ""))
+				elif action.has("apply_buff_id"):
+					target_buff_id = String(action.get("apply_buff_id", ""))
+				if target_buff_id == "":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "missing buff_id/apply_buff_id for action.kind=" + ak), strict)
+				else:
+					# 复用 buff_ids 表（在本函数开头构建）
+					if not seen.has(target_buff_id):
+						# 注意：seen 是本文件内已出现的 buff_id 集合；缺失也可能是“后定义”。
+						# 因此这里再做一次“全局存在性”校验：遍历 obj.buffs（O(N)）仅在校验期可接受。
+						var exists := false
+						for bb in arr:
+							if String((bb as Dictionary).get("id", "")) == target_buff_id:
+								exists = true
+								break
+						if not exists:
+							_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "action references missing buff_id=" + target_buff_id), strict)
 
 			# 规则：chance（若存在）范围必须 0..1
 			if action.has("chance"):
