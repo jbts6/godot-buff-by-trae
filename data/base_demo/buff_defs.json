@@ -1,0 +1,84 @@
+{
+  "buffs": [
+    {
+      "id": "buff_passive_atk_5p",
+      "name": "被动：ATK+5%",
+      "buff_type": "PASSIVE",
+      "tags": ["BUFF"],
+      "duration": { "type": "PERMANENT" },
+      "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+      "effects": [
+        { "kind": "modifier", "stat": "ATK", "op": "MUL", "phase": "PERCENT", "priority": 100, "value": 0.05 }
+      ],
+      "triggers": []
+    },
+    {
+      "id": "buff_atk_up_3t",
+      "name": "战技增益：ATK+10（3回合）",
+      "buff_type": "EXPLICIT",
+      "tags": ["BUFF"],
+      "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+      "stack": { "mode": "ADD_STACK", "max_stack": 5, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+      "effects": [
+        { "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 200, "value": 10.0 }
+      ],
+      "triggers": []
+    },
+    {
+      "id": "buff_set4_atk_5p",
+      "name": "4件套：ATK+5%",
+      "buff_type": "IMPLICIT",
+      "tags": ["BUFF", "SET_BONUS"],
+      "duration": { "type": "WHILE_CONDITION", "policy": "SUSPEND_THEN_REMOVE_ON_TURN_END" },
+      "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+      "conditions": [
+        { "type": "EQUIP_SET_COUNT_GE", "set_id": "set_wolf", "count": 4 }
+      ],
+      "effects": [
+        { "kind": "modifier", "stat": "ATK", "op": "MUL", "phase": "PERCENT", "priority": 110, "value": 0.05 }
+      ],
+      "triggers": []
+    },
+    {
+      "id": "buff_food_atk_20_5t",
+      "name": "食物：ATK+20（5回合）",
+      "buff_type": "EXPLICIT",
+      "tags": ["BUFF"],
+      "duration": { "type": "TURNS", "turns": 5, "tick_phase": "TURN_END" },
+      "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+      "effects": [
+        { "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 210, "value": 20.0 }
+      ],
+      "triggers": []
+    },
+    {
+      "id": "buff_dot_fire_3t",
+      "name": "灼烧：火焰DOT（3回合/回合结束结算）",
+      "buff_type": "EXPLICIT",
+      "tags": ["DEBUFF", "DOT", "FIRE"],
+      "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+      "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+      "dot": {
+        "tick_phase": "TURN_END",
+        "element": "FIRE",
+        "base_ratio": 0.3,
+        "read_source_stat": "ATK"
+      },
+      "effects": [],
+      "triggers": []
+    },
+    {
+      "id": "buff_equip_weapon_001",
+      "name": "装备：铁剑 ATK+20",
+      "buff_type": "IMPLICIT",
+      "tags": ["BUFF", "EQUIP"],
+      "duration": { "type": "PERMANENT" },
+      "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+      "effects": [
+        { "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 150, "value": 20.0 }
+      ],
+      "triggers": []
+    }
+  ]
+}
+

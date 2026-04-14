@@ -1,0 +1,19 @@
+{
+  "skills": [
+    {
+      "id": "skill_slash",
+      "name": "斩击",
+      "damage_type": "PHYSICAL",
+      "element": "NONE",
+      "base_damage": 20.0,
+      "tags": ["BUFF"],
+      "on_cast": [
+        { "kind": "apply_buff", "target": "SELF", "buff_id": "buff_atk_up_3t" }
+      ],
+      "on_hit": [
+        { "kind": "chance_apply_buff", "chance": 0.3, "target": "TARGET", "buff_id": "buff_dot_fire_3t" }
+      ]
+    }
+  ]
+}
+
