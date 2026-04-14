@@ -15,6 +15,11 @@ run/main_scene="res://addons/omnibuff/demo/demo_scene.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+OmniBuffBootstrap="res://addons/omnibuff/omnibuff_bootstrap.gd"
+OmniBuff="*uid://bl8yrdx6miv75"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omnibuff/plugin.cfg")
