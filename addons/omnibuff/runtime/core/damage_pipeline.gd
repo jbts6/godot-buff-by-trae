@@ -24,60 +24,6 @@ class DamageContext:
 	## 最终伤害（resolve后得到，apply阶段用于扣血/护盾）
 	var final_damage: float = 0.0
 
-static func _reduce_stat_final_value(stats: OmniStatsComponent, stat_id: int, reduce_final: float) -> void:
-	## 将某 stat 的“最终值”减少 reduce_final（>=0），通过反推 base 来实现。
-	##
-	## 目的：
-	## - 允许 SHIELD 这种“运行时可消耗”的属性仍以 modifier 形式提供初始值（如 buff_shield_50）
-	## - 消耗时尽量保持最终值精确（考虑当前实现支持的 ADD/FLAT 与 MUL/PERCENT）
-	if reduce_final <= 0.0:
-		return
-
-	var current_final := float(stats.get_final(stat_id))
-	if current_final <= 0.0:
-		return
-
-	var target_final := max(0.0, current_final - reduce_final)
-
-	# 反推 (base + flat) * (1+pct) = target_final
-	var flat := 0.0
-	var pct := 0.0
-	for m in stats.core.modifiers_by_stat[stat_id]:
-		var op := ""
-		var ph := ""
-		var val := 0.0
-		if m != null and typeof(m) == TYPE_OBJECT:
-			if m.has_property("op"):
-				op = String(m.op)
-			if m.has_property("phase"):
-				ph = String(m.phase)
-			if m.has_property("value"):
-				val = float(m.value)
-			elif m.has_property("add_value"):
-				val = float(m.add_value)
-		else:
-			# 非对象：按 flat 处理（与 StatsCore.recompute 的兼容策略一致）
-			flat += float(m)
-			continue
-
-		if op == "" and ph == "":
-			op = "ADD"
-			ph = "FLAT"
-
-		if op == "ADD" and ph == "FLAT":
-			flat += val
-		elif op == "MUL" and ph == "PERCENT":
-			pct += val
-
-	var denom := 1.0 + pct
-	if abs(denom) < 0.000001:
-		# 极端情况（理论上不应出现）：退化为直接扣 base
-		stats.add_base(stat_id, -reduce_final)
-		return
-
-	var new_base := (target_final / denom) - flat
-	stats.core.set_base(stat_id, new_base)
-
 func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
@@ -148,7 +94,11 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 		var shield := float(defender.get_final(shield_id))
 		if shield > 0.0:
 			var absorbed := min(shield, remaining)
-			_reduce_stat_final_value(defender, shield_id, absorbed)
+			# 通过减少 base 值来消耗护盾：
+			# - 即使护盾来自 modifier（例如 +50），base 也可以被扣到负数，
+			#   最终护盾值依然会按 base+modifiers 计算并正确下降到 0。
+			# - 这样避免在这里反推公式/访问 modifier 细节，保持实现简单稳定。
+			defender.add_base(shield_id, -absorbed)
 			remaining -= absorbed
 			# ctx.final_damage 语义：用于扣血/回放/后续阶段，应为“吸收后剩余伤害”
 			ctx.set_meta("absorbed_shield", absorbed)
