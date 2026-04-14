@@ -16,6 +16,20 @@
 - 本计划将创建：`addons/omnibuff/**`、`data/base_demo/**`
 - 约定：所有脚本使用 `class_name` 注册（便于引用/调试）。
 
+### 0.1) 执行期修订（与初版计划的差异说明）
+
+为贴近真实项目与解决 Godot 4 开发期常见问题，执行过程中发生了以下“计划外但必要”的工程化调整：
+
+1. **全局类可见性/缓存问题**  
+   - 现象：`class_name OmniReplay` 在某些情况下不会立刻进入全局类表，导致解析期报 `Identifier not declared`。  
+   - 处理：增加工程侧 `Autoload`：`OmniBuffBootstrap`（`res://addons/omnibuff/omnibuff_bootstrap.gd`）启动时 `preload()` 关键脚本，降低缓存不同步风险；同时 demo 里对关键类采用显式 `preload()`。
+2. **Schema 校验增强（M9扩展）**  
+   - 已实现“深度未知字段治理（JSONPath 逐层）”与“触发链循环/过深检测”。  
+   - 新增 `enums.action_kind` 作为触发器 `action.kind` 白名单（严格模式阻断）。
+3. **事件动作扩展**  
+   - 在 `EventIndex` 与 `BuffCore.emit_event()` 中增加 `APPLY_BUFF/CHANCE_APPLY_BUFF` 的运行时行为（除 `ADD_BASE_DAMAGE` 外）。
+   - 为避免强耦合，在 `DamageContext` 上通过 `meta.runtime` 传入运行时字典（`stats_by_entity/buff_by_entity`）供事件动作定位目标。
+
 ---
 
 ## 1) 文件结构（将创建/修改哪些文件）
@@ -971,4 +985,3 @@ git commit -m "feat(schema): expand validators and add migrate framework"
 2) **Inline Execution**：我在本会话中按Task逐步落地实现（每个里程碑结束做一次review）
 
 请选择其一后开始执行。
-
