@@ -91,6 +91,12 @@ static func validate_all(manifest_path: String, manifest: Dictionary, enums_obj:
 	if sources.has("set_bonus"):
 		_validate_set_bonus(file_set, sources["set_bonus"], sources.get("buff_defs", {}), strict, issues)
 
+	# 7) 触发链/循环依赖（Buff 触发器导致 apply_buff 的图分析）
+	# - 循环触发：Error（可能无限触发）
+	# - 过深触发链：Warning（可能出现“无限链”或性能/可控性问题）
+	if sources.has("buff_defs"):
+		_detect_buff_trigger_cycles(file_buff, sources["buff_defs"], strict, issues)
+
 	return issues
 
 # -----------------------------------------------------------------------------
@@ -218,6 +224,17 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"id": true, "name": true, "buff_type": true, "tags": true, "duration": true,
 		"stack": true, "effects": true, "triggers": true, "conditions": true, "dot": true, "dispel": true, "ui_group_key": true
 	}
+	# 子结构允许字段（用于“未知字段”治理）
+	var allowed_duration := {"type": true, "turns": true, "tick_phase": true, "policy": true}
+	var allowed_stack := {"mode": true, "max_stack": true, "refresh_policy": true, "ownership_mode": true}
+	var allowed_effect := {"kind": true, "stat": true, "op": true, "phase": true, "priority": true, "value": true, "expr": true, "tags": true, "clamp_min": true, "clamp_max": true}
+	var allowed_trigger := {"event_type": true, "event_phase": true, "filters": true, "action": true, "scope": true}
+	var allowed_filters := {"tag_mask_any": true, "damage_type_any": true, "skill_id": true}
+	var allowed_action := {"kind": true, "value": true, "buff_id": true, "apply_buff_id": true, "chance": true}
+	var allowed_dot := {"tick_phase": true, "element": true, "base_ratio": true, "read_source_stat": true}
+	var allowed_dispel := {"dispellable": true, "immune_tags_any": true, "scope": true}
+	var allowed_condition := {"type": true, "set_id": true, "count": true, "tag": true, "stat": true, "value": true}
+
 	var arr: Array = obj.get("buffs", [])
 	var seen := {}
 
@@ -254,6 +271,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 
 		# duration/type 枚举校验 + turns范围
 		var duration: Dictionary = b.get("duration", {})
+		if typeof(duration) == TYPE_DICTIONARY:
+			_unknown_fields(file, p + ".duration", id, duration, allowed_duration, strict, issues)
 		var dt := String(duration.get("type", ""))
 		if dt == "" or not _enum_has(enums, "duration_type", dt):
 			_add_issue(issues, error(file, "path=" + p + ".duration.type", id, "invalid duration.type=" + dt), strict)
@@ -264,6 +283,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 
 		# stack/mode 枚举校验 + max_stack范围
 		var stack: Dictionary = b.get("stack", {})
+		if typeof(stack) == TYPE_DICTIONARY:
+			_unknown_fields(file, p + ".stack", id, stack, allowed_stack, strict, issues)
 		var sm := String(stack.get("mode", ""))
 		if sm == "" or not _enum_has(enums, "stack_mode", sm):
 			_add_issue(issues, error(file, "path=" + p + ".stack.mode", id, "invalid stack.mode=" + sm), strict)
@@ -276,6 +297,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		var effects: Array = b.get("effects", [])
 		for ei in range(effects.size()):
 			var e: Dictionary = effects[ei]
+			if typeof(e) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".effects[%s]" % ei, id, e, allowed_effect, strict, issues)
 			var kind := String(e.get("kind", ""))
 			if kind != "modifier":
 				continue
@@ -300,6 +323,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		var triggers: Array = b.get("triggers", [])
 		for ti in range(triggers.size()):
 			var t: Dictionary = triggers[ti]
+			if typeof(t) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".triggers[%s]" % ti, id, t, allowed_trigger, strict, issues)
 			var et := String(t.get("event_type", ""))
 			var ep := String(t.get("event_phase", ""))
 			if et == "" or not _enum_has(enums, "event_type", et):
@@ -308,17 +333,29 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 				_add_issue(issues, error(file, "path=" + p + ".triggers[%s].event_phase" % ti, id, "invalid event_phase=" + ep), strict)
 
 			var filters: Dictionary = t.get("filters", {})
+			if typeof(filters) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".triggers[%s].filters" % ti, id, filters, allowed_filters, strict, issues)
 			if et == "DAMAGE" and filters.is_empty():
 				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].filters" % ti, id, "DAMAGE trigger has no filters (may bloat listeners)"), strict)
 
 			var action: Dictionary = t.get("action", {})
 			var ak := String(action.get("kind", ""))
+			if typeof(action) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".triggers[%s].action" % ti, id, action, allowed_action, strict, issues)
 			if ak != "" and ak != "ADD_BASE_DAMAGE":
 				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.kind" % ti, id, "unknown action kind=" + ak), strict)
+
+			# 规则：chance（若存在）范围必须 0..1
+			if action.has("chance"):
+				var ch := float(action.get("chance", -1.0))
+				if ch < 0.0 or ch > 1.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.chance" % ti, id, "chance must be 0..1"), strict)
 
 		# dot：引用stat存在 + base_ratio范围
 		var dot: Dictionary = b.get("dot", {})
 		if not dot.is_empty():
+			if typeof(dot) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".dot", id, dot, allowed_dot, strict, issues)
 			var rs := String(dot.get("read_source_stat", ""))
 			if rs != "" and not stat_ids.has(rs):
 				_add_issue(issues, error(file, "path=" + p + ".dot.read_source_stat", id, "unknown stat ref=" + rs), strict)
@@ -326,11 +363,27 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 			if r < 0.0:
 				_add_issue(issues, error(file, "path=" + p + ".dot.base_ratio", id, "base_ratio must be >=0"), strict)
 
+		# dispel：未知字段治理
+		var dispel: Dictionary = b.get("dispel", {})
+		if not dispel.is_empty() and typeof(dispel) == TYPE_DICTIONARY:
+			_unknown_fields(file, p + ".dispel", id, dispel, allowed_dispel, strict, issues)
+
+		# conditions：未知字段治理（本demo未实现条件系统，但协议仍要治理）
+		var conds: Array = b.get("conditions", [])
+		for ci in range(conds.size()):
+			var cnd: Dictionary = conds[ci]
+			if typeof(cnd) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".conditions[%s]" % ci, id, cnd, allowed_condition, strict, issues)
+
 # -----------------------------------------------------------------------------
 # 规则 12：skill_defs 校验（引用buff、枚举合法、chance范围）
 # -----------------------------------------------------------------------------
 
 static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionary, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var allowed_skill := {"id": true, "name": true, "damage_type": true, "element": true, "base_damage": true, "tags": true, "on_cast": true, "on_hit": true}
+	var allowed_on_cast := {"kind": true, "target": true, "buff_id": true}
+	var allowed_on_hit := {"kind": true, "chance": true, "target": true, "buff_id": true}
+
 	var arr: Array = obj.get("skills", [])
 	var seen := {}
 	var buff_ids := {}
@@ -341,6 +394,8 @@ static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionar
 		var s: Dictionary = arr[i]
 		var id := String(s.get("id", ""))
 		var p := "$.skills[%s]" % i
+		if typeof(s) == TYPE_DICTIONARY:
+			_unknown_fields(file, p, id, s, allowed_skill, strict, issues)
 		if id == "":
 			_add_issue(issues, error(file, "path=" + p, "", "skill id empty"), strict)
 			continue
@@ -357,16 +412,22 @@ static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionar
 			_add_issue(issues, error(file, "path=" + p + ".element", id, "invalid element=" + el), strict)
 
 		# on_cast apply_buff 引用存在
-		for ci in range((s.get("on_cast", []) as Array).size()):
-			var c: Dictionary = (s.get("on_cast", []) as Array)[ci]
+		var on_cast: Array = s.get("on_cast", [])
+		for ci in range(on_cast.size()):
+			var c: Dictionary = on_cast[ci]
+			if typeof(c) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".on_cast[%s]" % ci, id, c, allowed_on_cast, strict, issues)
 			if String(c.get("kind", "")) == "apply_buff":
 				var bid := String(c.get("buff_id", ""))
 				if bid == "" or not buff_ids.has(bid):
 					_add_issue(issues, error(file, "path=" + p + ".on_cast[%s].buff_id" % ci, id, "unknown buff ref=" + bid), strict)
 
 		# on_hit chance_apply_buff 概率范围 + 引用存在
-		for hi in range((s.get("on_hit", []) as Array).size()):
-			var h: Dictionary = (s.get("on_hit", []) as Array)[hi]
+		var on_hit: Array = s.get("on_hit", [])
+		for hi in range(on_hit.size()):
+			var h: Dictionary = on_hit[hi]
+			if typeof(h) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".on_hit[%s]" % hi, id, h, allowed_on_hit, strict, issues)
 			if String(h.get("kind", "")) == "chance_apply_buff":
 				var ch := float(h.get("chance", -1.0))
 				if ch < 0.0 or ch > 1.0:
@@ -380,6 +441,7 @@ static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionar
 # -----------------------------------------------------------------------------
 
 static func _validate_damage_pipeline(file: String, obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var allowed_stage := {"stage": true, "emit_event": true, "phase": true, "side": true}
 	var arr: Array = obj.get("pipeline", [])
 	if arr.is_empty():
 		_add_issue(issues, error(file, "path=$.pipeline", "", "pipeline empty"), strict)
@@ -388,6 +450,8 @@ static func _validate_damage_pipeline(file: String, obj: Dictionary, strict: boo
 	var required := ["build", "before_deal", "before_take", "resolve", "apply", "after_deal", "after_take", "death"]
 	var stages := []
 	for i in range(arr.size()):
+		if typeof(arr[i]) == TYPE_DICTIONARY:
+			_unknown_fields(file, "$.pipeline[%s]" % i, "", (arr[i] as Dictionary), allowed_stage, strict, issues)
 		stages.append(String((arr[i] as Dictionary).get("stage", "")))
 	for r in required:
 		if not stages.has(r):
@@ -418,6 +482,8 @@ static func _validate_equipment_csv(file: String, rows: Array, strict: bool, iss
 # -----------------------------------------------------------------------------
 
 static func _validate_set_bonus(file: String, obj: Dictionary, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var allowed_set := {"id": true, "name": true, "bonuses": true}
+	var allowed_bonus := {"count": true, "apply_buff_id": true}
 	var buff_ids := {}
 	for b in buff_defs_obj.get("buffs", []):
 		buff_ids[String((b as Dictionary).get("id", ""))] = true
@@ -425,9 +491,125 @@ static func _validate_set_bonus(file: String, obj: Dictionary, buff_defs_obj: Di
 	for i in range(sets.size()):
 		var s: Dictionary = sets[i]
 		var sid := String(s.get("id", ""))
+		if typeof(s) == TYPE_DICTIONARY:
+			_unknown_fields(file, "$.sets[%s]" % i, sid, s, allowed_set, strict, issues)
 		var bonuses: Array = s.get("bonuses", [])
 		for bi in range(bonuses.size()):
 			var bb: Dictionary = bonuses[bi]
+			if typeof(bb) == TYPE_DICTIONARY:
+				_unknown_fields(file, "$.sets[%s].bonuses[%s]" % [i, bi], sid, bb, allowed_bonus, strict, issues)
 			var bid := String(bb.get("apply_buff_id", ""))
 			if bid != "" and not buff_ids.has(bid):
 				_add_issue(issues, error(file, "path=$.sets[%s].bonuses[%s].apply_buff_id" % [i, bi], sid, "unknown buff ref=" + bid), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 16：Buff 触发链循环/过深检测（无限触发链风险）
+# -----------------------------------------------------------------------------
+
+static func _detect_buff_trigger_cycles(file: String, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	## 检测 “Buff触发器 -> apply_buff -> 新Buff” 形成的依赖图是否存在循环/过深链。
+	##
+	## 为什么重要：
+	## - 循环触发（A触发B，B触发A）会导致无限触发链（逻辑与性能灾难）
+	## - 过深链（A->B->C->...）容易造成难以预测的顺序与调试困难
+	##
+	## 约束：
+	## - 本函数只做“静态风险检测”，不尝试推断 runtime filters 是否一定命中。
+	## - 只要配置层声明了 apply_buff 行为，就应被纳入风险评估。
+
+	var buffs: Array = buff_defs_obj.get("buffs", [])
+	var buff_ids := {}
+	for b in buffs:
+		buff_ids[String((b as Dictionary).get("id", ""))] = true
+
+	# 构建邻接表：from_buff_id -> Array[to_buff_id]
+	var edges := {}
+	for b in buffs:
+		var bd: Dictionary = b
+		var from_id := String(bd.get("id", ""))
+		if from_id == "":
+			continue
+		edges[from_id] = []
+
+		var triggers: Array = bd.get("triggers", [])
+		for t in triggers:
+			var td: Dictionary = t
+			var action: Dictionary = td.get("action", {})
+			# 兼容多种命名：buff_id / apply_buff_id
+			var to_id := ""
+			if action.has("buff_id"):
+				to_id = String(action.get("buff_id", ""))
+			elif action.has("apply_buff_id"):
+				to_id = String(action.get("apply_buff_id", ""))
+
+			# 只要声明了“对某buff的引用”，就纳入图（action.kind 不强绑定，避免未来扩展漏检）
+			if to_id != "":
+				(edges[from_id] as Array).append(to_id)
+
+	# 规则：引用不存在（即使其它校验会报，这里也补一条更语义化的信息）
+	for from_id in edges.keys():
+		for to_id in edges[from_id]:
+			if not buff_ids.has(String(to_id)):
+				_add_issue(issues, error(file, "path=$.buffs[id=%s].triggers[].action" % from_id, from_id, "trigger references missing buff_id=" + String(to_id)), strict)
+
+	# 1) 环检测（DFS）
+	var visiting := {} # node -> true
+	var visited := {}  # node -> true
+	var stack: Array[String] = []
+
+	for start in edges.keys():
+		if visited.has(start):
+			continue
+		_dfs_cycle(file, String(start), edges, visiting, visited, stack, strict, issues)
+
+	# 2) 过深链检测（在无环前提下进行）
+	# 若存在环，上面已经 Error；这里仍做一次“深度上限”告警，帮助定位潜在无限链。
+	var MAX_CHAIN := 16
+	for start2 in edges.keys():
+		var path: Array[String] = []
+		_dfs_depth_limit(file, String(start2), edges, MAX_CHAIN, path, strict, issues)
+
+static func _dfs_cycle(file: String, node: String, edges: Dictionary, visiting: Dictionary, visited: Dictionary, stack: Array[String], strict: bool, issues: Array[Issue]) -> void:
+	visiting[node] = true
+	stack.append(node)
+
+	var nexts: Array = edges.get(node, [])
+	for n in nexts:
+		var to := String(n)
+		if not edges.has(to):
+			continue
+		if visiting.has(to):
+			# 发现环：输出路径片段
+			var idx := stack.find(to)
+			var cycle := []
+			for i in range(idx, stack.size()):
+				cycle.append(stack[i])
+			cycle.append(to)
+			_add_issue(issues, error(file, "path=$.buffs[id=%s].triggers" % node, node, "trigger cycle detected: " + " -> ".join(cycle)), strict)
+			continue
+		if not visited.has(to):
+			_dfs_cycle(file, to, edges, visiting, visited, stack, strict, issues)
+
+	stack.pop_back()
+	visiting.erase(node)
+	visited[node] = true
+
+static func _dfs_depth_limit(file: String, node: String, edges: Dictionary, max_depth: int, path: Array[String], strict: bool, issues: Array[Issue]) -> void:
+	# 深度限制遍历：发现链过深即告警一次
+	path.append(node)
+	if path.size() > max_depth:
+		_add_issue(issues, warning(file, "path=$.buffs[id=%s].triggers" % node, node, "trigger chain too deep (>%s): %s" % [max_depth, " -> ".join(path)]), strict)
+		path.pop_back()
+		return
+
+	var nexts: Array = edges.get(node, [])
+	for n in nexts:
+		var to := String(n)
+		if not edges.has(to):
+			continue
+		# 防止在存在环时无限递归：若已在 path 中则跳过（环由 _dfs_cycle 报错）
+		if path.has(to):
+			continue
+		_dfs_depth_limit(file, to, edges, max_depth, path, strict, issues)
+
+	path.pop_back()
