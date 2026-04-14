@@ -99,15 +99,19 @@ func _test_damage_pipeline_and_event_index() -> void:
 	# AFTER_DEAL 应已对 defender 注入灼烧实例（按来源独立DOT）
 	print(buff_defender.debug_dump_instances())
 
-	# 让DOT走一次 TurnEnd tick，验证确实能结算并产出 dot trace
+	# DOT 默认在 TURN_START 结算：挂上的当回合不结算，下一回合开始（TurnStart）才结算
 	var stats_by_entity := {101: attacker, 202: defender}
 	var buff_by_entity := {101: buff_attacker, 202: buff_defender}
 	var turn := OmniBuff.TurnComponent.new()
 	var ids := PackedInt32Array([101, 202])
 	ids.sort()
-	var dot_from_index: int = replay.dot_traces.size()
+
+	# TurnEnd：仅推进回合计数
 	turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
-	print("[OmniBuffDemo] AFTER_DEAL DOT tick defender_hp=", defender.get_final(ds.stat_id("HP")))
+	# TurnStart：结算 DOT 并产出 dot trace
+	var dot_from_index: int = replay.dot_traces.size()
+	turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
+	print("[OmniBuffDemo] AFTER_DEAL DOT tick@TurnStart defender_hp=", defender.get_final(ds.stat_id("HP")))
 	print(replay.debug_dump_dot_range(dot_from_index))
 
 func _test_multi_hit_attack_and_defense_buff() -> void:
@@ -166,10 +170,10 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 		print(replay.debug_dump_damage_range(from_idx))
 
 func _test_dot_multi_source_tick() -> void:
-	## DOT（按来源独立实例）+ TurnEnd tick 验证：
+	## DOT（按来源独立实例）+ TurnStart tick 验证：
 	## - 两个来源对同一目标施加同种DOT（灼烧）
 	## - 每跳读取来源当前ATK（StatCache），计算 dmg=ATK*base_ratio
-	## - DOT默认在 TURN_END 结算，持续3回合
+	## - DOT默认在 TURN_START 结算，持续3回合（挂上的当回合不结算）
 	var src_a := OmniBuff.StatsComponent.new(301, ds)
 	var src_a_buff := OmniBuff.BuffCore.new(ds, enums_rt)
 	src_a_buff.apply_buff(src_a, "buff_equip_weapon_001", src_a.entity_id) # ATK=30
@@ -202,11 +206,13 @@ func _test_dot_multi_source_tick() -> void:
 	ids.sort()
 
 	for i in range(3):
-		# 一个 TurnEnd tick 里可能产生多条 DotTrace（多个来源/多个dot实例）
+		# 推进到下一回合，然后在 TurnStart 结算 DOT：
+		# 一个 TurnStart tick 里可能产生多条 DotTrace（多个来源/多个dot实例）
 		# 因此用“范围打印”输出本次 tick 新增的所有 DotTrace
-		var dot_from_index: int = replay.dot_traces.size()
 		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
-		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
+		var dot_from_index: int = replay.dot_traces.size()
+		turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
+		print("[OmniBuffDemo] DOT tick@TurnStart#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
 		print(replay.debug_dump_dot_range(dot_from_index))
 
 func _test_dispel_semantics() -> void:

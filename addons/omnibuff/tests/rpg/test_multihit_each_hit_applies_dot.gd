@@ -1,12 +1,14 @@
 extends GutTest
 
-## 用例：多段攻击（3段）每段命中都应触发 AFTER_DEAL 的 APPLY_BUFF，并在 TurnEnd 产生对应 DOT 追帧
+## 用例：多段攻击（3段）每段命中都应触发 AFTER_DEAL 的 APPLY_BUFF；
+##      DOT 挂上的当回合不结算，下一回合开始（TurnStart）结算并产出追帧
 ##
 ## 场景：
 ## - attacker 身上挂 buff_on_hit_apply_dot（AFTER_DEAL scope=TARGET action APPLY_BUFF buff_dot_fire_3t）
 ## - 对 defender 连续 3 段攻击（base=12/14/18, tags_mask=BUFF）
 ## - 断言 defender 的 buff 实例数为 3（全部为 buff_dot_fire_3t）
-## - 执行 TurnComponent.on_turn_end 一次，断言新增 3 条 DotTrace，且 source_entity_id 全为 attacker
+## - 执行 TurnComponent.on_turn_end 推进到下一回合（不结算 DOT）
+## - 执行 TurnComponent.on_turn_start 结算 DOT，断言新增 3 条 DotTrace，且 source_entity_id 全为 attacker
 
 const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
 const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
@@ -57,17 +59,23 @@ func test_multihit_each_hit_applies_dot_and_ticks_three_traces() -> void:
 		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
 		assert_eq(String(def.get("id", "")), "buff_dot_fire_3t")
 
-	# TurnEnd：一次 tick 应产生 3 条 DotTrace（每个 DOT 实例一条），来源都归因到 attacker
+	# DOT 默认在 TURN_START 结算：
+	# - TurnEnd：仅推进到下一回合，不应产出 dot trace
+	# - TurnStart：一次 tick 应产生 3 条 DotTrace（每个 DOT 实例一条），来源都归因到 attacker
 	var turn := OmniTurnComponent.new()
 	var entity_ids := PackedInt32Array([attacker_id, defender_id])
 	entity_ids.sort()
 
-	var before := replay.dot_traces.size()
+	var before_end := replay.dot_traces.size()
 	turn.on_turn_end(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+	var after_end := replay.dot_traces.size()
+	assert_eq(after_end - before_end, 0, "applying dots this turn should not tick at turn end (TURN_START semantics)")
+
+	var before := replay.dot_traces.size()
+	turn.on_turn_start(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	var after := replay.dot_traces.size()
 
 	assert_eq(after - before, 3, "one tick should create 3 dot traces for 3 dot instances")
 	for i in range(before, after):
 		assert_eq(int(replay.dot_traces[i].source_entity_id), attacker_id)
 		assert_eq(int(replay.dot_traces[i].target_entity_id), defender_id)
-

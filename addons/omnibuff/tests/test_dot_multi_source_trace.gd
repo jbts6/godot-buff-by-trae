@@ -35,8 +35,10 @@ func test_dot_multi_source_produces_two_traces_per_tick() -> void:
 	var ids := PackedInt32Array([3001, 3002, 3003])
 	ids.sort()
 
+	# DOT 默认在 TURN_START 结算：挂上的当回合不结算，下一回合开始（TurnStart）才结算
+	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay) # 推进到下一回合
 	var before := replay.dot_traces.size()
-	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+	turn.on_turn_start(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	var after := replay.dot_traces.size()
 
 	# 断言：一次 tick 产生 2 条 DotTrace（两来源）
