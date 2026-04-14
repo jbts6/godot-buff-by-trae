@@ -19,3 +19,12 @@ static func load_base_demo(strict: bool = true) -> Dictionary:
 		"ds": ds
 	}
 
+static func load_rpg_tests(strict: bool = true) -> Dictionary:
+	var result := OmniManifestLoader.load_dataset_full("res://data/rpg_tests/manifest.json", strict)
+	var enums_rt := OmniEnumsRuntime.from_enums_json(result.enums)
+	var ds := OmniDatasetCompiler.compile(result.manifest, enums_rt, result.sources)
+	return {
+		"result": result,
+		"enums_rt": enums_rt,
+		"ds": ds
+	}
