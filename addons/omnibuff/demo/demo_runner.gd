@@ -13,3 +13,10 @@ func _ready() -> void:
 	}
 	var ds := OmniDatasetCompiler.compile(result.manifest, enums_rt, sources)
 	print("[OmniBuffDemo] stat_id(ATK)=", ds.stat_id("ATK"), " buff_id(buff_atk_up_3t)=", ds.buff_id("buff_atk_up_3t"))
+
+	var atk := ds.stat_id("ATK")
+	var s := OmniStatsComponent.new(1, ds)
+	print("[OmniBuffDemo] ATK1=", s.get_final(atk))
+	s.add_base(atk, 5.0)
+	print("[OmniBuffDemo] ATK2=", s.get_final(atk))
+	print("[OmniBuffDemo] ATK3(no recompute)=", s.get_final(atk))
