@@ -129,7 +129,8 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 	assert_true(float(defender.stats.get_final(hp_id)) < hp_before, "DOT tick should reduce HP")
 
 	# === Turn 3：驱散 DEBUFF（应移除 DOT）===
-	var removed := defender.buffs.dispel_by_tag(defender.stats, "DEBUFF", false)
+	# 显式类型：避免 `:=` 在动态对象返回值上推断失败
+	var removed: int = int(defender.buffs.dispel_by_tag(defender.stats, "DEBUFF", false))
 	assert_gt(removed, 0)
 	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 0, "DOT should be removed after dispel_by_tag(DEBUFF)")
 
@@ -183,4 +184,3 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 	assert_eq(after - before, 3, "Turn5 start should tick 3 dot instances (3 traces)")
 	_assert_dot_traces(replay, before, 3, attacker_id, defender_id)
 	assert_true(float(defender.stats.get_final(hp_id)) < hp_before, "DOT tick should reduce HP on Turn5 start")
-
