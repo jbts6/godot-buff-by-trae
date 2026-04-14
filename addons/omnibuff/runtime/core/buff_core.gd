@@ -235,10 +235,13 @@ func on_turn_end(_turn_index: int, stats_by_entity: Dictionary, buff_by_entity: 
 			continue
 
 		# 动态读取施法者当前属性：必须走 StatCache（禁止遍历来源Buff）
-		var read_stat_id := dataset.stat_id(d.read_source_stat)
-		var src_v := source_stats.get_final(read_stat_id)
+		# 注意：dots 是未类型化的 Array，for-in 得到的 d 在编译期会被视作 Variant，
+		# 因此这里显式标注类型，避免 Godot 4 的类型推断失败。
+		var read_stat_id: int = dataset.stat_id(d.read_source_stat)
+		var src_v: float = source_stats.get_final(read_stat_id)
 
-		var base_damage := src_v * d.base_ratio
+		# base_damage 必须是 float：显式转换 d.base_ratio（Variant->float），避免推断错误
+		var base_damage: float = src_v * float(d.base_ratio)
 		pipeline.deal_damage_with_tags(source_stats, target_stats, source_buff, target_buff, dataset, base_damage, d.tags_mask)
 
 		d.remaining_turns -= 1
