@@ -66,38 +66,17 @@ func recompute(stat_id: int) -> void:
 	var flat := 0.0
 	var pct := 0.0
 	for m in modifiers_by_stat[stat_id]:
-		# 兼容读取：
-		# - 新：m.op / m.phase / m.value
-		# - 旧：m.add_value（视作 ADD/FLAT）
-		var op := ""
-		var ph := ""
-		var val := 0.0
-		if m != null and typeof(m) == TYPE_OBJECT:
-			if m.has_property("op"):
-				op = String(m.op)
-			if m.has_property("phase"):
-				ph = String(m.phase)
-			if m.has_property("value"):
-				val = float(m.value)
-			elif m.has_property("add_value"):
-				val = float(m.add_value)
-		else:
-			# 非对象（理论上不该出现），尝试直接当数值累加到 flat
-			flat += float(m)
+		# 当前约定：BuffCore 注入的 modifier 一定是 OmniModifierRef（包含 op/phase/value）。
+		# 这里不依赖 class_name 的全局类表，只依赖字段名存在。
+		if m == null or typeof(m) != TYPE_OBJECT:
 			continue
-
-		if op == "" and ph == "":
-			# 旧数据：ADD/FLAT
-			op = "ADD"
-			ph = "FLAT"
-
+		var op := String(m.op)
+		var ph := String(m.phase)
+		var val := float(m.value)
 		if op == "ADD" and ph == "FLAT":
 			flat += val
 		elif op == "MUL" and ph == "PERCENT":
 			pct += val
-		else:
-			# 未支持组合：忽略（保持最小实现的确定性）
-			pass
 
 	final_values[stat_id] = (base + flat) * (1.0 + pct)
 

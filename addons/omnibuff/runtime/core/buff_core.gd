@@ -411,22 +411,9 @@ func debug_dump_stat_modifiers(stats: OmniStatsComponent, stat_id: int) -> Strin
 	var lines: Array[String] = []
 	lines.append("[StatMods] entity=%s stat_id=%s count=%s" % [stats.entity_id, stat_id, (stats.core.modifiers_by_stat[stat_id] as Array).size()])
 	for m in stats.core.modifiers_by_stat[stat_id]:
-		var op := ""
-		var ph := ""
-		var v := 0.0
-		# 兼容老字段：若不存在 op/phase/value，则回退为 ADD/FLAT + add_value
-		if m != null and typeof(m) == TYPE_OBJECT:
-			if m.has_property("op"):
-				op = String(m.op)
-			if m.has_property("phase"):
-				ph = String(m.phase)
-			if m.has_property("value"):
-				v = float(m.value)
-		if op == "" and ph == "":
-			op = "ADD"
-			ph = "FLAT"
-			v = float(m.add_value)
-		lines.append("  %s/%s %s (from inst_id=%s)" % [op, ph, v, int(m.source_inst_id)])
+		if m == null or typeof(m) != TYPE_OBJECT:
+			continue
+		lines.append("  %s/%s %s (from inst_id=%s)" % [String(m.op), String(m.phase), float(m.value), int(m.source_inst_id)])
 	return "\n".join(lines)
 
 func on_turn_start(_turn_index: int) -> void:
