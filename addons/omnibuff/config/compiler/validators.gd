@@ -39,3 +39,395 @@ static func warning(file: String, loc: String, id: String, msg: String) -> Issue
 	i.id = id
 	i.message = msg
 	return i
+
+static func info(file: String, loc: String, id: String, msg: String) -> Issue:
+	var i := Issue.new()
+	i.level = Level.INFO
+	i.file = file
+	i.loc = loc
+	i.id = id
+	i.message = msg
+	return i
+
+# -----------------------------------------------------------------------------
+# M9：工程化校验（>=12条）
+# -----------------------------------------------------------------------------
+
+static func validate_all(manifest_path: String, manifest: Dictionary, enums_obj: Dictionary, sources: Dictionary, strict: bool) -> Array[Issue]:
+	## 数据集全量校验入口（Schema治理）
+	## 返回 Issue 列表；strict 模式会把部分 Warning 提升为 Error（见 _add_issue）。
+	var issues: Array[Issue] = []
+
+	_validate_manifest(manifest_path, manifest, strict, issues)
+	_validate_enums(manifest_path, enums_obj, strict, issues)
+
+	# 常用 type->file_path（用于错误定位）
+	var file_stat := _file_of(manifest, "stat_defs", manifest_path)
+	var file_buff := _file_of(manifest, "buff_defs", manifest_path)
+	var file_skill := _file_of(manifest, "skill_defs", manifest_path)
+	var file_pipe := _file_of(manifest, "damage_pipeline", manifest_path)
+	var file_equip := _file_of(manifest, "equipment", manifest_path)
+	var file_set := _file_of(manifest, "set_bonus", manifest_path)
+
+	var enums := enums_obj.get("enums", {})
+	var tags_table := _tag_id_table(enums_obj)
+
+	# 1) stat_defs 校验
+	if sources.has("stat_defs"):
+		_validate_stat_defs(file_stat, sources["stat_defs"], enums, strict, issues)
+	# 2) buff_defs 校验（含引用stat、枚举合法、tag合法、范围、OVERRIDE/CLAMP冲突、无filter监听DAMAGE告警等）
+	if sources.has("buff_defs"):
+		_validate_buff_defs(file_buff, sources["buff_defs"], enums, tags_table, sources.get("stat_defs", {}), strict, issues)
+	# 3) skill_defs 校验（引用buff、枚举合法、概率范围）
+	if sources.has("skill_defs"):
+		_validate_skill_defs(file_skill, sources["skill_defs"], enums, sources.get("buff_defs", {}), strict, issues)
+	# 4) damage_pipeline 校验（阶段缺失/顺序非法）
+	if sources.has("damage_pipeline"):
+		_validate_damage_pipeline(file_pipe, sources["damage_pipeline"], strict, issues)
+	# 5) equipment.csv 最小校验（header存在）
+	if sources.has("equipment"):
+		_validate_equipment_csv(file_equip, sources["equipment"], strict, issues)
+	# 6) set_bonus 最小校验（引用buff存在）
+	if sources.has("set_bonus"):
+		_validate_set_bonus(file_set, sources["set_bonus"], sources.get("buff_defs", {}), strict, issues)
+
+	return issues
+
+# -----------------------------------------------------------------------------
+# 内部：基础工具
+# -----------------------------------------------------------------------------
+
+static func _add_issue(issues: Array[Issue], issue: Issue, strict: bool) -> void:
+	# strict 模式：将 WARNING 升级为 ERROR（用于阻断加载/CI）
+	if strict and issue.level == Level.WARNING:
+		issue.level = Level.ERROR
+	issues.append(issue)
+
+static func _file_of(manifest: Dictionary, type_name: String, manifest_path: String) -> String:
+	if not manifest.has("files"):
+		return manifest_path
+	for f in manifest["files"]:
+		if String(f.get("type", "")) == type_name:
+			var base_dir := manifest_path.get_base_dir()
+			return base_dir.path_join(String(f.get("path", "")))
+	return manifest_path
+
+static func _tag_id_table(enums_obj: Dictionary) -> Dictionary:
+	# tag_id -> true
+	var out := {}
+	var tags: Array = enums_obj.get("tags", [])
+	for t in tags:
+		out[String(t.get("id", ""))] = true
+	return out
+
+static func _enum_has(enums: Dictionary, enum_name: String, value: String) -> bool:
+	var arr: Array = enums.get(enum_name, [])
+	for x in arr:
+		if String(x) == value:
+			return true
+	return false
+
+static func _unknown_fields(file: String, path: String, id: String, obj: Dictionary, allowed: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	for k in obj.keys():
+		if not allowed.has(String(k)):
+			_add_issue(issues, warning(file, "path=" + path, id, "unknown field: " + String(k)), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 0：manifest 基本校验
+# -----------------------------------------------------------------------------
+
+static func _validate_manifest(file: String, manifest: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	# 规则：schema_version 必须存在且为 int
+	if not manifest.has("schema_version"):
+		_add_issue(issues, error(file, "path=$.schema_version", "", "missing schema_version"), strict)
+	elif typeof(manifest["schema_version"]) != TYPE_INT:
+		_add_issue(issues, error(file, "path=$.schema_version", "", "schema_version must be int"), strict)
+
+	# 规则：files[] 必须存在
+	if not manifest.has("files") or typeof(manifest["files"]) != TYPE_ARRAY:
+		_add_issue(issues, error(file, "path=$.files", "", "manifest.files must be array"), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 1~3：enums/tags 校验
+# -----------------------------------------------------------------------------
+
+static func _validate_enums(file: String, enums_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	if not enums_obj.has("enums") or typeof(enums_obj["enums"]) != TYPE_DICTIONARY:
+		_add_issue(issues, error(file, "path=$.enums", "", "enums.json missing enums{}"), strict)
+	if not enums_obj.has("tags") or typeof(enums_obj["tags"]) != TYPE_ARRAY:
+		_add_issue(issues, error(file, "path=$.tags", "", "enums.json missing tags[]"), strict)
+
+	# 规则：tag id/code 不重复；code 非负且 <=62（当前 bitmask 使用 int，63+ 会溢出风险）
+	var seen_id := {}
+	var seen_code := {}
+	var tags: Array = enums_obj.get("tags", [])
+	for i in range(tags.size()):
+		var t: Dictionary = tags[i]
+		var id := String(t.get("id", ""))
+		var code := int(t.get("code", -1))
+		var p := "$.tags[%s]" % i
+		if id == "":
+			_add_issue(issues, error(file, "path=" + p, "", "tag.id empty"), strict)
+		elif seen_id.has(id):
+			_add_issue(issues, error(file, "path=" + p, id, "duplicate tag id"), strict)
+		else:
+			seen_id[id] = true
+		if code < 0 or code > 62:
+			_add_issue(issues, error(file, "path=" + p, id, "tag.code out of range (0..62)"), strict)
+		elif seen_code.has(code):
+			_add_issue(issues, error(file, "path=" + p, id, "duplicate tag code"), strict)
+		else:
+			seen_code[code] = true
+
+# -----------------------------------------------------------------------------
+# 规则 4~5：stat_defs 校验（ID重复、范围非法、未知字段）
+# -----------------------------------------------------------------------------
+
+static func _validate_stat_defs(file: String, obj: Dictionary, enums: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var allowed := {"id": true, "default": true, "min": true, "max": true, "clamp": true}
+	var arr: Array = obj.get("stats", [])
+	var seen := {}
+	for i in range(arr.size()):
+		var s: Dictionary = arr[i]
+		var id := String(s.get("id", ""))
+		var p := "$.stats[%s]" % i
+		_unknown_fields(file, p, id, s, allowed, strict, issues)
+
+		if id == "":
+			_add_issue(issues, error(file, "path=" + p, "", "stat id empty"), strict)
+			continue
+		if seen.has(id):
+			_add_issue(issues, error(file, "path=" + p, id, "duplicate stat id"), strict)
+			continue
+		seen[id] = true
+
+		var v_def := float(s.get("default", 0.0))
+		var v_min := float(s.get("min", -INF))
+		var v_max := float(s.get("max", INF))
+		if v_min > v_max:
+			_add_issue(issues, error(file, "path=" + p, id, "min > max"), strict)
+		if v_def < v_min or v_def > v_max:
+			_add_issue(issues, error(file, "path=" + p, id, "default out of range"), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 6~11：buff_defs 校验（引用不存在、枚举非法、tag非法、范围非法、监听过宽、OVERRIDE冲突）
+# -----------------------------------------------------------------------------
+
+static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary, tag_table: Dictionary, stat_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var allowed := {
+		"id": true, "name": true, "buff_type": true, "tags": true, "duration": true,
+		"stack": true, "effects": true, "triggers": true, "conditions": true, "dot": true, "dispel": true, "ui_group_key": true
+	}
+	var arr: Array = obj.get("buffs", [])
+	var seen := {}
+
+	# 构建 stat id 表用于引用校验
+	var stat_ids := {}
+	for s in stat_defs_obj.get("stats", []):
+		stat_ids[String((s as Dictionary).get("id", ""))] = true
+
+	for i in range(arr.size()):
+		var b: Dictionary = arr[i]
+		var id := String(b.get("id", ""))
+		var p := "$.buffs[%s]" % i
+		_unknown_fields(file, p, id, b, allowed, strict, issues)
+
+		if id == "":
+			_add_issue(issues, error(file, "path=" + p, "", "buff id empty"), strict)
+			continue
+		if seen.has(id):
+			_add_issue(issues, error(file, "path=" + p, id, "duplicate buff id"), strict)
+			continue
+		seen[id] = true
+
+		# buff_type 枚举校验
+		var bt := String(b.get("buff_type", ""))
+		if bt == "" or not _enum_has(enums, "buff_type", bt):
+			_add_issue(issues, error(file, "path=" + p + ".buff_type", id, "invalid buff_type=" + bt), strict)
+
+		# tags 合法性校验
+		var tags: Array = b.get("tags", [])
+		for ti in range(tags.size()):
+			var t := String(tags[ti])
+			if not tag_table.has(t):
+				_add_issue(issues, warning(file, "path=" + p + ".tags[%s]" % ti, id, "unknown tag=" + t), strict)
+
+		# duration/type 枚举校验 + turns范围
+		var duration: Dictionary = b.get("duration", {})
+		var dt := String(duration.get("type", ""))
+		if dt == "" or not _enum_has(enums, "duration_type", dt):
+			_add_issue(issues, error(file, "path=" + p + ".duration.type", id, "invalid duration.type=" + dt), strict)
+		if dt == "TURNS":
+			var turns := int(duration.get("turns", -1))
+			if turns < 0:
+				_add_issue(issues, error(file, "path=" + p + ".duration.turns", id, "turns must be >=0"), strict)
+
+		# stack/mode 枚举校验 + max_stack范围
+		var stack: Dictionary = b.get("stack", {})
+		var sm := String(stack.get("mode", ""))
+		if sm == "" or not _enum_has(enums, "stack_mode", sm):
+			_add_issue(issues, error(file, "path=" + p + ".stack.mode", id, "invalid stack.mode=" + sm), strict)
+		var max_stack := int(stack.get("max_stack", 1))
+		if max_stack <= 0:
+			_add_issue(issues, error(file, "path=" + p + ".stack.max_stack", id, "max_stack must be > 0"), strict)
+
+		# effects：引用stat存在 + op/phase枚举校验 + OVERRIDE冲突
+		var override_seen := {} # key = stat|phase -> count
+		var effects: Array = b.get("effects", [])
+		for ei in range(effects.size()):
+			var e: Dictionary = effects[ei]
+			var kind := String(e.get("kind", ""))
+			if kind != "modifier":
+				continue
+			var stat := String(e.get("stat", ""))
+			if stat == "" or not stat_ids.has(stat):
+				_add_issue(issues, error(file, "path=" + p + ".effects[%s].stat" % ei, id, "unknown stat ref=" + stat), strict)
+			var op := String(e.get("op", ""))
+			if op == "" or not _enum_has(enums, "op_type", op):
+				_add_issue(issues, error(file, "path=" + p + ".effects[%s].op" % ei, id, "invalid op=" + op), strict)
+			var phase := String(e.get("phase", ""))
+			if phase == "" or not _enum_has(enums, "apply_phase", phase):
+				_add_issue(issues, error(file, "path=" + p + ".effects[%s].phase" % ei, id, "invalid phase=" + phase), strict)
+			if op == "OVERRIDE":
+				var k := stat + "|" + phase
+				override_seen[k] = int(override_seen.get(k, 0)) + 1
+
+		for k in override_seen.keys():
+			if int(override_seen[k]) > 1:
+				_add_issue(issues, error(file, "path=" + p + ".effects", id, "OVERRIDE conflict for " + String(k)), strict)
+
+		# triggers：枚举校验 + “监听DAMAGE但无filter”告警 + action合法
+		var triggers: Array = b.get("triggers", [])
+		for ti in range(triggers.size()):
+			var t: Dictionary = triggers[ti]
+			var et := String(t.get("event_type", ""))
+			var ep := String(t.get("event_phase", ""))
+			if et == "" or not _enum_has(enums, "event_type", et):
+				_add_issue(issues, error(file, "path=" + p + ".triggers[%s].event_type" % ti, id, "invalid event_type=" + et), strict)
+			if ep == "" or not _enum_has(enums, "event_phase", ep):
+				_add_issue(issues, error(file, "path=" + p + ".triggers[%s].event_phase" % ti, id, "invalid event_phase=" + ep), strict)
+
+			var filters: Dictionary = t.get("filters", {})
+			if et == "DAMAGE" and filters.is_empty():
+				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].filters" % ti, id, "DAMAGE trigger has no filters (may bloat listeners)"), strict)
+
+			var action: Dictionary = t.get("action", {})
+			var ak := String(action.get("kind", ""))
+			if ak != "" and ak != "ADD_BASE_DAMAGE":
+				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.kind" % ti, id, "unknown action kind=" + ak), strict)
+
+		# dot：引用stat存在 + base_ratio范围
+		var dot: Dictionary = b.get("dot", {})
+		if not dot.is_empty():
+			var rs := String(dot.get("read_source_stat", ""))
+			if rs != "" and not stat_ids.has(rs):
+				_add_issue(issues, error(file, "path=" + p + ".dot.read_source_stat", id, "unknown stat ref=" + rs), strict)
+			var r := float(dot.get("base_ratio", 0.0))
+			if r < 0.0:
+				_add_issue(issues, error(file, "path=" + p + ".dot.base_ratio", id, "base_ratio must be >=0"), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 12：skill_defs 校验（引用buff、枚举合法、chance范围）
+# -----------------------------------------------------------------------------
+
+static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionary, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var arr: Array = obj.get("skills", [])
+	var seen := {}
+	var buff_ids := {}
+	for b in buff_defs_obj.get("buffs", []):
+		buff_ids[String((b as Dictionary).get("id", ""))] = true
+
+	for i in range(arr.size()):
+		var s: Dictionary = arr[i]
+		var id := String(s.get("id", ""))
+		var p := "$.skills[%s]" % i
+		if id == "":
+			_add_issue(issues, error(file, "path=" + p, "", "skill id empty"), strict)
+			continue
+		if seen.has(id):
+			_add_issue(issues, error(file, "path=" + p, id, "duplicate skill id"), strict)
+			continue
+		seen[id] = true
+
+		var dt := String(s.get("damage_type", ""))
+		if dt != "" and not _enum_has(enums, "damage_type", dt):
+			_add_issue(issues, error(file, "path=" + p + ".damage_type", id, "invalid damage_type=" + dt), strict)
+		var el := String(s.get("element", ""))
+		if el != "" and not _enum_has(enums, "element", el):
+			_add_issue(issues, error(file, "path=" + p + ".element", id, "invalid element=" + el), strict)
+
+		# on_cast apply_buff 引用存在
+		for ci in range((s.get("on_cast", []) as Array).size()):
+			var c: Dictionary = (s.get("on_cast", []) as Array)[ci]
+			if String(c.get("kind", "")) == "apply_buff":
+				var bid := String(c.get("buff_id", ""))
+				if bid == "" or not buff_ids.has(bid):
+					_add_issue(issues, error(file, "path=" + p + ".on_cast[%s].buff_id" % ci, id, "unknown buff ref=" + bid), strict)
+
+		# on_hit chance_apply_buff 概率范围 + 引用存在
+		for hi in range((s.get("on_hit", []) as Array).size()):
+			var h: Dictionary = (s.get("on_hit", []) as Array)[hi]
+			if String(h.get("kind", "")) == "chance_apply_buff":
+				var ch := float(h.get("chance", -1.0))
+				if ch < 0.0 or ch > 1.0:
+					_add_issue(issues, error(file, "path=" + p + ".on_hit[%s].chance" % hi, id, "chance must be 0..1"), strict)
+				var bid2 := String(h.get("buff_id", ""))
+				if bid2 == "" or not buff_ids.has(bid2):
+					_add_issue(issues, error(file, "path=" + p + ".on_hit[%s].buff_id" % hi, id, "unknown buff ref=" + bid2), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 13：damage_pipeline 校验（阶段缺失/顺序非法）
+# -----------------------------------------------------------------------------
+
+static func _validate_damage_pipeline(file: String, obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var arr: Array = obj.get("pipeline", [])
+	if arr.is_empty():
+		_add_issue(issues, error(file, "path=$.pipeline", "", "pipeline empty"), strict)
+		return
+	# 必须包含的阶段（最小约束）
+	var required := ["build", "before_deal", "before_take", "resolve", "apply", "after_deal", "after_take", "death"]
+	var stages := []
+	for i in range(arr.size()):
+		stages.append(String((arr[i] as Dictionary).get("stage", "")))
+	for r in required:
+		if not stages.has(r):
+			_add_issue(issues, error(file, "path=$.pipeline", "", "missing stage=" + String(r)), strict)
+
+	# 顺序固定（与文档一致）
+	for i in range(min(required.size(), stages.size())):
+		if stages[i] != required[i]:
+			_add_issue(issues, warning(file, "path=$.pipeline[%s].stage" % i, "", "stage order differs (expected " + required[i] + ")"), strict)
+			break
+
+# -----------------------------------------------------------------------------
+# 规则 14：equipment.csv 最小校验（header字段）
+# -----------------------------------------------------------------------------
+
+static func _validate_equipment_csv(file: String, rows: Array, strict: bool, issues: Array[Issue]) -> void:
+	if rows.is_empty():
+		_add_issue(issues, warning(file, "root", "", "equipment.csv empty"), strict)
+		return
+	var header := (rows[0] as OmniCsv.Row).cols
+	var required := ["id", "name", "slot", "implicit_buff_id", "tags"]
+	for r in required:
+		if header.find(r) == -1:
+			_add_issue(issues, error(file, "line=%s" % (rows[0] as OmniCsv.Row).line_no, "", "equipment.csv missing column=" + r), strict)
+
+# -----------------------------------------------------------------------------
+# 规则 15：set_bonus 最小校验（引用buff存在）
+# -----------------------------------------------------------------------------
+
+static func _validate_set_bonus(file: String, obj: Dictionary, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
+	var buff_ids := {}
+	for b in buff_defs_obj.get("buffs", []):
+		buff_ids[String((b as Dictionary).get("id", ""))] = true
+	var sets: Array = obj.get("sets", [])
+	for i in range(sets.size()):
+		var s: Dictionary = sets[i]
+		var sid := String(s.get("id", ""))
+		var bonuses: Array = s.get("bonuses", [])
+		for bi in range(bonuses.size()):
+			var bb: Dictionary = bonuses[bi]
+			var bid := String(bb.get("apply_buff_id", ""))
+			if bid != "" and not buff_ids.has(bid):
+				_add_issue(issues, error(file, "path=$.sets[%s].bonuses[%s].apply_buff_id" % [i, bi], sid, "unknown buff ref=" + bid), strict)

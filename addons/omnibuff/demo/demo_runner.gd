@@ -32,18 +32,14 @@ func _ready() -> void:
 
 func _load_dataset() -> void:
 	## 加载 manifest/enums，并编译出最小可用的 CompiledDataset
-	var result := OmniManifestLoader.load_dataset("res://data/base_demo/manifest.json", true)
+	var result := OmniManifestLoader.load_dataset_full("res://data/base_demo/manifest.json", true)
 	for issue in result.issues:
 		push_error("%s %s %s %s: %s" % [issue.level, issue.file, issue.loc, issue.id, issue.message])
 	print("[OmniBuffDemo] manifest loaded, enums keys=", result.enums.keys())
 
 	enums_rt = OmniEnumsRuntime.from_enums_json(result.enums)
 
-	var sources := {
-		"stat_defs": OmniJson.load_dict("res://data/base_demo/stat_defs.json"),
-		"buff_defs": OmniJson.load_dict("res://data/base_demo/buff_defs.json")
-	}
-	ds = OmniDatasetCompiler.compile(result.manifest, enums_rt, sources)
+	ds = OmniDatasetCompiler.compile(result.manifest, enums_rt, result.sources)
 	print("[OmniBuffDemo] stat_id(ATK)=", ds.stat_id("ATK"), " buff_id(buff_atk_up_3t)=", ds.buff_id("buff_atk_up_3t"))
 
 func _test_stat_cache_dirty() -> void:

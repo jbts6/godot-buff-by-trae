@@ -16,6 +16,12 @@ class Result:
 	var manifest: Dictionary
 	## enums.json 原始字典（用于生成 OmniEnumsRuntime）
 	var enums: Dictionary
+	## 解析后的源文件内容（Schema绑定层）
+	## key 建议使用 manifest.files[].type（例如 "stat_defs"/"buff_defs"/"equipment"）
+	var sources: Dictionary = {}
+	## 解析时的源文件路径（用于错误定位与调试）
+	## key 同 sources
+	var source_paths: Dictionary = {}
 	## 加载与校验问题列表（Error/Warning/Info）
 	var issues: Array[OmniValidate.Issue] = []
 
@@ -54,6 +60,49 @@ static func load_dataset(manifest_path: String, strict: bool) -> Result:
 	else:
 		if not res.enums.has("enums") or not res.enums.has("tags"):
 			res.issues.append(OmniValidate.warning(enums_path, "root", "", "missing enums/tags"))
+
+	return res
+
+static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
+	## 加载数据集入口（完整版，M9）
+	## - 读取 manifest + enums
+	## - 按 manifest.files 加载全部 CSV/JSON 源文件
+	## - 运行 OmniValidate.validate_all 做工程化校验（>=12条）
+	var res := load_dataset(manifest_path, strict)
+	if not res.issues.is_empty():
+		# 若 manifest/enums 已经报错，仍继续尝试加载（便于输出更多定位信息）
+		pass
+
+	# 读取全部源文件
+	if res.manifest.has("files"):
+		for f in res.manifest["files"]:
+			var f_type := String(f.get("type", ""))
+			var rel := String(f.get("path", ""))
+			if f_type == "" or rel == "":
+				continue
+			# manifest/enums 已在 load_dataset 处理过
+			if f_type == "manifest" or f_type == "enums":
+				continue
+
+			var p := _resolve_relative(manifest_path, rel)
+			res.source_paths[f_type] = p
+
+			var fmt := String(f.get("format", "json"))
+			if fmt == "json":
+				res.sources[f_type] = OmniJson.load_dict(p)
+			elif fmt == "csv":
+				res.sources[f_type] = OmniCsv.load_rows(p)
+			else:
+				var lv := OmniValidate.Level.ERROR if strict else OmniValidate.Level.WARNING
+				if lv == OmniValidate.Level.ERROR:
+					res.issues.append(OmniValidate.error(p, "root", "", "unknown format=" + fmt))
+				else:
+					res.issues.append(OmniValidate.warning(p, "root", "", "unknown format=" + fmt))
+
+	# 统一校验
+	var extra := OmniValidate.validate_all(manifest_path, res.manifest, res.enums, res.sources, strict)
+	for i in extra:
+		res.issues.append(i)
 
 	return res
 
