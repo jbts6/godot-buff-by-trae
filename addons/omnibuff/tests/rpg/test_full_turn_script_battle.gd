@@ -48,7 +48,7 @@ func _count_instances_by_buff_id(buffs: OmniBuffCore, ds: OmniCompiledDataset, b
 
 func _assert_dot_traces(replay: RefCounted, from_idx: int, expected_count: int, attacker_id: int, defender_id: int) -> void:
 	assert_true(replay != null)
-	assert_true(replay.has_property("dot_traces"))
+	# 注意：GDScript 没有 `has_property`；这里直接假定 replay 为 OmniReplay 实例（由 ReplayScript.new() 创建）。
 
 	var after_idx := from_idx + expected_count
 	assert_true(replay.dot_traces.size() >= after_idx, "dot_traces should have at least %s entries" % [after_idx])
