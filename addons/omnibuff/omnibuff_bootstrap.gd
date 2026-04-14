@@ -42,4 +42,3 @@ func _ready() -> void:
 	# 启动时触发一次加载即可；不需要实例化任何对象。
 	# 若你希望静默，可删掉该日志。
 	print("[OmniBuffBootstrap] loaded omnibuff scripts")
-
