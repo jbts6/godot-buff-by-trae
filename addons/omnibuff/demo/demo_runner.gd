@@ -2,9 +2,10 @@ extends Node
 
 ## 运行时共享对象（便于拆分函数后复用）
 var replay: RefCounted
-var enums_rt: OmniEnumsRuntime
-var ds: OmniCompiledDataset
-var pipe: OmniDamagePipeline
+## enums/dataset/pipeline 通过 OmniBuff 单例入口创建与访问，避免依赖 class_name 全局类表
+var enums_rt: RefCounted
+var ds: RefCounted
+var pipe: RefCounted
 
 func _ready() -> void:
 	print("[OmniBuffDemo] boot")
@@ -34,14 +35,14 @@ func _ready() -> void:
 
 func _load_dataset() -> void:
 	## 加载 manifest/enums，并编译出最小可用的 CompiledDataset
-	var result := OmniManifestLoader.load_dataset_full("res://data/base_demo/manifest.json", true)
+	var result := OmniBuff.ManifestLoader.load_dataset_full("res://data/base_demo/manifest.json", true)
 	for issue in result.issues:
 		push_error("%s %s %s %s: %s" % [issue.level, issue.file, issue.loc, issue.id, issue.message])
 	print("[OmniBuffDemo] manifest loaded, enums keys=", result.enums.keys())
 
-	enums_rt = OmniEnumsRuntime.from_enums_json(result.enums)
+	enums_rt = OmniBuff.EnumsRuntime.from_enums_json(result.enums)
 
-	ds = OmniDatasetCompiler.compile(result.manifest, enums_rt, result.sources)
+	ds = OmniBuff.DatasetCompiler.compile(result.manifest, enums_rt, result.sources)
 	print("[OmniBuffDemo] stat_id(ATK)=", ds.stat_id("ATK"), " buff_id(buff_atk_up_3t)=", ds.buff_id("buff_atk_up_3t"))
 
 func _test_stat_cache_dirty() -> void:
@@ -50,7 +51,7 @@ func _test_stat_cache_dirty() -> void:
 	## - add_base 后触发 dirty，下次 get_final 重算
 	## - 连续读取不应重复重算（从结果上看应一致）
 	var atk: int = ds.stat_id("ATK")
-	var s := OmniStatsComponent.new(1, ds)
+	var s := OmniBuff.StatsComponent.new(1, ds)
 	print("[OmniBuffDemo] ATK1=", s.get_final(atk))
 	s.add_base(atk, 5.0)
 	print("[OmniBuffDemo] ATK2=", s.get_final(atk))
@@ -59,8 +60,8 @@ func _test_stat_cache_dirty() -> void:
 func _test_equip_modifier_injection() -> void:
 	## 验证“万物皆Buff”：装备隐式buff通过 modifier 注入 StatsCore 聚合视图
 	var atk: int = ds.stat_id("ATK")
-	var s := OmniStatsComponent.new(2, ds)
-	var buff := OmniBuffCore.new(ds, enums_rt)
+	var s := OmniBuff.StatsComponent.new(2, ds)
+	var buff := OmniBuff.BuffCore.new(ds, enums_rt)
 	print("[OmniBuffDemo] ATK(before equip buff)=", s.get_final(atk))
 	buff.apply_buff(s, "buff_equip_weapon_001", s.entity_id)
 	print("[OmniBuffDemo] ATK(after equip buff)=", s.get_final(atk))
@@ -72,15 +73,15 @@ func _test_damage_pipeline_and_event_index() -> void:
 	## - BEFORE_DEAL触发 +5 => base=25
 	## - def=5 => final=50
 	## - HP:100->50
-	var attacker := OmniStatsComponent.new(101, ds)
-	var buff_attacker := OmniBuffCore.new(ds, enums_rt)
+	var attacker := OmniBuff.StatsComponent.new(101, ds)
+	var buff_attacker := OmniBuff.BuffCore.new(ds, enums_rt)
 	buff_attacker.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
 	buff_attacker.apply_buff(attacker, "buff_test_before_deal_plus5", attacker.entity_id)
 	# 额外验证：AFTER_DEAL 对目标施加 DOT（APPLY_BUFF，scope=TARGET）
 	buff_attacker.apply_buff(attacker, "buff_test_after_deal_apply_dot", attacker.entity_id)
 
-	var defender := OmniStatsComponent.new(202, ds)
-	var buff_defender := OmniBuffCore.new(ds, enums_rt)
+	var defender := OmniBuff.StatsComponent.new(202, ds)
+	var buff_defender := OmniBuff.BuffCore.new(ds, enums_rt)
 
 	# runtime：用于 APPLY_BUFF 动作在事件阶段定位目标实体的 Stats/Buff
 	var runtime := {
@@ -97,7 +98,7 @@ func _test_damage_pipeline_and_event_index() -> void:
 	# 让DOT走一次 TurnEnd tick，验证确实能结算并产出 dot trace
 	var stats_by_entity := {101: attacker, 202: defender}
 	var buff_by_entity := {101: buff_attacker, 202: buff_defender}
-	var turn := OmniTurnComponent.new()
+	var turn := OmniBuff.TurnComponent.new()
 	var ids := PackedInt32Array([101, 202])
 	ids.sort()
 	var dot_from_index: int = replay.dot_traces.size()
@@ -120,13 +121,13 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 	var tags_mask := enums_rt.tag_mask(["BUFF"])
 
 	# 构造攻击方（装备ATK+20 => ATK=30）
-	var attacker := OmniStatsComponent.new(501, ds)
-	var buff_attacker := OmniBuffCore.new(ds, enums_rt)
+	var attacker := OmniBuff.StatsComponent.new(501, ds)
+	var buff_attacker := OmniBuff.BuffCore.new(ds, enums_rt)
 	buff_attacker.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
 
 	# ========== Case A：防守方无防守Buff ==========
-	var defender_a := OmniStatsComponent.new(502, ds)
-	var buff_defender_a := OmniBuffCore.new(ds, enums_rt)
+	var defender_a := OmniBuff.StatsComponent.new(502, ds)
+	var buff_defender_a := OmniBuff.BuffCore.new(ds, enums_rt)
 	var runtime_a := {
 		"stats_by_entity": {501: attacker, 502: defender_a},
 		"buff_by_entity": {501: buff_attacker, 502: buff_defender_a}
@@ -141,8 +142,8 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 		print(replay.debug_dump_damage_range(from_idx))
 
 	# ========== Case B：防守方有 DEF+20 Buff ==========
-	var defender_b := OmniStatsComponent.new(503, ds)
-	var buff_defender_b := OmniBuffCore.new(ds, enums_rt)
+	var defender_b := OmniBuff.StatsComponent.new(503, ds)
+	var buff_defender_b := OmniBuff.BuffCore.new(ds, enums_rt)
 	buff_defender_b.apply_buff(defender_b, "buff_def_up_20_3t", defender_b.entity_id)
 	var runtime_b := {
 		"stats_by_entity": {501: attacker, 503: defender_b},
@@ -164,17 +165,17 @@ func _test_dot_multi_source_tick() -> void:
 	## - 两个来源对同一目标施加同种DOT（灼烧）
 	## - 每跳读取来源当前ATK（StatCache），计算 dmg=ATK*base_ratio
 	## - DOT默认在 TURN_END 结算，持续3回合
-	var src_a := OmniStatsComponent.new(301, ds)
-	var src_a_buff := OmniBuffCore.new(ds, enums_rt)
+	var src_a := OmniBuff.StatsComponent.new(301, ds)
+	var src_a_buff := OmniBuff.BuffCore.new(ds, enums_rt)
 	src_a_buff.apply_buff(src_a, "buff_equip_weapon_001", src_a.entity_id) # ATK=30
 
-	var src_b := OmniStatsComponent.new(302, ds)
-	var src_b_buff := OmniBuffCore.new(ds, enums_rt)
+	var src_b := OmniBuff.StatsComponent.new(302, ds)
+	var src_b_buff := OmniBuff.BuffCore.new(ds, enums_rt)
 	src_b_buff.apply_buff(src_b, "buff_equip_weapon_001", src_b.entity_id) # ATK=30
 	src_b.add_base(ds.stat_id("ATK"), 20.0) # 让B更强：ATK=50
 
-	var target := OmniStatsComponent.new(303, ds)
-	var target_buff := OmniBuffCore.new(ds, enums_rt)
+	var target := OmniBuff.StatsComponent.new(303, ds)
+	var target_buff := OmniBuff.BuffCore.new(ds, enums_rt)
 
 	# 同种DOT按来源独立实例：两次施加会创建两个 DotInstance
 	target_buff.apply_buff(target, "buff_dot_fire_3t", src_a.entity_id)
@@ -191,7 +192,7 @@ func _test_dot_multi_source_tick() -> void:
 		303: target_buff
 	}
 
-	var turn := OmniTurnComponent.new()
+	var turn := OmniBuff.TurnComponent.new()
 	var ids := PackedInt32Array([301, 302, 303])
 	ids.sort()
 
@@ -207,8 +208,8 @@ func _test_dispel_semantics() -> void:
 	## 驱散（M7）最小验证：
 	## - 给目标加一个显式增益（食物ATK+20，tag=BUFF）
 	## - 再按 tag=BUFF 驱散：应移除显式buff，但默认不影响隐式装备buff
-	var dispel_target := OmniStatsComponent.new(401, ds)
-	var dispel_target_buff := OmniBuffCore.new(ds, enums_rt)
+	var dispel_target := OmniBuff.StatsComponent.new(401, ds)
+	var dispel_target_buff := OmniBuff.BuffCore.new(ds, enums_rt)
 	dispel_target_buff.apply_buff(dispel_target, "buff_equip_weapon_001", 999) # IMPLICIT，ATK+20
 	dispel_target_buff.apply_buff(dispel_target, "buff_food_atk_20_5t", 999)  # EXPLICIT，ATK+20
 	print("[OmniBuffDemo] Dispel: ATK(before)=", dispel_target.get_final(ds.stat_id("ATK")))
