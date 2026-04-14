@@ -52,6 +52,18 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_def_up_20_3t",
+	  "name": "防守：DEF+20（3回合）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 210, "value": 20.0 }
+	  ],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_dot_fire_3t",
 	  "name": "灼烧：火焰DOT（3回合/回合结束结算）",
 	  "buff_type": "EXPLICIT",

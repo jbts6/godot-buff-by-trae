@@ -130,6 +130,23 @@ func debug_dump_last_damage() -> String:
 		t.turn, t.attacker_id, t.defender_id, t.base_damage, t.final_damage, t.triggered_inst_ids
 	]
 
+func debug_dump_damage_range(from_index: int) -> String:
+	## 调试：输出 damage_traces[from_index .. end) 的所有记录（每行一条）
+	## 用途：
+	## - 多段攻击一次会产生多条 DamageTrace（每段一条）
+	## - debug_dump_last_damage() 只能看到最后一条，因此用这个函数一次性打印新增的所有记录
+	if from_index < 0:
+		from_index = 0
+	if from_index >= damage_traces.size():
+		return "[DamageTrace] <none>"
+	var lines: Array[String] = []
+	for i in range(from_index, damage_traces.size()):
+		var t: DamageTrace = damage_traces[i]
+		lines.append("[DamageTrace] turn=%s atk=%s def=%s base=%.2f final=%.2f tags=%s triggered=%s" % [
+			t.turn, t.attacker_id, t.defender_id, t.base_damage, t.final_damage, t.tags_mask, t.triggered_inst_ids
+		])
+	return "\n".join(lines)
+
 func debug_dump_last_dot() -> String:
 	## 调试：输出最近一次 DOT tick 的追帧信息
 	if dot_traces.is_empty():

@@ -27,6 +27,7 @@ func _ready() -> void:
 	_test_stat_cache_dirty()
 	_test_equip_modifier_injection()
 	_test_damage_pipeline_and_event_index()
+	_test_multi_hit_attack_and_defense_buff()
 	_test_dot_multi_source_tick()
 	_test_dispel_semantics()
 
@@ -102,6 +103,60 @@ func _test_damage_pipeline_and_event_index() -> void:
 	turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 	print("[OmniBuffDemo] AFTER_DEAL DOT tick defender_hp=", defender.get_final(ds.stat_id("HP")))
 	print(replay.debug_dump_dot_range(dot_from_index))
+
+func _test_multi_hit_attack_and_defense_buff() -> void:
+	## 复杂demo：多段攻击 + 防守方 DEF Buff
+	##
+	## 目的：
+	## - 三段基础伤害依次递增，用于发现“第二段错误执行为第一段”等串段问题
+	## - 防守方通过 DEF+20（data驱动的 modifier buff）降低每段最终伤害
+	##
+	## 预期（在 ATK=30、DEF=5 的前提下）：
+	## - 无防守Buff：final = base + 30 - 5 = base + 25 => 37/39/43
+	## - 有DEF+20：final = base + 30 - 25 = base + 5 => 17/19/23
+
+	var base_hits := PackedFloat32Array([12.0, 14.0, 18.0])
+	var tags_mask := enums_rt.tag_mask(["BUFF"])
+
+	# 构造攻击方（装备ATK+20 => ATK=30）
+	var attacker := OmniStatsComponent.new(501, ds)
+	var buff_attacker := OmniBuffCore.new(ds, enums_rt)
+	buff_attacker.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
+
+	# ========== Case A：防守方无防守Buff ==========
+	var defender_a := OmniStatsComponent.new(502, ds)
+	var buff_defender_a := OmniBuffCore.new(ds, enums_rt)
+	var runtime_a := {
+		"stats_by_entity": {501: attacker, 502: defender_a},
+		"buff_by_entity": {501: buff_attacker, 502: buff_defender_a}
+	}
+
+	print("[OmniBuffDemo] MultiHit CaseA (no DEF buff) start_hp=", defender_a.get_final(ds.stat_id("HP")))
+	for i in range(base_hits.size()):
+		var base_damage: float = float(base_hits[i])
+		var from_idx: int = replay.damage_traces.size()
+		var ctx := pipe.deal_damage(attacker, defender_a, buff_attacker, buff_defender_a, ds, base_damage, replay, 100 + i, tags_mask, runtime_a)
+		print("[OmniBuffDemo]  hit#", i + 1, " base=", base_damage, " final=", ctx.final_damage, " hp=", defender_a.get_final(ds.stat_id("HP")))
+		print(replay.debug_dump_damage_range(from_idx))
+
+	# ========== Case B：防守方有 DEF+20 Buff ==========
+	var defender_b := OmniStatsComponent.new(503, ds)
+	var buff_defender_b := OmniBuffCore.new(ds, enums_rt)
+	buff_defender_b.apply_buff(defender_b, "buff_def_up_20_3t", defender_b.entity_id)
+	var runtime_b := {
+		"stats_by_entity": {501: attacker, 503: defender_b},
+		"buff_by_entity": {501: buff_attacker, 503: buff_defender_b}
+	}
+
+	print("[OmniBuffDemo] MultiHit CaseB (DEF+20 buff) start_hp=", defender_b.get_final(ds.stat_id("HP")))
+	print(buff_defender_b.debug_dump_instances())
+	print(buff_defender_b.debug_dump_stat_modifiers(defender_b, ds.stat_id("DEF")))
+	for i in range(base_hits.size()):
+		var base_damage: float = float(base_hits[i])
+		var from_idx: int = replay.damage_traces.size()
+		var ctx := pipe.deal_damage(attacker, defender_b, buff_attacker, buff_defender_b, ds, base_damage, replay, 200 + i, tags_mask, runtime_b)
+		print("[OmniBuffDemo]  hit#", i + 1, " base=", base_damage, " final=", ctx.final_damage, " hp=", defender_b.get_final(ds.stat_id("HP")))
+		print(replay.debug_dump_damage_range(from_idx))
 
 func _test_dot_multi_source_tick() -> void:
 	## DOT（按来源独立实例）+ TurnEnd tick 验证：
