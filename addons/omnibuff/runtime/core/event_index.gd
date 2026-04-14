@@ -26,6 +26,15 @@ class Listener:
 	var action_kind: String
 	## 动作参数（例如 +5）
 	var action_value: float
+	## APPLY_BUFF/CHANCE_APPLY_BUFF：要施加的 buff_id（配置层字符串ID）
+	var action_buff_id: String = ""
+	## CHANCE_APPLY_BUFF：触发概率（0..1）
+	var action_chance: float = 1.0
+	## 作用目标范围（最小约定）：
+	## - "SELF"：本 BuffCore 的 owner_entity（事件接收者）
+	## - "SOURCE"/"ATTACKER"：ctx.attacker_id
+	## - "TARGET"/"DEFENDER"：ctx.defender_id
+	var scope: String = "SELF"
 
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []

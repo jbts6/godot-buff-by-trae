@@ -572,6 +572,10 @@ static func _detect_buff_trigger_cycles(file: String, buff_defs_obj: Dictionary,
 		for t in triggers:
 			var td: Dictionary = t
 			var action: Dictionary = td.get("action", {})
+			var kind := String(action.get("kind", ""))
+			# 只把“会施加buff”的动作纳入依赖图，避免误报（例如 ADD_BASE_DAMAGE 并不会引入新buff）
+			if kind != "APPLY_BUFF" and kind != "CHANCE_APPLY_BUFF":
+				continue
 			# 兼容多种命名：buff_id / apply_buff_id
 			var to_id := ""
 			if action.has("buff_id"):
@@ -579,7 +583,7 @@ static func _detect_buff_trigger_cycles(file: String, buff_defs_obj: Dictionary,
 			elif action.has("apply_buff_id"):
 				to_id = String(action.get("apply_buff_id", ""))
 
-			# 只要声明了“对某buff的引用”，就纳入图（action.kind 不强绑定，避免未来扩展漏检）
+			# 只要声明了“对某buff的引用”，就纳入图
 			if to_id != "":
 				(edges[from_id] as Array).append(to_id)
 

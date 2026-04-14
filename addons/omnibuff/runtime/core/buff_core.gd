@@ -13,6 +13,8 @@ extends RefCounted
 ## - triggers 仅支持：
 ##   - filters.tag_mask_any（可选）
 ##   - action.kind="ADD_BASE_DAMAGE"（在 BEFORE_DEAL 等阶段修改 ctx.base_damage）
+##   - action.kind="APPLY_BUFF"（在事件阶段给某个目标施加 buff）
+##   - action.kind="CHANCE_APPLY_BUFF"（带概率的 APPLY_BUFF）
 ## - DOT 仅支持：
 ##   - buff_defs.json 中存在 `dot` 字段即视为DOT型buff
 ##   - DOT实例按来源独立（每次施加创建一个 DotInstance）
@@ -205,6 +207,13 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 			l.filter_tag_mask = filter_mask
 			l.action_kind = String(action.get("kind", ""))
 			l.action_value = float(action.get("value", 0.0))
+			# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
+			if action.has("buff_id"):
+				l.action_buff_id = String(action.get("buff_id", ""))
+			elif action.has("apply_buff_id"):
+				l.action_buff_id = String(action.get("apply_buff_id", ""))
+			l.action_chance = float(action.get("chance", 1.0))
+			l.scope = String(t.get("scope", "SELF"))
 			var lid := event_index.register_listener(key, l)
 			if not listener_ids_by_inst.has(inst.inst_id):
 				listener_ids_by_inst[inst.inst_id] = PackedInt32Array()
@@ -485,9 +494,93 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		match l.action_kind:
 			"ADD_BASE_DAMAGE":
 				ctx.base_damage += l.action_value
+			"APPLY_BUFF":
+				_apply_buff_from_event(l, ctx, false)
+			"CHANCE_APPLY_BUFF":
+				_apply_buff_from_event(l, ctx, true)
 			_:
 				pass
 
 func get_triggered_inst_ids_last_emit() -> PackedInt32Array:
 	## 返回最近一次 emit_event 命中的 buff inst_id 列表（按触发顺序）
 	return _triggered_inst_ids_last_emit
+
+func _apply_buff_from_event(l: OmniEventIndex.Listener, ctx: RefCounted, use_chance: bool) -> void:
+	## 事件动作：对某个目标 apply buff（最小可用版）
+	##
+	## 运行时依赖：
+	## - 为避免跨模块强耦合，事件动作通过 ctx.meta["runtime"] 获取运行时环境字典：
+	##   runtime = { "stats_by_entity": Dictionary, "buff_by_entity": Dictionary }
+	##
+	## 说明：
+	## - 真实项目可以把 runtime 抽象为专门的 BattleRuntime 对象，这里用 Dictionary 先跑通闭环。
+	if l.action_buff_id == "":
+		return
+
+	if use_chance:
+		var ch := clamp(l.action_chance, 0.0, 1.0)
+		if ch <= 0.0:
+			return
+		if ch < 1.0:
+			var seed := _event_seed(ctx, l.inst_id)
+			if _roll01(seed) >= ch:
+				return
+
+	# 从 ctx meta 中取 runtime
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+
+	# 解析目标实体ID
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	var target_buff: OmniBuffCore = buff_by_entity.get(target_eid, null)
+	if target_stats == null or target_buff == null:
+		return
+
+	# 约定：事件施加的来源实体为 ctx.attacker_id（最贴近“施法者/攻击者”）
+	var source_eid := int(ctx.attacker_id)
+	target_buff.apply_buff(target_stats, l.action_buff_id, source_eid)
+
+func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
+	## 将 scope 映射为实体ID（最小约定）
+	## - SELF：本 BuffCore owner_entity（事件接收者）
+	## - SOURCE/ATTACKER：ctx.attacker_id
+	## - TARGET/DEFENDER：ctx.defender_id
+	var s := scope.to_upper()
+	if s == "" or s == "SELF":
+		return owner_entity_id
+	if s == "SOURCE" or s == "ATTACKER":
+		return int(ctx.attacker_id)
+	if s == "TARGET" or s == "DEFENDER":
+		return int(ctx.defender_id)
+	return -1
+
+func _event_seed(ctx: RefCounted, inst_id: int) -> int:
+	## 生成一个稳定 seed（用于 CHANCE_APPLY_BUFF 的伪随机）
+	## 注意：仅要求“同版本同设备可复盘”，因此这里用简单 hash 组合即可。
+	var turn_index := 0
+	if ctx.has_meta("turn_index"):
+		turn_index = int(ctx.get_meta("turn_index"))
+	var a := int(ctx.attacker_id)
+	var d := int(ctx.defender_id)
+	return int(turn_index * 73856093) ^ int(a * 19349663) ^ int(d * 83492791) ^ int(inst_id * 2654435761)
+
+func _roll01(seed: int) -> float:
+	## 简单 xorshift32，返回 [0,1) 浮点（用于概率判定）
+	var x := seed & 0xffffffff
+	x ^= (x << 13) & 0xffffffff
+	x ^= (x >> 17) & 0xffffffff
+	x ^= (x << 5) & 0xffffffff
+	# 取低24位映射到 [0,1)
+	var m := x & 0x00ffffff
+	return float(m) / float(0x01000000)

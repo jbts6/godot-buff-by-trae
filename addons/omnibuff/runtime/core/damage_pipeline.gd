@@ -24,7 +24,7 @@ class DamageContext:
 	## 最终伤害（resolve后得到，apply阶段用于扣血/护盾）
 	var final_damage: float = 0.0
 
-func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0) -> DamageContext:
+func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
 	## 性能约束：
@@ -36,6 +36,9 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	ctx.base_damage = base_damage
 	# tags_mask 必须在事件触发前写入，供 filters 使用
 	ctx.tags_mask = tags_mask
+	# 通过 meta 传递运行时信息，避免对 DamageContext 增加强耦合字段
+	ctx.set_meta("turn_index", turn_index)
+	ctx.set_meta("runtime", runtime)
 
 	# 追帧：收集每个阶段命中的 inst_id 列表（稳定顺序：按阶段追加）
 	var stage_triggers: Dictionary = {}
@@ -107,4 +110,4 @@ func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComp
 	## 注意：tags_mask 必须在 BUILD/BEFORE_DEAL/BEFORE_TAKE 阶段之前写入，
 	## 否则 filters.tag_mask_any 在事件触发时将无法命中。
 	# 复用主流程：把 tags_mask 作为参数传入，确保在 BUILD 之前就可用于 filters
-	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask)
+	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask, {})

@@ -74,13 +74,34 @@ func _test_damage_pipeline_and_event_index() -> void:
 	var buff_attacker := OmniBuffCore.new(ds, enums_rt)
 	buff_attacker.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
 	buff_attacker.apply_buff(attacker, "buff_test_before_deal_plus5", attacker.entity_id)
+	# 额外验证：AFTER_DEAL 对目标施加 DOT（APPLY_BUFF，scope=TARGET）
+	buff_attacker.apply_buff(attacker, "buff_test_after_deal_apply_dot", attacker.entity_id)
 
 	var defender := OmniStatsComponent.new(202, ds)
 	var buff_defender := OmniBuffCore.new(ds, enums_rt)
 
-	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1)
+	# runtime：用于 APPLY_BUFF 动作在事件阶段定位目标实体的 Stats/Buff
+	var runtime := {
+		"stats_by_entity": {101: attacker, 202: defender},
+		"buff_by_entity": {101: buff_attacker, 202: buff_defender}
+	}
+	var tags_mask := enums_rt.tag_mask(["BUFF"])
+	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
 	print(replay.debug_dump_last_damage())
+	# AFTER_DEAL 应已对 defender 注入灼烧实例（按来源独立DOT）
+	print(buff_defender.debug_dump_instances())
+
+	# 让DOT走一次 TurnEnd tick，验证确实能结算并产出 dot trace
+	var stats_by_entity := {101: attacker, 202: defender}
+	var buff_by_entity := {101: buff_attacker, 202: buff_defender}
+	var turn := OmniTurnComponent.new()
+	var ids := PackedInt32Array([101, 202])
+	ids.sort()
+	var dot_from_index: int = replay.dot_traces.size()
+	turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
+	print("[OmniBuffDemo] AFTER_DEAL DOT tick defender_hp=", defender.get_final(ds.stat_id("HP")))
+	print(replay.debug_dump_dot_range(dot_from_index))
 
 func _test_dot_multi_source_tick() -> void:
 	## DOT（按来源独立实例）+ TurnEnd tick 验证：
