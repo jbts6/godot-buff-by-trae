@@ -148,3 +148,30 @@ func debug_dump_last_dot() -> String:
 		t.final_damage,
 		t.tags_mask
 	]
+
+func debug_dump_dot_range(from_index: int) -> String:
+	## 调试：输出 dot_traces[from_index .. end) 的所有记录（每行一条）
+	## 用途：
+	## - 一个回合内可能有多个 DOT 来源（例如 301 与 302），每次 tick 会产生多条 DotTrace
+	## - debug_dump_last_dot() 只能看到最后一条，因此用这个函数一次性打印新增的所有记录
+	if from_index < 0:
+		from_index = 0
+	if from_index >= dot_traces.size():
+		return "[DotTrace] <none>"
+	var lines: Array[String] = []
+	for i in range(from_index, dot_traces.size()):
+		var t: DotTrace = dot_traces[i]
+		lines.append("[DotTrace] turn=%s dot_inst=%s owner_buff_inst=%s src=%s tgt=%s read=%s=%.2f ratio=%.3f base=%.2f final=%.2f tags=%s" % [
+			t.turn,
+			t.dot_inst_id,
+			t.owner_buff_inst_id,
+			t.source_entity_id,
+			t.target_entity_id,
+			t.read_source_stat,
+			t.source_stat_value,
+			t.base_ratio,
+			t.base_damage,
+			t.final_damage,
+			t.tags_mask
+		])
+	return "\n".join(lines)

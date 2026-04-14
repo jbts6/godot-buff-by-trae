@@ -85,9 +85,12 @@ func _ready() -> void:
 	ids.sort()
 
 	for i in range(3):
+		# 一个 TurnEnd tick 里可能产生多条 DotTrace（多个来源/多个dot实例）
+		# 因此用“范围打印”输出本次 tick 新增的所有 DotTrace
+		var dot_from_index: int = replay.dot_traces.size()
 		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
-		print(replay.debug_dump_last_dot())
+		print(replay.debug_dump_dot_range(dot_from_index))
 
 	# 驱散（M7）最小验证：
 	# - 给目标加一个显式增益（食物ATK+20，tag=BUFF）
