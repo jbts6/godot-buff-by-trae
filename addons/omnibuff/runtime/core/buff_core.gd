@@ -295,6 +295,19 @@ func remove_by_instance(stats: OmniStatsComponent, inst_id: int, force: bool = f
 	# 2) 注销事件监听（从 listeners[key] 列表中移除 + 标记 inactive）
 	_unregister_listeners_for_inst(inst_id)
 
+	# 2.5) 移除该 buff 实例对应的 DOT 实例（否则会出现“驱散了 debuff 但 DOT 仍在跳”的问题）
+	# 说明：
+	# - DOT 实例在 apply_buff 时创建，并记录 owner_buff_inst_id
+	# - DOT 存放在目标实体的 BuffCore.dots_by_target 中
+	# - 驱散/到期/主动移除都应清理对应 DOT
+	if owner_entity_id >= 0 and dots_by_target.has(owner_entity_id):
+		var dots: Array = dots_by_target[owner_entity_id]
+		var kept_dots: Array = []
+		for d in dots:
+			if int(d.owner_buff_inst_id) != inst_id:
+				kept_dots.append(d)
+		dots_by_target[owner_entity_id] = kept_dots
+
 	# 3) 从实例表移除
 	instances_by_id.erase(inst_id)
 	var new_ids: Array[int] = []
@@ -317,7 +330,8 @@ func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: 
 		return 0
 
 	var removed := 0
-	for id in inst_ids:
+	# 注意：remove_by_instance 会修改 inst_ids，因此这里用副本遍历，避免跳过元素
+	for id in inst_ids.duplicate():
 		var inst: BuffInst = instances_by_id.get(id, null)
 		if inst == null:
 			continue
@@ -333,7 +347,7 @@ func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: 
 func dispel_by_source(stats: OmniStatsComponent, source_entity_id: int, include_implicit: bool = false) -> int:
 	## 按来源实体驱散（M7）
 	var removed := 0
-	for id in inst_ids:
+	for id in inst_ids.duplicate():
 		var inst: BuffInst = instances_by_id.get(id, null)
 		if inst == null:
 			continue
@@ -350,7 +364,7 @@ func dispel_by_type(stats: OmniStatsComponent, buff_type: String) -> int:
 	## 按 Buff 类型驱散（M7）
 	## buff_type 示例："EXPLICIT"（常用：只驱散战斗中获得的显式buff/debuff）
 	var removed := 0
-	for id in inst_ids:
+	for id in inst_ids.duplicate():
 		var inst: BuffInst = instances_by_id.get(id, null)
 		if inst == null:
 			continue
