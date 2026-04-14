@@ -74,6 +74,16 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	var def := defender.get_final(ds.stat_id("DEF"))
 	ctx.final_damage = max(0.0, ctx.base_damage + atk - def)
 
+	# === defender damage reduction（减伤）===
+	# 约定：DMG_REDUCE 表示“受到伤害减少比例”，在 resolve 后、APPLY（护盾/扣血）前生效。
+	# clamp 0..0.95（避免出现 100% 免伤导致后续数值/追帧边界问题）
+	var reduce_id := ds.stat_id("DMG_REDUCE")
+	if reduce_id >= 0:
+		var r := clamp(float(defender.get_final(reduce_id)), 0.0, 0.95)
+		if r > 0.0 and ctx.final_damage > 0.0:
+			ctx.set_meta("dmg_reduce_ratio", r)
+			ctx.final_damage = ctx.final_damage * (1.0 - r)
+
 	# === apply（护盾/扣血）===
 	buff_attacker.emit_event("DAMAGE", "APPLY", ctx)
 	buff_defender.emit_event("DAMAGE", "APPLY", ctx)
