@@ -20,11 +20,12 @@ func on_turn_start(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictiona
 		if b != null and b.has_method("on_turn_start"):
 			b.on_turn_start(turn_index)
 
-func on_turn_end(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictionary, stats_by_entity: Dictionary, pipeline: OmniDamagePipeline, ds: OmniCompiledDataset) -> void:
+func on_turn_end(entity_ids_sorted: PackedInt32Array, buff_by_entity: Dictionary, stats_by_entity: Dictionary, pipeline: OmniDamagePipeline, ds: OmniCompiledDataset, replay: OmniReplay = null) -> void:
 	# TurnEnd tick：对每个实体依次处理其 Buff/DOT（稳定顺序）
 	for eid in entity_ids_sorted:
 		var b = buff_by_entity.get(int(eid), null)
 		if b != null and b.has_method("on_turn_end"):
-			b.on_turn_end(turn_index, stats_by_entity, buff_by_entity, pipeline, ds)
+			# 约定：on_turn_end(turn_index, stats_by_entity, buff_by_entity, pipeline, ds, replay)
+			# replay 为可选参数：用于追帧，不影响逻辑
+			b.on_turn_end(turn_index, stats_by_entity, buff_by_entity, pipeline, ds, replay)
 	turn_index += 1
-

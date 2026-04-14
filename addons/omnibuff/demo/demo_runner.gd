@@ -2,6 +2,7 @@ extends Node
 
 func _ready() -> void:
 	print("[OmniBuffDemo] boot")
+	var replay := OmniReplay.new()
 	# 注意：这是最小可运行 demo，用于验证：
 	# - manifest/enums 加载成功（strict）
 	# - stat_id/buff_id 编译映射可用
@@ -41,8 +42,9 @@ func _ready() -> void:
 	var defender := OmniStatsComponent.new(202, ds)
 	var buff_defender := OmniBuffCore.new(ds, enums_rt)
 	var pipe := OmniDamagePipeline.new()
-	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0)
+	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
+	print(replay.debug_dump_last_damage())
 
 	# DOT（按来源独立实例）+ TurnEnd tick 验证：
 	# - 两个来源对同一目标施加同种DOT（灼烧）
@@ -79,7 +81,7 @@ func _ready() -> void:
 	ids.sort()
 
 	for i in range(3):
-		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds)
+		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
 
 	# 驱散（M7）最小验证：
