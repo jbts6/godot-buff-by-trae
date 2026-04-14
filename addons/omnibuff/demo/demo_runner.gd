@@ -91,7 +91,9 @@ func _test_damage_pipeline_and_event_index() -> void:
 	# 注意：这里不要用 `:=` 自动推断类型，因为 enums_rt 在本文件中是 RefCounted（动态对象），
 	# Godot 4 的静态分析无法推断 tag_mask 的返回类型，会导致解析期报错。
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
-	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
+	# 注意：pipe 在本文件中是 RefCounted（通过 OmniBuff 单例创建），
+	# 用 `:=` 会要求编译期推断返回类型；这里改为动态变量（Variant）以避免解析期报错。
+	var ctx = pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
 	print(replay.debug_dump_last_damage())
 	# AFTER_DEAL 应已对 defender 注入灼烧实例（按来源独立DOT）
@@ -140,7 +142,7 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 	for i in range(base_hits.size()):
 		var base_damage: float = float(base_hits[i])
 		var from_idx: int = replay.damage_traces.size()
-		var ctx := pipe.deal_damage(attacker, defender_a, buff_attacker, buff_defender_a, ds, base_damage, replay, 100 + i, tags_mask, runtime_a)
+		var ctx = pipe.deal_damage(attacker, defender_a, buff_attacker, buff_defender_a, ds, base_damage, replay, 100 + i, tags_mask, runtime_a)
 		print("[OmniBuffDemo]  hit#", i + 1, " base=", base_damage, " final=", ctx.final_damage, " hp=", defender_a.get_final(ds.stat_id("HP")))
 		print(replay.debug_dump_damage_range(from_idx))
 
@@ -159,7 +161,7 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 	for i in range(base_hits.size()):
 		var base_damage: float = float(base_hits[i])
 		var from_idx: int = replay.damage_traces.size()
-		var ctx := pipe.deal_damage(attacker, defender_b, buff_attacker, buff_defender_b, ds, base_damage, replay, 200 + i, tags_mask, runtime_b)
+		var ctx = pipe.deal_damage(attacker, defender_b, buff_attacker, buff_defender_b, ds, base_damage, replay, 200 + i, tags_mask, runtime_b)
 		print("[OmniBuffDemo]  hit#", i + 1, " base=", base_damage, " final=", ctx.final_damage, " hp=", defender_b.get_final(ds.stat_id("HP")))
 		print(replay.debug_dump_damage_range(from_idx))
 
