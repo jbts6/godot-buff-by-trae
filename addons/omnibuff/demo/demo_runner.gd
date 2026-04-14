@@ -88,7 +88,9 @@ func _test_damage_pipeline_and_event_index() -> void:
 		"stats_by_entity": {101: attacker, 202: defender},
 		"buff_by_entity": {101: buff_attacker, 202: buff_defender}
 	}
-	var tags_mask := enums_rt.tag_mask(["BUFF"])
+	# 注意：这里不要用 `:=` 自动推断类型，因为 enums_rt 在本文件中是 RefCounted（动态对象），
+	# Godot 4 的静态分析无法推断 tag_mask 的返回类型，会导致解析期报错。
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
 	print(replay.debug_dump_last_damage())
@@ -118,7 +120,8 @@ func _test_multi_hit_attack_and_defense_buff() -> void:
 	## - 有DEF+20：final = base + 30 - 25 = base + 5 => 17/19/23
 
 	var base_hits := PackedFloat32Array([12.0, 14.0, 18.0])
-	var tags_mask := enums_rt.tag_mask(["BUFF"])
+	# 同上：显式标注为 int，避免类型推断失败
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
 	# 构造攻击方（装备ATK+20 => ATK=30）
 	var attacker := OmniBuff.StatsComponent.new(501, ds)

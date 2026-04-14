@@ -27,7 +27,8 @@ func test_multihit_damage_is_increasing_and_hp_matches() -> void:
 	var runtime := TestBattle.make_runtime([a, d])
 
 	# 让 filters.tag_mask_any 可命中（如果未来你给测试加更多触发器，也不会静默不触发）
-	var tags_mask := enums_rt.tag_mask(["BUFF"])
+	# 显式类型：避免 Godot 4 在某些场景下对 `:=` 推断失败
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
 	var base_hits := [12.0, 14.0, 18.0]
 	var finals := []

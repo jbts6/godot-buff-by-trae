@@ -27,7 +27,8 @@ func test_def_buff_reduces_each_hit_damage() -> void:
 	d.buffs.apply_buff(d.stats, "buff_def_up_20_3t", 2002)
 
 	var runtime := TestBattle.make_runtime([a, d])
-	var tags_mask := enums_rt.tag_mask(["BUFF"])
+	# 显式类型：避免 Godot 4 在某些场景下对 `:=` 推断失败
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
 	var base_hits := [12.0, 14.0, 18.0]
 	var finals := []
