@@ -5,7 +5,9 @@ extends RefCounted
 ##
 ## - 运行时热路径只允许通过 `get_final(stat_id)` 读取属性
 ## - 任何属性变动（base变化 / buff注入 / buff撤销）必须 `mark_dirty(stat_id)`
-## - 当前实现仅支持：对某 stat 的“平铺加成（ADD/FLAT）”聚合叠加
+## - 当前实现支持：
+##   - ADD/FLAT：平铺加成（base + flat）
+##   - MUL/PERCENT：百分比加成（最终按 (base + flat) * (1 + pct) 计算）
 ##   后续会扩展 apply_phase（BASE/CONVERT/FLAT/PERCENT/FINAL/CLAMP）与 priority 排序
 
 ## 编译后的数据集（只读）：提供 stat_defs / 映射表等
@@ -22,7 +24,9 @@ var dirty: PackedByteArray
 
 ## 每个 stat 的 modifier 列表（由 BuffCore 在 buff 变动时维护）
 ## - 索引：stat_id
-## - 元素：任意对象，但必须包含字段 `add_value`（当前版本）
+## - 元素：任意对象
+##   - 新格式：包含字段 `op`/`phase`/`value`（以及可选兼容字段 add_value）
+##   - 旧格式：仅包含字段 `add_value`（视作 ADD/FLAT）
 var modifiers_by_stat: Array = []
 
 func _init(dataset: OmniCompiledDataset) -> void:
@@ -58,10 +62,44 @@ func mark_dirty(stat_id: int) -> void:
 func recompute(stat_id: int) -> void:
 	# 重算一个 stat 的最终值
 	# 注意：这里遍历的是“该 stat 的 modifier 聚合列表”，不是遍历全部 BuffInstance
-	var v := base_values[stat_id]
+	var base := base_values[stat_id]
+	var flat := 0.0
+	var pct := 0.0
 	for m in modifiers_by_stat[stat_id]:
-		v += float(m.add_value)
-	final_values[stat_id] = v
+		# 兼容读取：
+		# - 新：m.op / m.phase / m.value
+		# - 旧：m.add_value（视作 ADD/FLAT）
+		var op := ""
+		var ph := ""
+		var val := 0.0
+		if m != null and typeof(m) == TYPE_OBJECT:
+			if m.has_property("op"):
+				op = String(m.op)
+			if m.has_property("phase"):
+				ph = String(m.phase)
+			if m.has_property("value"):
+				val = float(m.value)
+			elif m.has_property("add_value"):
+				val = float(m.add_value)
+		else:
+			# 非对象（理论上不该出现），尝试直接当数值累加到 flat
+			flat += float(m)
+			continue
+
+		if op == "" and ph == "":
+			# 旧数据：ADD/FLAT
+			op = "ADD"
+			ph = "FLAT"
+
+		if op == "ADD" and ph == "FLAT":
+			flat += val
+		elif op == "MUL" and ph == "PERCENT":
+			pct += val
+		else:
+			# 未支持组合：忽略（保持最小实现的确定性）
+			pass
+
+	final_values[stat_id] = (base + flat) * (1.0 + pct)
 
 func get_final(stat_id: int) -> float:
 	# 热路径读取：若脏则重算一次，然后返回快照

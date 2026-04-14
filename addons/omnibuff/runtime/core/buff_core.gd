@@ -23,8 +23,16 @@ extends RefCounted
 class OmniModifierRef:
 	## 目标 stat（编译后 int 索引）
 	var stat_id: int
-	## 平铺加成值（当前版本仅支持 add_value）
-	var add_value: float
+	## modifier op（如 "ADD"/"MUL"）
+	var op: String = ""
+	## modifier phase（如 "FLAT"/"PERCENT"）
+	var phase: String = ""
+	## modifier 原始值（与配置 value 一致；例如 20.0 / 0.05）
+	var value: float = 0.0
+	## 兼容字段：平铺加成值（旧实现只读取 add_value）
+	## - 当 op=ADD 且 phase=FLAT 时，add_value=value
+	## - 其他组合下为 0（避免旧逻辑误用）
+	var add_value: float = 0.0
 	## 来源 BuffInstance 的 inst_id（用于追帧/撤销/调试）
 	var source_inst_id: int
 
@@ -165,9 +173,13 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	for e in effects:
 		if String(e.get("kind", "")) != "modifier":
 			continue
-		if String(e.get("op", "")) != "ADD":
-			continue
-		if String(e.get("phase", "")) != "FLAT":
+		var op := String(e.get("op", ""))
+		var phase := String(e.get("phase", ""))
+		# 当前运行时支持：
+		# - ADD/FLAT（平铺加成）
+		# - MUL/PERCENT（百分比加成：最终值按 (base+flat)*(1+pct) 计算）
+		var supported := (op == "ADD" and phase == "FLAT") or (op == "MUL" and phase == "PERCENT")
+		if not supported:
 			continue
 
 		var stat_id := ds.stat_id(String(e.get("stat", "")))
@@ -178,7 +190,13 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 
 		var mr := OmniModifierRef.new()
 		mr.stat_id = stat_id
-		mr.add_value = v
+		mr.op = op
+		mr.phase = phase
+		mr.value = v
+		if op == "ADD" and phase == "FLAT":
+			mr.add_value = v
+		else:
+			mr.add_value = 0.0
 		mr.source_inst_id = inst.inst_id
 
 		inst.modifier_refs.append(mr)
@@ -388,12 +406,27 @@ func debug_dump_instances() -> String:
 func debug_dump_stat_modifiers(stats: OmniStatsComponent, stat_id: int) -> String:
 	## 调试：打印某个 stat 的 modifier 列表（聚合视图），确认撤销是否正确。
 	## 输出字段：
-	## - add_value
+	## - op/phase/value
 	## - source_inst_id
 	var lines: Array[String] = []
 	lines.append("[StatMods] entity=%s stat_id=%s count=%s" % [stats.entity_id, stat_id, (stats.core.modifiers_by_stat[stat_id] as Array).size()])
 	for m in stats.core.modifiers_by_stat[stat_id]:
-		lines.append("  +%s (from inst_id=%s)" % [float(m.add_value), int(m.source_inst_id)])
+		var op := ""
+		var ph := ""
+		var v := 0.0
+		# 兼容老字段：若不存在 op/phase/value，则回退为 ADD/FLAT + add_value
+		if m != null and typeof(m) == TYPE_OBJECT:
+			if m.has_property("op"):
+				op = String(m.op)
+			if m.has_property("phase"):
+				ph = String(m.phase)
+			if m.has_property("value"):
+				v = float(m.value)
+		if op == "" and ph == "":
+			op = "ADD"
+			ph = "FLAT"
+			v = float(m.add_value)
+		lines.append("  %s/%s %s (from inst_id=%s)" % [op, ph, v, int(m.source_inst_id)])
 	return "\n".join(lines)
 
 func on_turn_start(_turn_index: int) -> void:
