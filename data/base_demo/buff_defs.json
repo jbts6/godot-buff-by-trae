@@ -78,7 +78,23 @@
         { "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 150, "value": 20.0 }
       ],
       "triggers": []
+    },
+    {
+      "id": "buff_test_before_deal_plus5",
+      "name": "测试：BEFORE_DEAL 基础伤害+5",
+      "buff_type": "EXPLICIT",
+      "tags": ["BUFF"],
+      "duration": { "type": "PERMANENT" },
+      "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+      "effects": [],
+      "triggers": [
+        {
+          "event_type": "DAMAGE",
+          "event_phase": "BEFORE_DEAL",
+          "filters": {},
+          "action": { "kind": "ADD_BASE_DAMAGE", "value": 5.0 }
+        }
+      ]
     }
   ]
 }
-

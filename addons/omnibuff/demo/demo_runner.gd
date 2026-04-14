@@ -21,15 +21,19 @@ func _ready() -> void:
 	print("[OmniBuffDemo] ATK2=", s.get_final(atk))
 	print("[OmniBuffDemo] ATK3(no recompute)=", s.get_final(atk))
 
-	var buff := OmniBuffCore.new(ds)
+	var buff := OmniBuffCore.new(ds, enums_rt)
 	print("[OmniBuffDemo] ATK(before equip buff)=", s.get_final(atk))
 	buff.apply_buff(s, "buff_equip_weapon_001", s.entity_id)
 	print("[OmniBuffDemo] ATK(after equip buff)=", s.get_final(atk))
 
-	# 伤害Pipeline骨架验证：attacker默认ATK=10，装备后ATK=30；defender DEF=5；base_damage=20 => final=45，HP:100->55
+	# 伤害Pipeline + EventIndex 验证：
+	# attacker默认ATK=10，装备后ATK=30；base_damage=20；BEFORE_DEAL触发 +5 => base=25；def=5 => final=50；HP:100->50
 	var attacker := OmniStatsComponent.new(101, ds)
-	buff.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
+	var buff_attacker := OmniBuffCore.new(ds, enums_rt)
+	buff_attacker.apply_buff(attacker, "buff_equip_weapon_001", attacker.entity_id)
+	buff_attacker.apply_buff(attacker, "buff_test_before_deal_plus5", attacker.entity_id)
 	var defender := OmniStatsComponent.new(202, ds)
+	var buff_defender := OmniBuffCore.new(ds, enums_rt)
 	var pipe := OmniDamagePipeline.new()
-	var ctx := pipe.deal_damage(attacker, defender, ds, 20.0)
+	var ctx := pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0)
 	print("[OmniBuffDemo] deal_damage final_damage=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))

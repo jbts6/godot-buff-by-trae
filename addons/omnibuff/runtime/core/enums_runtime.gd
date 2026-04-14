@@ -29,9 +29,12 @@ func enum_int(enum_name: String, value: String) -> int:
 	var m: Dictionary = enum_tables.get(enum_name, {})
 	return int(m.get(value, -1))
 
+func enum_count(enum_name: String) -> int:
+	var m: Dictionary = enum_tables.get(enum_name, {})
+	return m.size()
+
 func tag_mask(tags: Array) -> int:
 	var m := 0
 	for t in tags:
 		m |= int(tag_mask_by_id.get(String(t), 0))
 	return m
-
