@@ -1,9 +1,5 @@
 extends Node
 
-## 显式 preload，避免依赖 class_name 全局注册时机
-##（某些情况下 addons 下脚本的 class_name 可能尚未进入全局类表）
-const OmniReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
-
 ## 运行时共享对象（便于拆分函数后复用）
 var replay: RefCounted
 var enums_rt: OmniEnumsRuntime
@@ -12,6 +8,11 @@ var pipe: OmniDamagePipeline
 
 func _ready() -> void:
 	print("[OmniBuffDemo] boot")
+	# 要求：通过“启用插件 -> 安装 Autoload：OmniBuff”来提供全局入口。
+	# 若未启用插件，则这里直接报错并退出（符合“禁用插件则无相关全局变量”的约束）。
+	if get_node_or_null("/root/OmniBuff") == null:
+		push_error("[OmniBuffDemo] OmniBuff autoload missing. Please enable OmniBuff plugin in Project Settings -> Plugins.")
+		return
 	# 注意：这是最小可运行 demo，用于验证：
 	# - manifest/enums 加载成功（strict）
 	# - stat_id/buff_id 编译映射可用
@@ -20,8 +21,8 @@ func _ready() -> void:
 	# - DamagePipeline 阶段点触发事件时，只遍历 EventIndex 子集
 	# - DOT 按来源独立实例、每跳读取来源 StatCache
 	# - 驱散语义（默认不驱散隐式）
-	replay = OmniReplayScript.new()
-	pipe = OmniDamagePipeline.new()
+	replay = OmniBuff.Replay.new()
+	pipe = OmniBuff.DamagePipeline.new()
 
 	_load_dataset()
 	_test_stat_cache_dirty()
