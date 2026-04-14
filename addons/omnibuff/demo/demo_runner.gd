@@ -2,6 +2,12 @@ extends Node
 
 func _ready() -> void:
 	print("[OmniBuffDemo] boot")
+	# 注意：这是最小可运行 demo，用于验证：
+	# - manifest/enums 加载成功（strict）
+	# - stat_id/buff_id 编译映射可用
+	# - StatCache dirty 行为正确
+	# - Buff 注入 modifier 时只标脏对应 stat（不遍历全buff）
+	# - DamagePipeline 阶段点触发事件时，只遍历 EventIndex 子集
 	var result := OmniManifestLoader.load_dataset("res://data/base_demo/manifest.json", true)
 	for issue in result.issues:
 		push_error("%s %s %s %s: %s" % [issue.level, issue.file, issue.loc, issue.id, issue.message])

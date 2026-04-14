@@ -2,6 +2,15 @@ class_name OmniDatasetCompiler
 extends RefCounted
 
 static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: Dictionary) -> OmniCompiledDataset:
+	## 编译 raw defs -> CompiledDataset（最小可用版）
+	##
+	## 约束：
+	## - 这里是“Schema字段名”允许出现的边界（Parser/Compiler 层）
+	## - 运行时核心（Stats/Buff/Damage）只允许读 OmniCompiledDataset
+	##
+	## 当前版本只编译：
+	## - stat_defs.stats[] -> stat_id 映射 + defs数组
+	## - buff_defs.buffs[] -> buff_id 映射 + defs数组
 	var ds := OmniCompiledDataset.new()
 
 	# stats
@@ -19,4 +28,3 @@ static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: D
 		ds.buff_defs.append(b)
 
 	return ds
-

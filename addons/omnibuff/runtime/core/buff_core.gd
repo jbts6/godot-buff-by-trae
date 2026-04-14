@@ -1,23 +1,54 @@
 class_name OmniBuffCore
 extends RefCounted
 
+## Buff核心（最小可用版）
+##
+## 设计原则（本项目硬约束）：
+## - **禁止**在一次伤害结算里遍历“攻击者全部Buff + 防守者全部Buff”
+## - 属性型影响：Buff变动时，把 modifier 注入 StatsCore 的 per-stat 聚合列表，并标脏对应 stat
+## - 事件型影响：Buff变动时，把 trigger 注册到 EventIndex；事件触发时只遍历 listeners[key] 子集
+##
+## 当前实现范围（为了先跑通闭环）：
+## - effects 仅支持：kind=modifier 且 op=ADD 且 phase=FLAT（平铺加成）
+## - triggers 仅支持：
+##   - filters.tag_mask_any（可选）
+##   - action.kind="ADD_BASE_DAMAGE"（在 BEFORE_DEAL 等阶段修改 ctx.base_damage）
+
 class OmniModifierRef:
+	## 目标 stat（编译后 int 索引）
 	var stat_id: int
+	## 平铺加成值（当前版本仅支持 add_value）
 	var add_value: float
+	## 来源 BuffInstance 的 inst_id（用于追帧/撤销/调试）
 	var source_inst_id: int
 
 class BuffInst:
+	## 实例唯一ID（运行时递增）
 	var inst_id: int
+	## buff_def_id（编译后 int 索引）
 	var buff_def_id: int
+	## 来源实体（用于归因/驱散；当前版本仅存 entity_id）
 	var source_entity_id: int
+	## 层数（当前版本未实现叠加策略，仅占位）
 	var stacks: int
+	## 剩余回合数（当前版本未实现tick/到期，仅占位）
 	var remaining_turns: int
+	## 该实例注入到 StatsCore 的 modifier 引用（用于将来撤销/重建聚合视图）
 	var modifier_refs: Array[OmniModifierRef] = []
 
+## 编译数据集（只读）
 var ds: OmniCompiledDataset
+
+## enums运行时映射（字符串枚举/Tag -> int/bitmask）
 var enums_rt: OmniEnumsRuntime
+
+## 事件索引：key(event_type+phase) -> listeners 子集
 var event_index: OmniEventIndex
+
+## 分配 inst_id 的自增计数器
 var next_inst_id := 1
+
+## 最近一次 emit_event 命中的 buff inst_id 列表（用于追帧/调试）
 var _triggered_inst_ids_last_emit: PackedInt32Array = PackedInt32Array()
 
 func _init(dataset: OmniCompiledDataset, enums_runtime: OmniEnumsRuntime = null) -> void:
@@ -30,6 +61,11 @@ func _init(dataset: OmniCompiledDataset, enums_runtime: OmniEnumsRuntime = null)
 		event_index = OmniEventIndex.new(1)
 
 func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id: int) -> int:
+	## 施加一个 buff（最小可用版）
+	## - stats：目标实体的 StatsComponent
+	## - buff_id_str：配置层字符串ID（内部映射到 buff_def_id）
+	## - source_entity_id：来源实体ID（归因/驱散占位）
+	## 返回：inst_id（用于追帧/未来撤销）
 	var bdid := ds.buff_id(buff_id_str)
 	if bdid < 0:
 		push_error("[Buff] unknown buff_id=" + buff_id_str)
@@ -43,6 +79,7 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	inst.stacks = 1
 	inst.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", -1))
 
+	# === effects -> StatsCore（属性型：变动时维护聚合视图）===
 	var effects: Array = ds.buff_defs[bdid].get("effects", [])
 	for e in effects:
 		if String(e.get("kind", "")) != "modifier":
@@ -67,7 +104,7 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		stats.core.modifiers_by_stat[stat_id].append(mr)
 		stats.core.mark_dirty(stat_id)
 
-	# triggers -> EventIndex
+	# === triggers -> EventIndex（事件型：变动时注册监听）===
 	if enums_rt != null:
 		var triggers: Array = ds.buff_defs[bdid].get("triggers", [])
 		for t in triggers:
@@ -94,6 +131,12 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	return inst.inst_id
 
 func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
+	## 触发事件（最小可用版）
+	## 重要：此函数只遍历 listeners[key]（监听该事件的子集），满足“禁止遍历全部Buff”的性能约束。
+	##
+	## ctx 约定字段（当前版本）：
+	## - ctx.tags_mask : int（用于 filters.tag_mask_any）
+	## - ctx.base_damage : float（用于 action.ADD_BASE_DAMAGE）
 	_triggered_inst_ids_last_emit = PackedInt32Array()
 	if enums_rt == null:
 		return
@@ -116,4 +159,5 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				pass
 
 func get_triggered_inst_ids_last_emit() -> PackedInt32Array:
+	## 返回最近一次 emit_event 命中的 buff inst_id 列表（按触发顺序）
 	return _triggered_inst_ids_last_emit
