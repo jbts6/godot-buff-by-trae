@@ -18,6 +18,8 @@ class Listener:
 	var key: int
 	## 监听者所属的 buff inst_id（用于追帧/调试/未来驱散后注销）
 	var inst_id: int
+	## 是否生效（驱散/到期后可设为 false；emit_event 应跳过 inactive）
+	var active: bool = true
 	## 过滤器：要求 ctx.tags_mask 至少命中一个 bit（0表示不做tag过滤）
 	var filter_tag_mask: int
 	## 动作类型（当前最小实现：ADD_BASE_DAMAGE）

@@ -81,3 +81,14 @@ func _ready() -> void:
 	for i in range(3):
 		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds)
 		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
+
+	# 驱散（M7）最小验证：
+	# - 给目标加一个显式增益（食物ATK+20，tag=BUFF）
+	# - 再按 tag=BUFF 驱散：应移除显式buff，但默认不影响隐式装备buff
+	var dispel_target := OmniStatsComponent.new(401, ds)
+	var dispel_target_buff := OmniBuffCore.new(ds, enums_rt)
+	dispel_target_buff.apply_buff(dispel_target, "buff_equip_weapon_001", 999) # IMPLICIT，ATK+20
+	dispel_target_buff.apply_buff(dispel_target, "buff_food_atk_20_5t", 999)  # EXPLICIT，ATK+20
+	print("[OmniBuffDemo] Dispel: ATK(before)=", dispel_target.get_final(ds.stat_id("ATK")))
+	var removed := dispel_target_buff.dispel_by_tag(dispel_target, "BUFF", false)
+	print("[OmniBuffDemo] Dispel: removed=", removed, " ATK(after)=", dispel_target.get_final(ds.stat_id("ATK")))

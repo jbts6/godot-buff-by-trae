@@ -31,6 +31,12 @@ class BuffInst:
 	var inst_id: int
 	## buff_def_id（编译后 int 索引）
 	var buff_def_id: int
+	## buff_type（配置层字符串：EXPLICIT/IMPLICIT/PASSIVE/AURA），用于驱散语义
+	var buff_type: String
+	## tag_mask（bitmask），用于按Tag驱散与 filters
+	var tag_mask: int
+	## 是否不可驱散（true表示任何驱散操作都应跳过）
+	var undispellable: bool = false
 	## 来源实体（用于归因/驱散；当前版本仅存 entity_id）
 	var source_entity_id: int
 	## 层数（当前版本未实现叠加策略，仅占位）
@@ -83,6 +89,20 @@ var _triggered_inst_ids_last_emit: PackedInt32Array = PackedInt32Array()
 ## 注意：本最小实现将DOT存放在“目标实体的 BuffCore”中（最贴近逻辑归属）。
 var dots_by_target: Dictionary = {}
 
+## Buff实例表（仅存放“挂在本 BuffCore.owner_entity_id 上的实例”）
+## - instances_by_id：inst_id -> BuffInst
+## - inst_ids：稳定遍历用（inst_id 升序；用于驱散/到期）
+var instances_by_id: Dictionary = {}
+var inst_ids: Array[int] = []
+
+## inst_id -> listener_id[]（用于驱散/到期时注销事件监听）
+var listener_ids_by_inst: Dictionary = {}
+
+## 目标对“驱散”操作的免疫标签（bitmask）。
+## - 若驱散请求的 tag_mask 与该 mask 有交集，则此次驱散直接失败（返回0）。
+## - 这是“被驱散免疫”（例如某单位天生不可被驱散某类效果）的最小实现。
+var target_dispel_immunity_mask: int = 0
+
 ## 该 BuffCore 的归属实体（目标实体）；
 ## 当前实现通过首次 apply_buff 的 stats.entity_id 自动绑定，用于tick阶段定位。
 var owner_entity_id: int = -1
@@ -111,15 +131,32 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	inst.inst_id = next_inst_id
 	next_inst_id += 1
 	inst.buff_def_id = bdid
+	inst.buff_type = String(ds.buff_defs[bdid].get("buff_type", ""))
 	inst.source_entity_id = source_entity_id
 	inst.stacks = 1
 	inst.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", -1))
+	# tags -> bitmask（用于驱散与 filters）
+	if enums_rt != null:
+		inst.tag_mask = enums_rt.tag_mask(ds.buff_defs[bdid].get("tags", []))
+	else:
+		inst.tag_mask = 0
+
+	# dispel语义（最小实现）：
+	# - 若配置存在 dispel.dispellable=false，则视为不可驱散
+	var dispel_def: Dictionary = ds.buff_defs[bdid].get("dispel", {})
+	if not dispel_def.is_empty():
+		inst.undispellable = (bool(dispel_def.get("dispellable", true)) == false)
 
 	# 绑定 BuffCore 的归属实体（用于 tick）
 	if owner_entity_id < 0:
 		owner_entity_id = stats.entity_id
 	elif owner_entity_id != stats.entity_id:
 		push_warning("[Buff] owner_entity_id mismatch. expected=%s got=%s" % [owner_entity_id, stats.entity_id])
+
+	# 保存实例（用于驱散/到期等管理；稳定顺序按 inst_id 升序）
+	instances_by_id[inst.inst_id] = inst
+	inst_ids.append(inst.inst_id)
+	inst_ids.sort()
 
 	# === effects -> StatsCore（属性型：变动时维护聚合视图）===
 	var effects: Array = ds.buff_defs[bdid].get("effects", [])
@@ -168,7 +205,10 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 			l.filter_tag_mask = filter_mask
 			l.action_kind = String(action.get("kind", ""))
 			l.action_value = float(action.get("value", 0.0))
-			event_index.register_listener(key, l)
+			var lid := event_index.register_listener(key, l)
+			if not listener_ids_by_inst.has(inst.inst_id):
+				listener_ids_by_inst[inst.inst_id] = PackedInt32Array()
+			(listener_ids_by_inst[inst.inst_id] as PackedInt32Array).append(lid)
 
 	# === DOT实例（按来源独立）===
 	# 规则：只要 buff_defs[bdid] 存在 dot 字段，则视为DOT型buff；每次施加创建新的 DotInstance
@@ -195,6 +235,122 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		(dots_by_target[stats.entity_id] as Array).append(d)
 
 	return inst.inst_id
+
+func set_target_dispel_immunity_tags(tags: Array) -> void:
+	## 设置“驱散免疫”标签集合（bitmask）
+	## 语义：若驱散请求的 tag_mask 与该 mask 有交集，则本次驱散直接不生效（返回0）。
+	if enums_rt == null:
+		target_dispel_immunity_mask = 0
+		return
+	target_dispel_immunity_mask = enums_rt.tag_mask(tags)
+
+func remove_by_instance(stats: OmniStatsComponent, inst_id: int, force: bool = false) -> bool:
+	## 移除一个 buff 实例（用于驱散/到期/脚本主动移除）
+	## - force=false：遵守不可驱散（undispellable）规则
+	## - force=true：强制移除（系统清理/调试）
+	var inst: BuffInst = instances_by_id.get(inst_id, null)
+	if inst == null:
+		return false
+	if (not force) and inst.undispellable:
+		return false
+
+	# 1) 从 StatsCore 聚合视图中撤销 modifier
+	for mr in inst.modifier_refs:
+		var stat_id := int(mr.stat_id)
+		var list: Array = stats.core.modifiers_by_stat[stat_id]
+		var kept: Array = []
+		for x in list:
+			if int(x.source_inst_id) != inst_id:
+				kept.append(x)
+		stats.core.modifiers_by_stat[stat_id] = kept
+		stats.core.mark_dirty(stat_id)
+
+	# 2) 注销事件监听（从 listeners[key] 列表中移除 + 标记 inactive）
+	_unregister_listeners_for_inst(inst_id)
+
+	# 3) 从实例表移除
+	instances_by_id.erase(inst_id)
+	var new_ids: Array[int] = []
+	for id in inst_ids:
+		if id != inst_id:
+			new_ids.append(id)
+	inst_ids = new_ids
+	listener_ids_by_inst.erase(inst_id)
+	return true
+
+func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: bool = false) -> int:
+	## 按 Tag 驱散（M7）
+	## - include_implicit=false：默认不驱散 IMPLICIT/PASSIVE（符合“装备/加点/套装不应被常规驱散”）
+	if enums_rt == null:
+		return 0
+	var tag_mask := enums_rt.tag_mask([tag_id])
+	if tag_mask == 0:
+		return 0
+	if (target_dispel_immunity_mask & tag_mask) != 0:
+		return 0
+
+	var removed := 0
+	for id in inst_ids:
+		var inst: BuffInst = instances_by_id.get(id, null)
+		if inst == null:
+			continue
+		if (not include_implicit) and (inst.buff_type == "IMPLICIT" or inst.buff_type == "PASSIVE"):
+			continue
+		if inst.undispellable:
+			continue
+		if (inst.tag_mask & tag_mask) != 0:
+			if remove_by_instance(stats, inst.inst_id, true):
+				removed += 1
+	return removed
+
+func dispel_by_source(stats: OmniStatsComponent, source_entity_id: int, include_implicit: bool = false) -> int:
+	## 按来源实体驱散（M7）
+	var removed := 0
+	for id in inst_ids:
+		var inst: BuffInst = instances_by_id.get(id, null)
+		if inst == null:
+			continue
+		if (not include_implicit) and (inst.buff_type == "IMPLICIT" or inst.buff_type == "PASSIVE"):
+			continue
+		if inst.undispellable:
+			continue
+		if inst.source_entity_id == source_entity_id:
+			if remove_by_instance(stats, inst.inst_id, true):
+				removed += 1
+	return removed
+
+func dispel_by_type(stats: OmniStatsComponent, buff_type: String) -> int:
+	## 按 Buff 类型驱散（M7）
+	## buff_type 示例："EXPLICIT"（常用：只驱散战斗中获得的显式buff/debuff）
+	var removed := 0
+	for id in inst_ids:
+		var inst: BuffInst = instances_by_id.get(id, null)
+		if inst == null:
+			continue
+		if inst.undispellable:
+			continue
+		if inst.buff_type == buff_type:
+			if remove_by_instance(stats, inst.inst_id, true):
+				removed += 1
+	return removed
+
+func _unregister_listeners_for_inst(inst_id: int) -> void:
+	# 内部：注销一个实例注册过的 listener
+	if not listener_ids_by_inst.has(inst_id):
+		return
+	var lids: PackedInt32Array = listener_ids_by_inst[inst_id]
+	for lid in lids:
+		var l = event_index.listener_data[lid]
+		if l != null:
+			l.active = false
+			var key: int = int(l.key)
+			# 从 listeners[key] 中移除该 lid（最小实现：重建数组）
+			var arr := event_index.listeners[key]
+			var out := PackedInt32Array()
+			for x in arr:
+				if x != lid:
+					out.append(x)
+			event_index.listeners[key] = out
 
 func on_turn_start(_turn_index: int) -> void:
 	# 当前最小实现：DOT默认在TURN_END结算；此接口用于保持结构完整
@@ -269,6 +425,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	var arr := event_index.get_listeners_for(key)
 	for lid in arr:
 		var l := event_index.listener_data[lid]
+		if l == null or l.active == false:
+			continue
 		if l.filter_tag_mask != 0:
 			if (int(ctx.tags_mask) & l.filter_tag_mask) == 0:
 				continue
