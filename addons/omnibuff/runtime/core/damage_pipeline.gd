@@ -24,7 +24,7 @@ class DamageContext:
 	## 最终伤害（resolve后得到，apply阶段用于扣血/护盾）
 	var final_damage: float = 0.0
 
-func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: OmniReplay = null, turn_index: int = 0, tags_mask: int = 0) -> DamageContext:
+func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
 	## 性能约束：
@@ -43,7 +43,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 
 	# === build ===
 	buff_attacker.emit_event("DAMAGE", "BUILD", ctx)
-	if replay != null:
+	if replay != null and replay.has_method("trace_damage"):
 		var a := buff_attacker.get_triggered_inst_ids_last_emit()
 		stage_triggers["BUILD"] = a.duplicate()
 		for x in a:
@@ -51,7 +51,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 
 	# === before_deal（攻击方）===
 	buff_attacker.emit_event("DAMAGE", "BEFORE_DEAL", ctx)
-	if replay != null:
+	if replay != null and replay.has_method("trace_damage"):
 		var b := buff_attacker.get_triggered_inst_ids_last_emit()
 		stage_triggers["BEFORE_DEAL"] = b.duplicate()
 		for x in b:
@@ -59,7 +59,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 
 	# === before_take（防守方）===
 	buff_defender.emit_event("DAMAGE", "BEFORE_TAKE", ctx)
-	if replay != null:
+	if replay != null and replay.has_method("trace_damage"):
 		var c := buff_defender.get_triggered_inst_ids_last_emit()
 		stage_triggers["BEFORE_TAKE"] = c.duplicate()
 		for x in c:
@@ -74,7 +74,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	# === apply（护盾/扣血）===
 	buff_attacker.emit_event("DAMAGE", "APPLY", ctx)
 	buff_defender.emit_event("DAMAGE", "APPLY", ctx)
-	if replay != null:
+	if replay != null and replay.has_method("trace_damage"):
 		var d1 := buff_attacker.get_triggered_inst_ids_last_emit()
 		var d2 := buff_defender.get_triggered_inst_ids_last_emit()
 		stage_triggers["APPLY_ATK"] = d1.duplicate()
@@ -88,7 +88,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	# === after_deal / after_take ===
 	buff_attacker.emit_event("DAMAGE", "AFTER_DEAL", ctx)
 	buff_defender.emit_event("DAMAGE", "AFTER_TAKE", ctx)
-	if replay != null:
+	if replay != null and replay.has_method("trace_damage"):
 		var e1 := buff_attacker.get_triggered_inst_ids_last_emit()
 		var e2 := buff_defender.get_triggered_inst_ids_last_emit()
 		stage_triggers["AFTER_DEAL"] = e1.duplicate()
@@ -101,7 +101,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 		replay.trace_damage(turn_index, ctx, triggered_all, stage_triggers)
 	return ctx
 
-func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: OmniReplay = null, turn_index: int = 0) -> DamageContext:
+func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: RefCounted = null, turn_index: int = 0) -> DamageContext:
 	## 与 deal_damage 相同，但允许外部指定 ctx.tags_mask（用于 filters 与追帧）
 	##
 	## 注意：tags_mask 必须在 BUILD/BEFORE_DEAL/BEFORE_TAKE 阶段之前写入，

@@ -1,8 +1,12 @@
 extends Node
 
+## 显式 preload，避免依赖 class_name 全局注册时机
+##（某些情况下 addons 下脚本的 class_name 可能尚未进入全局类表）
+const OmniReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
+
 func _ready() -> void:
 	print("[OmniBuffDemo] boot")
-	var replay := OmniReplay.new()
+	var replay := OmniReplayScript.new()
 	# 注意：这是最小可运行 demo，用于验证：
 	# - manifest/enums 加载成功（strict）
 	# - stat_id/buff_id 编译映射可用

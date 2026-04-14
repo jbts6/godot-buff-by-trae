@@ -391,7 +391,7 @@ func on_turn_start(_turn_index: int) -> void:
 	# 当前最小实现：DOT默认在TURN_END结算；此接口用于保持结构完整
 	pass
 
-func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: OmniReplay = null) -> void:
+func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted = null) -> void:
 	# TurnEnd tick（DOT结算）
 	# 注意：这里不能遍历“所有buff实例”，只能遍历已建索引的数据结构（DOT池/事件索引等）
 	if owner_entity_id < 0:
@@ -436,7 +436,7 @@ func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: D
 		var ctx := pipeline.deal_damage_with_tags(source_stats, target_stats, source_buff, target_buff, dataset, base_damage, d.tags_mask, replay, turn_index)
 
 		# 追帧：记录 DOT 每跳的“来源属性快照”与最终伤害（用于证明走StatCache）
-		if replay != null:
+		if replay != null and replay.has_method("trace_dot_tick"):
 			replay.trace_dot_tick(
 				turn_index,
 				int(d.dot_inst_id),
