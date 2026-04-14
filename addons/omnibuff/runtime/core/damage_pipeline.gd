@@ -104,41 +104,49 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	var def := defender.get_final(ds.stat_id("DEF"))
 	var raw := max(0.0, ctx.base_damage + atk - def)
 
-	# 命中判定（确定性 xorshift32 roll）
-	# hit_chance = clamp(HIT_RATE - EVADE, 0..1)
-	var hit_rate := 1.0
-	var evade := 0.0
 	var hit_id := ds.stat_id("HIT_RATE")
 	var evade_id := ds.stat_id("EVADE")
-	if hit_id >= 0:
-		hit_rate = float(attacker.get_final(hit_id))
-	if evade_id >= 0:
-		evade = float(defender.get_final(evade_id))
-	var hit_chance := clamp(hit_rate - evade, 0.0, 1.0)
-	var hit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _HIT_SALT)
-	if hit_roll >= hit_chance:
-		ctx.hit = false
-		ctx.crit = false
-		ctx.final_damage = 0.0
-	else:
+	# 兼容旧数据集（base_demo）：
+	# - 若数据集中不包含 HIT_RATE/EVADE，则视为“未启用命中/暴击系统”
+	# - 这样不会因为未来预留的 CRIT_RATE/CRIT_DMG 出现在 stat_defs 就改变旧用例的期望数值
+	if hit_id < 0 and evade_id < 0:
 		ctx.hit = true
+		ctx.crit = false
 		ctx.final_damage = raw
-
-		# 暴击判定（使用不同 salt 扰动 seed）
-		var crit_rate := 0.0
-		var crit_dmg := 0.0
-		var crit_rate_id := ds.stat_id("CRIT_RATE")
-		var crit_dmg_id := ds.stat_id("CRIT_DMG")
-		if crit_rate_id >= 0:
-			crit_rate = float(attacker.get_final(crit_rate_id))
-		if crit_dmg_id >= 0:
-			crit_dmg = float(attacker.get_final(crit_dmg_id))
-		var crit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _CRIT_SALT)
-		if crit_roll < crit_rate:
-			ctx.crit = true
-			ctx.final_damage = ctx.final_damage * (1.0 + crit_dmg)
-		else:
+	else:
+		# 命中判定（确定性 xorshift32 roll）
+		# hit_chance = clamp(HIT_RATE - EVADE, 0..1)
+		var hit_rate := 1.0
+		var evade := 0.0
+		if hit_id >= 0:
+			hit_rate = float(attacker.get_final(hit_id))
+		if evade_id >= 0:
+			evade = float(defender.get_final(evade_id))
+		var hit_chance := clamp(hit_rate - evade, 0.0, 1.0)
+		var hit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _HIT_SALT)
+		if hit_roll >= hit_chance:
+			ctx.hit = false
 			ctx.crit = false
+			ctx.final_damage = 0.0
+		else:
+			ctx.hit = true
+			ctx.final_damage = raw
+
+			# 暴击判定（使用不同 salt 扰动 seed）
+			var crit_rate := 0.0
+			var crit_dmg := 0.0
+			var crit_rate_id := ds.stat_id("CRIT_RATE")
+			var crit_dmg_id := ds.stat_id("CRIT_DMG")
+			if crit_rate_id >= 0:
+				crit_rate = float(attacker.get_final(crit_rate_id))
+			if crit_dmg_id >= 0:
+				crit_dmg = float(attacker.get_final(crit_dmg_id))
+			var crit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _CRIT_SALT)
+			if crit_roll < crit_rate:
+				ctx.crit = true
+				ctx.final_damage = ctx.final_damage * (1.0 + crit_dmg)
+			else:
+				ctx.crit = false
 
 	# === defender damage reduction（减伤）===
 	# 约定：DMG_REDUCE 表示“受到伤害减少比例”，在 resolve 后、APPLY（护盾/扣血）前生效。
