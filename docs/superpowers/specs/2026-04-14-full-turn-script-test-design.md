@@ -7,7 +7,7 @@
 1. 护盾（SHIELD）吸收
 2. 三连击（多段攻击）
 3. 每段攻击 AFTER_DEAL 施加 DOT
-4. 回合结束 DOT 结算（TurnEnd）
+4. DOT 结算在“目标回合开始”（TurnStart）
 5. 驱散（按 tag=DEBUFF）
 6. 驱散免疫（对 DEBUFF 免疫，驱散失败）
 
@@ -54,17 +54,17 @@
 动作：
 - attacker 施加 `buff_on_hit_apply_dot`（DAMAGE/AFTER_DEAL -> APPLY_BUFF -> buff_dot_fire_3t）
 - 对 defender 连续 3 段攻击：base_damage = [12, 14, 18]
-- TurnEnd：结算 DOT（应结算 3 个 DOT 实例）
 
 断言：
 - 三连结束后：defender 身上 DOT 实例数 == 3（都为 buff_dot_fire_3t）
-- TurnEnd 后：新增 DotTrace 条数 == 3；每条 source_entity_id == attacker_id
+- Turn 3 Start：结算 DOT（应结算 3 个 DOT 实例）
+- Turn 3 Start 后：新增 DotTrace 条数 == 3；每条 source_entity_id == attacker_id
 - SHIELD/HP 数值：护盾先吸收，再扣血（按当前 DamagePipeline 逻辑）
 
 ### Turn 3：驱散（按 tag=DEBUFF）
 动作：
 - 对 defender 执行 `dispel_by_tag("DEBUFF", false)`
-- TurnEnd：再次结算 DOT（预期不会再产生 trace）
+- Turn 4 Start：再次结算 DOT（预期不会再产生 trace）
 
 断言：
 - removed > 0（至少移除 DOT）
@@ -72,16 +72,16 @@
 
 ### Turn 4：免疫驱散（对 DEBUFF 免疫）
 动作：
-- 再次通过三连击给 defender 挂 3 个 DOT（同 Turn2）
+- 再次通过三连击给 defender 挂 3 个 DOT（同 Turn2；DOT 将在 Turn 5 Start 结算）
 - 给 defender 设置“驱散免疫 DEBUFF”
   - 方案：直接设置 `defender_buff.target_dispel_immunity_mask |= tag_mask(["DEBUFF"])`
   - 或新增 `buff_dispel_immune_debuff`（若希望完全数据驱动）
 - 执行驱散：`dispel_by_tag("DEBUFF", false)`（预期失败）
-- TurnEnd：DOT 仍应结算（产生 trace）
+- Turn 5 Start：DOT 仍应结算（产生 trace）
 
 断言：
 - removed == 0
-- TurnEnd 新增 DotTrace 条数 == 3
+- Turn 5 Start 新增 DotTrace 条数 == 3
 
 ---
 
@@ -107,4 +107,3 @@
 - GUT 中该测试脚本 PASS
 - 断言覆盖：护盾消耗顺序、DOT 实例数量、DOT trace 数量、驱散成功/失败、免疫语义
 - 测试输出不依赖肉眼观察（所有关键点都有 assert）
-
