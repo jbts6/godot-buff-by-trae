@@ -352,6 +352,41 @@ func _unregister_listeners_for_inst(inst_id: int) -> void:
 					out.append(x)
 			event_index.listeners[key] = out
 
+func debug_dump_instances() -> String:
+	## 调试：打印当前目标身上的 BuffInstance 列表（用于验证驱散/到期是否正确）
+	## 输出字段：
+	## - inst_id
+	## - buff_def_id -> buff_id（从 compiled defs 反查）
+	## - buff_type / source_entity_id / undispellable / tag_mask
+	var lines: Array[String] = []
+	lines.append("[BuffDump] owner=%s count=%s" % [owner_entity_id, inst_ids.size()])
+	for id in inst_ids:
+		var inst: BuffInst = instances_by_id.get(id, null)
+		if inst == null:
+			continue
+		var def: Dictionary = ds.buff_defs[inst.buff_def_id]
+		var buff_id_str := String(def.get("id", ""))
+		lines.append("  inst_id=%s buff_id=%s type=%s src=%s undisp=%s tag_mask=%s" % [
+			inst.inst_id,
+			buff_id_str,
+			inst.buff_type,
+			inst.source_entity_id,
+			inst.undispellable,
+			inst.tag_mask
+		])
+	return "\n".join(lines)
+
+func debug_dump_stat_modifiers(stats: OmniStatsComponent, stat_id: int) -> String:
+	## 调试：打印某个 stat 的 modifier 列表（聚合视图），确认撤销是否正确。
+	## 输出字段：
+	## - add_value
+	## - source_inst_id
+	var lines: Array[String] = []
+	lines.append("[StatMods] entity=%s stat_id=%s count=%s" % [stats.entity_id, stat_id, (stats.core.modifiers_by_stat[stat_id] as Array).size()])
+	for m in stats.core.modifiers_by_stat[stat_id]:
+		lines.append("  +%s (from inst_id=%s)" % [float(m.add_value), int(m.source_inst_id)])
+	return "\n".join(lines)
+
 func on_turn_start(_turn_index: int) -> void:
 	# 当前最小实现：DOT默认在TURN_END结算；此接口用于保持结构完整
 	pass

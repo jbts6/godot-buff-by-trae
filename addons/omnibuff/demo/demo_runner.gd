@@ -90,5 +90,9 @@ func _ready() -> void:
 	dispel_target_buff.apply_buff(dispel_target, "buff_equip_weapon_001", 999) # IMPLICIT，ATK+20
 	dispel_target_buff.apply_buff(dispel_target, "buff_food_atk_20_5t", 999)  # EXPLICIT，ATK+20
 	print("[OmniBuffDemo] Dispel: ATK(before)=", dispel_target.get_final(ds.stat_id("ATK")))
+	print(dispel_target_buff.debug_dump_instances())
+	print(dispel_target_buff.debug_dump_stat_modifiers(dispel_target, ds.stat_id("ATK")))
 	var removed := dispel_target_buff.dispel_by_tag(dispel_target, "BUFF", false)
 	print("[OmniBuffDemo] Dispel: removed=", removed, " ATK(after)=", dispel_target.get_final(ds.stat_id("ATK")))
+	print(dispel_target_buff.debug_dump_instances())
+	print(dispel_target_buff.debug_dump_stat_modifiers(dispel_target, ds.stat_id("ATK")))
