@@ -87,6 +87,7 @@ func _ready() -> void:
 	for i in range(3):
 		turn.on_turn_end(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 		print("[OmniBuffDemo] DOT tick#", i + 1, " target_hp=", target.get_final(ds.stat_id("HP")))
+		print(replay.debug_dump_last_dot())
 
 	# 驱散（M7）最小验证：
 	# - 给目标加一个显式增益（食物ATK+20，tag=BUFF）

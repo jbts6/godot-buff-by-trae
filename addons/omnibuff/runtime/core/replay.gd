@@ -130,3 +130,21 @@ func debug_dump_last_damage() -> String:
 		t.turn, t.attacker_id, t.defender_id, t.base_damage, t.final_damage, t.triggered_inst_ids
 	]
 
+func debug_dump_last_dot() -> String:
+	## 调试：输出最近一次 DOT tick 的追帧信息
+	if dot_traces.is_empty():
+		return "[DotTrace] <empty>"
+	var t: DotTrace = dot_traces[dot_traces.size() - 1]
+	return "[DotTrace] turn=%s dot_inst=%s owner_buff_inst=%s src=%s tgt=%s read=%s=%.2f ratio=%.3f base=%.2f final=%.2f tags=%s" % [
+		t.turn,
+		t.dot_inst_id,
+		t.owner_buff_inst_id,
+		t.source_entity_id,
+		t.target_entity_id,
+		t.read_source_stat,
+		t.source_stat_value,
+		t.base_ratio,
+		t.base_damage,
+		t.final_damage,
+		t.tags_mask
+	]
