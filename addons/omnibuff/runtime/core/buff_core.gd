@@ -39,6 +39,8 @@ class OmniModifierRef:
 class BuffInst:
 	## 实例唯一ID（运行时递增）
 	var inst_id: int
+	## ownership_key（用于 REPLACE/ADD_STACK 的查找/替换/叠层；MULTI_INSTANCE 为 -1）
+	var ownership_key: int = -1
 	## buff_def_id（编译后 int 索引）
 	var buff_def_id: int
 	## buff_type（配置层字符串：EXPLICIT/IMPLICIT/PASSIVE/AURA），用于驱散语义
@@ -108,6 +110,9 @@ var inst_ids: Array[int] = []
 ## inst_id -> listener_id[]（用于驱散/到期时注销事件监听）
 var listener_ids_by_inst: Dictionary = {}
 
+## ownership_key -> inst_id（用于 REPLACE/ADD_STACK 的快速定位；MULTI_INSTANCE 不入表）
+var inst_id_by_ownership: Dictionary = {}
+
 ## 目标对“驱散”操作的免疫标签（bitmask）。
 ## - 若驱散请求的 tag_mask 与该 mask 有交集，则此次驱散直接失败（返回0）。
 ## - 这是“被驱散免疫”（例如某单位天生不可被驱散某类效果）的最小实现。
@@ -126,20 +131,74 @@ func _init(dataset: OmniCompiledDataset, enums_runtime: OmniEnumsRuntime = null)
 	else:
 		event_index = OmniEventIndex.new(1)
 
+static func _ownership_key(bdid: int, ownership_mode: String, source_entity_id: int) -> int:
+	# 说明：最小实现使用 int key；若未来 entity_id 可能超过 65535，可改为 String key。
+	var k := 0
+	if ownership_mode == "BY_SOURCE_INSTANCE":
+		k = source_entity_id
+	return (bdid << 16) ^ (k & 0xffff)
+
 func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id: int) -> int:
-	## 施加一个 buff（最小可用版）
-	## - stats：目标实体的 StatsComponent
-	## - buff_id_str：配置层字符串ID（内部映射到 buff_def_id）
-	## - source_entity_id：来源实体ID（归因/驱散占位）
-	## 返回：inst_id（用于追帧/未来撤销）
+	## 施加一个 buff（生命周期 A1：叠加/归属）
+	## - stack.mode: REPLACE / ADD_STACK / MULTI_INSTANCE
+	## - stack.ownership_mode: GLOBAL / BY_SOURCE_INSTANCE
 	var bdid := ds.buff_id(buff_id_str)
 	if bdid < 0:
 		push_error("[Buff] unknown buff_id=" + buff_id_str)
 		return -1
 
+	var def: Dictionary = ds.buff_defs[bdid]
+	var stack: Dictionary = def.get("stack", {})
+	var mode := String(stack.get("mode", "REPLACE"))
+	var max_stack := int(stack.get("max_stack", 1))
+	var ownership_mode := String(stack.get("ownership_mode", "GLOBAL"))
+
+	# 兼容：DOT 默认按来源独立、多实例（避免无 stack 配置时语义回归）
+	var dot_def: Dictionary = def.get("dot", {})
+	if (not dot_def.is_empty()) and stack.is_empty():
+		mode = "MULTI_INSTANCE"
+		ownership_mode = "BY_SOURCE_INSTANCE"
+
+	if mode == "MULTI_INSTANCE":
+		return _create_new_instance(stats, bdid, source_entity_id, -1)
+
+	var key := _ownership_key(bdid, ownership_mode, source_entity_id)
+	var old_inst_id := int(inst_id_by_ownership.get(key, -1))
+
+	if old_inst_id < 0:
+		var new_id := _create_new_instance(stats, bdid, source_entity_id, key)
+		inst_id_by_ownership[key] = new_id
+		return new_id
+
+	var old_inst: BuffInst = instances_by_id.get(old_inst_id, null)
+	if old_inst == null:
+		inst_id_by_ownership.erase(key)
+		# 最小恢复：递归一次重新走创建逻辑
+		return apply_buff(stats, buff_id_str, source_entity_id)
+
+	if mode == "REPLACE":
+		remove_by_instance(stats, old_inst_id, true)
+		var new_id := _create_new_instance(stats, bdid, source_entity_id, key)
+		inst_id_by_ownership[key] = new_id
+		return new_id
+
+	if mode == "ADD_STACK":
+		old_inst.stacks = min(old_inst.stacks + 1, max_stack)
+		# 最小刷新语义：重置 remaining_turns
+		old_inst.remaining_turns = int(def.get("duration", {}).get("turns", -1))
+		# 让 modifier 随 stacks 生效（线性：value * stacks）
+		_rebuild_instance_modifiers(stats, old_inst_id)
+		return old_inst_id
+
+	# 未知 mode：退化为 MULTI_INSTANCE（避免“吃掉 buff”）
+	return _create_new_instance(stats, bdid, source_entity_id, -1)
+
+func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id: int, ownership_key: int = -1) -> int:
+	# 内部：创建实例 + 注入 modifiers + 注册 triggers + 生成 DOT（保持旧行为）
 	var inst := BuffInst.new()
 	inst.inst_id = next_inst_id
 	next_inst_id += 1
+	inst.ownership_key = ownership_key
 	inst.buff_def_id = bdid
 	inst.buff_type = String(ds.buff_defs[bdid].get("buff_type", ""))
 	inst.source_entity_id = source_entity_id
@@ -169,39 +228,7 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	inst_ids.sort()
 
 	# === effects -> StatsCore（属性型：变动时维护聚合视图）===
-	var effects: Array = ds.buff_defs[bdid].get("effects", [])
-	for e in effects:
-		if String(e.get("kind", "")) != "modifier":
-			continue
-		var op := String(e.get("op", ""))
-		var phase := String(e.get("phase", ""))
-		# 当前运行时支持：
-		# - ADD/FLAT（平铺加成）
-		# - MUL/PERCENT（百分比加成：最终值按 (base+flat)*(1+pct) 计算）
-		var supported := (op == "ADD" and phase == "FLAT") or (op == "MUL" and phase == "PERCENT")
-		if not supported:
-			continue
-
-		var stat_id := ds.stat_id(String(e.get("stat", "")))
-		if stat_id < 0:
-			push_error("[Buff] unknown stat in effect: " + str(e))
-			continue
-		var v := float(e.get("value", 0.0))
-
-		var mr := OmniModifierRef.new()
-		mr.stat_id = stat_id
-		mr.op = op
-		mr.phase = phase
-		mr.value = v
-		if op == "ADD" and phase == "FLAT":
-			mr.add_value = v
-		else:
-			mr.add_value = 0.0
-		mr.source_inst_id = inst.inst_id
-
-		inst.modifier_refs.append(mr)
-		stats.core.modifiers_by_stat[stat_id].append(mr)
-		stats.core.mark_dirty(stat_id)
+	_rebuild_instance_modifiers(stats, inst.inst_id)
 
 	# === triggers -> EventIndex（事件型：变动时注册监听）===
 	if enums_rt != null:
@@ -263,6 +290,66 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 
 	return inst.inst_id
 
+func _remove_modifiers_for_inst(stats: OmniStatsComponent, inst: BuffInst) -> void:
+	# 内部：仅撤销一个实例注入到 StatsCore 的 modifiers（不移除实例本身）
+	if inst == null:
+		return
+	var inst_id := int(inst.inst_id)
+	for mr in inst.modifier_refs:
+		var stat_id := int(mr.stat_id)
+		var list: Array = stats.core.modifiers_by_stat[stat_id]
+		var kept: Array = []
+		for x in list:
+			if int(x.source_inst_id) != inst_id:
+				kept.append(x)
+		stats.core.modifiers_by_stat[stat_id] = kept
+		stats.core.mark_dirty(stat_id)
+	inst.modifier_refs = []
+
+func _rebuild_instance_modifiers(stats: OmniStatsComponent, inst_id: int) -> void:
+	# 内部：按当前 stacks 重建该实例注入的 modifiers（线性叠加：value * stacks）
+	var inst: BuffInst = instances_by_id.get(inst_id, null)
+	if inst == null:
+		return
+	_remove_modifiers_for_inst(stats, inst)
+
+	var bdid := int(inst.buff_def_id)
+	var def: Dictionary = ds.buff_defs[bdid]
+	var effects: Array = def.get("effects", [])
+	for e in effects:
+		if String(e.get("kind", "")) != "modifier":
+			continue
+		var op := String(e.get("op", ""))
+		var phase := String(e.get("phase", ""))
+		# 当前运行时支持：
+		# - ADD/FLAT（平铺加成）
+		# - MUL/PERCENT（百分比加成：最终值按 (base+flat)*(1+pct) 计算）
+		var supported := (op == "ADD" and phase == "FLAT") or (op == "MUL" and phase == "PERCENT")
+		if not supported:
+			continue
+
+		var stat_id := ds.stat_id(String(e.get("stat", "")))
+		if stat_id < 0:
+			push_error("[Buff] unknown stat in effect: " + str(e))
+			continue
+		var base_v := float(e.get("value", 0.0))
+		var v := base_v * float(max(1, int(inst.stacks)))
+
+		var mr := OmniModifierRef.new()
+		mr.stat_id = stat_id
+		mr.op = op
+		mr.phase = phase
+		mr.value = v
+		if op == "ADD" and phase == "FLAT":
+			mr.add_value = v
+		else:
+			mr.add_value = 0.0
+		mr.source_inst_id = inst.inst_id
+
+		inst.modifier_refs.append(mr)
+		stats.core.modifiers_by_stat[stat_id].append(mr)
+		stats.core.mark_dirty(stat_id)
+
 func set_target_dispel_immunity_tags(tags: Array) -> void:
 	## 设置“驱散免疫”标签集合（bitmask）
 	## 语义：若驱散请求的 tag_mask 与该 mask 有交集，则本次驱散直接不生效（返回0）。
@@ -281,16 +368,14 @@ func remove_by_instance(stats: OmniStatsComponent, inst_id: int, force: bool = f
 	if (not force) and inst.undispellable:
 		return false
 
+	# 0) 同步维护 ownership lookup（避免 remove 后 apply_buff 仍命中旧 inst_id）
+	if inst.ownership_key != -1:
+		var k := int(inst.ownership_key)
+		if inst_id_by_ownership.has(k) and int(inst_id_by_ownership[k]) == inst_id:
+			inst_id_by_ownership.erase(k)
+
 	# 1) 从 StatsCore 聚合视图中撤销 modifier
-	for mr in inst.modifier_refs:
-		var stat_id := int(mr.stat_id)
-		var list: Array = stats.core.modifiers_by_stat[stat_id]
-		var kept: Array = []
-		for x in list:
-			if int(x.source_inst_id) != inst_id:
-				kept.append(x)
-		stats.core.modifiers_by_stat[stat_id] = kept
-		stats.core.mark_dirty(stat_id)
+	_remove_modifiers_for_inst(stats, inst)
 
 	# 2) 注销事件监听（从 listeners[key] 列表中移除 + 标记 inactive）
 	_unregister_listeners_for_inst(inst_id)
@@ -505,10 +590,48 @@ func on_turn_start(turn_index: int, stats_by_entity: Dictionary = {}, buff_by_en
 	if pipeline == null or dataset == null:
 		return
 	_tick_dots(turn_index, "TURN_START", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
+	_tick_non_dot_turns("TURN_START", stats_by_entity)
 
 func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted = null) -> void:
 	# TurnEnd tick（DOT结算）
 	_tick_dots(turn_index, "TURN_END", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
+	_tick_non_dot_turns("TURN_END", stats_by_entity)
+
+func _tick_non_dot_turns(tick_phase: String, stats_by_entity: Dictionary) -> void:
+	# 内部：非 DOT 的 TURNS buff 到期递减与移除（按 duration.tick_phase）
+	if owner_entity_id < 0:
+		return
+	if stats_by_entity.is_empty():
+		return
+	var owner_stats: OmniStatsComponent = stats_by_entity.get(owner_entity_id, null)
+	if owner_stats == null:
+		return
+
+	# 注意：remove_by_instance 会修改 inst_ids，因此这里用副本遍历，避免跳过元素
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
+
+		# 非 DOT 才走这里（DOT 生命周期由 DotInstance 管理）
+		var dot_def: Dictionary = def.get("dot", {})
+		if not dot_def.is_empty():
+			continue
+
+		var duration: Dictionary = def.get("duration", {})
+		if String(duration.get("type", "")) != "TURNS":
+			continue
+		var turns := int(duration.get("turns", -1))
+		if turns <= 0:
+			continue
+		var ph := String(duration.get("tick_phase", "TURN_END"))
+		if ph != tick_phase:
+			continue
+
+		inst.remaining_turns -= 1
+		if inst.remaining_turns <= 0:
+			remove_by_instance(owner_stats, int(inst_id), true)
 
 func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	## 触发事件（最小可用版）
