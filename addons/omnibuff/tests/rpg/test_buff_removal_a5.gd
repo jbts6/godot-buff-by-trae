@@ -92,4 +92,3 @@ func test_remove_inactive_instance_works() -> void:
 	# 扣血到 50 也不应再“复活”该 buff
 	e.stats.add_base(hp_id, -50.0)
 	assert_eq(float(e.stats.get_final(atk_id)), 10.0)
-
