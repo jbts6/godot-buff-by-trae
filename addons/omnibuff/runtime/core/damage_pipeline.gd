@@ -60,6 +60,8 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	## 性能约束：
 	## - 读取属性只允许通过 StatsComponent.get_final（StatCache）
 	## - 事件响应只允许通过 BuffCore.emit_event（EventIndex 子集遍历）
+	## PERF(J2)：禁止遍历全实体 keys（例如 runtime.stats_by_entity.keys()/buff_by_entity.keys()），
+	## 事件只允许遍历 listeners 子集；DOT 只允许结算“当前 target 的 DOT 池”（由 BuffCore._tick_dots 驱动）。
 	var ctx := DamageContext.new()
 	ctx.attacker_id = attacker.entity_id
 	ctx.defender_id = defender.entity_id

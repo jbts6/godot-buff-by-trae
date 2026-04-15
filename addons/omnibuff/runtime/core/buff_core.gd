@@ -788,6 +788,8 @@ func debug_dump_stat_modifiers(stats: OmniStatsComponent, stat_id: int) -> Strin
 
 func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted) -> void:
 	# 内部：DOT结算（支持 TURN_START / TURN_END）
+	# PERF(J2)：禁止遍历全实体 keys（例如 stats_by_entity.keys()/buff_by_entity.keys()），
+	# 只允许遍历“当前 target(owner_entity_id) 的 DOT 池”这一子集（dots_by_target[owner_entity_id]）。
 	# 注意：这里不能遍历“所有buff实例”，只能遍历已建索引的数据结构（DOT池/事件索引等）
 	if owner_entity_id < 0:
 		return
@@ -1016,7 +1018,8 @@ func _tick_non_dot_turns(tick_phase: String, stats_by_entity: Dictionary) -> voi
 
 func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	## 触发事件（最小可用版）
-	## 重要：此函数只遍历 listeners[key]（监听该事件的子集），满足“禁止遍历全部Buff”的性能约束。
+	## PERF(J2)：禁止遍历全实体 keys（例如“全场单位/全体Buff”的索引或 Dictionary.keys()），
+	## 只允许遍历 listeners[key]（监听该事件的子集），满足“禁止遍历全部Buff”的性能约束。
 	##
 	## ctx 约定字段（当前版本）：
 	## - ctx.tags_mask : int（用于 filters.tag_mask_any）
