@@ -121,6 +121,12 @@ damage = source_stat * base_ratio * stacks
 - 并验证 tick 产生 2 条 dot_traces（与现有 `test_dot_multi_source_trace.gd` 语义一致）
 - 以及验证：对目标的伤害结算为 1 段（两来源的 base_damage 被聚合）
 
+1.1) `test_dot_aggregate_separates_by_tags_mask.gd`
+- 对同一目标施加 **两种 tags_mask 不同** 的 DOT（例如 FIRE 与 POISON），且每种 DOT 都至少来自两个来源（用于验证“多来源聚合”与“跨元素分段”可同时成立）
+- 断言：
+  - 同元素（同 tags_mask）的多来源 DOT 对目标只结算 **一段**（聚合）
+  - 不同元素（不同 tags_mask）的 DOT 伤害对目标结算为 **多段**（分开结算）
+
 2) `test_dot_merge_by_source_refresh_and_stack.gd`
 - 同一来源对同一目标重复施加 DOT（ADD_STACK）
 - 断言：DotInstance 数量仍为 1
