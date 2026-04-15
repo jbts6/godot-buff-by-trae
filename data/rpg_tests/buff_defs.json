@@ -168,6 +168,28 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_dot_poison_3t",
+	  "name": "测试：中毒DOT（3回合/回合开始结算）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF", "DOT", "POISON"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "dot": { "tick_phase": "TURN_START", "element": "POISON", "base_ratio": 0.2, "read_source_stat": "ATK" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dot_fire_stack_3t",
+	  "name": "测试：灼烧DOT可叠层（3回合/回合开始结算）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF", "DOT", "FIRE"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 3, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "dot": { "tick_phase": "TURN_START", "element": "FIRE", "base_ratio": 0.1, "read_source_stat": "ATK" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_on_hit_apply_dot",
 	  "name": "测试：AFTER_DEAL 给目标挂灼烧",
 	  "buff_type": "EXPLICIT",
