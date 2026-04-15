@@ -439,6 +439,42 @@
 		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
 	  ],
 	  "triggers": []
+	},
+	{
+	  "id": "buff_event_add_base_damage_5",
+	  "name": "D3测试：事件增加基础伤害+5",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_DEAL",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "ADD_BASE_DAMAGE", "value": 5.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_event_chance_apply_dot_50",
+	  "name": "D3/D4测试：50%概率命中后挂DOT",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "CHANCE_APPLY_BUFF", "chance": 0.5, "buff_id": "buff_dot_fire_3t" }
+		}
+	  ]
 	}
   ]
 }
