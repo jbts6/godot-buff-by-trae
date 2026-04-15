@@ -46,5 +46,10 @@ func test_multihit_damage_is_increasing_and_hp_matches() -> void:
 	assert_eq(finals[2], 43.0)
 
 	# HP 断言：HP = 100 - sum(final)
+	var hp_id := ds.stat_id("HP")
 	var expected_hp := 100.0 - (37.0 + 39.0 + 43.0)
-	assert_eq(d.stats.get_final(ds.stat_id("HP")), expected_hp)
+	# C：StatsCore 现在会按 stat_defs(min/max) 进行 clamp，因此这里也要按同一规则计算期望值
+	var hp_def: Dictionary = ds.stat_defs[hp_id]
+	if bool(hp_def.get("clamp", false)):
+		expected_hp = clamp(expected_hp, float(hp_def.get("min", expected_hp)), float(hp_def.get("max", expected_hp)))
+	assert_eq(float(d.stats.get_final(hp_id)), expected_hp)
