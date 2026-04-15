@@ -439,6 +439,12 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 		elif action.has("apply_buff_id"):
 			l.action_buff_id = String(action.get("apply_buff_id", ""))
 		l.action_chance = float(action.get("chance", 1.0))
+		# DOT_* payload
+		if action.has("dot_buff_id"):
+			l.action_dot_buff_id = String(action.get("dot_buff_id", ""))
+		if action.has("dot_tags_mask_any"):
+			var arr: Array = action.get("dot_tags_mask_any", [])
+			l.action_dot_tag_mask_any = int(enums_rt.tag_mask(arr))
 		l.scope = String(t.get("scope", "SELF"))
 		var lid := event_index.register_listener(key, l)
 		if not listener_ids_by_inst.has(int(inst.inst_id)):
@@ -1078,6 +1084,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_apply_buff_from_event(l, ctx, true)
 			"SET_STAT_FINAL":
 				_set_stat_final_from_event(l, ctx)
+			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
+				_apply_dot_action_from_event(l, ctx)
 			_:
 				pass
 
@@ -1130,6 +1138,96 @@ func _apply_buff_from_event(l: OmniEventIndex.Listener, ctx: RefCounted, use_cha
 	# 约定：事件施加的来源实体为 ctx.attacker_id（最贴近“施法者/攻击者”）
 	var source_eid := int(ctx.attacker_id)
 	target_buff.apply_buff(target_stats, l.action_buff_id, source_eid)
+
+func _apply_dot_action_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	## 事件动作：对目标身上的 DOT 实例做 stacks 操作（E2）
+	## - DOT_MUL_STACKS / DOT_ADD_STACKS / DOT_SET_STACKS / DOT_CLEAR
+	## - 支持按 dot_buff_id / dot_tags_mask_any 过滤（两者都提供则需同时满足）
+	##
+	## 运行时依赖：ctx.meta["runtime"].buff_by_entity
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+
+	# 解析目标实体ID（被操作 DOT 的承载者）
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var target_buff: OmniBuffCore = buff_by_entity.get(target_eid, null)
+	if target_buff == null:
+		return
+
+	if not target_buff.dots_by_target.has(target_eid):
+		return
+	var dots: Array = target_buff.dots_by_target.get(target_eid, [])
+	if dots.is_empty():
+		return
+
+	# 过滤条件：dot_buff_id（字符串 -> buff_def_id）
+	var filter_bdid := -1
+	if String(l.action_dot_buff_id) != "":
+		filter_bdid = int(ds.buff_id(String(l.action_dot_buff_id)))
+		# 配置给了未知 dot_buff_id：视为 no-op
+		if filter_bdid < 0:
+			return
+
+	# 过滤条件：dot_tags_mask_any（bitmask；0 表示不做 tag 过滤）
+	var filter_tags_mask_any := int(l.action_dot_tag_mask_any)
+
+	var kept: Array = []
+	for x in dots:
+		var d: DotInstance = x
+		if d == null:
+			continue
+
+		# 按 dot_buff_id 过滤
+		if filter_bdid >= 0 and int(d.buff_def_id) != filter_bdid:
+			kept.append(d)
+			continue
+
+		# 按 dot_tag_mask_any 过滤（要求命中任意 tag）
+		if filter_tags_mask_any != 0 and (int(d.tags_mask) & filter_tags_mask_any) == 0:
+			kept.append(d)
+			continue
+
+		var stacks := int(d.stacks)
+		match String(l.action_kind):
+			"DOT_MUL_STACKS":
+				stacks = stacks * int(l.action_value)
+			"DOT_ADD_STACKS":
+				stacks = stacks + int(l.action_value)
+			"DOT_SET_STACKS":
+				stacks = int(l.action_value)
+			"DOT_CLEAR":
+				stacks = 0
+			_:
+				# 不属于 DOT action：保持不变
+				kept.append(d)
+				continue
+
+		# <=0 视为清除该 DOT
+		if stacks <= 0:
+			continue
+
+		# cap by max_stack（从 dot 对应 buff_def.stack.max_stack 读取）
+		var def: Dictionary = ds.buff_defs[int(d.buff_def_id)]
+		var max_stack := int(def.get("stack", {}).get("max_stack", 1))
+		if max_stack <= 0:
+			max_stack = 1
+		stacks = min(stacks, max_stack)
+		d.stacks = stacks
+
+		# 操作后刷新 duration（remaining_turns 重置为 turns）
+		var turns := int(def.get("duration", {}).get("turns", -1))
+		d.remaining_turns = turns
+
+		kept.append(d)
+
+	target_buff.dots_by_target[target_eid] = kept
 
 func _set_stat_final_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
 	## 事件动作：将某 stat 的最终值设为指定值（通过调整 base 实现）

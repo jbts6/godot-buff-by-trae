@@ -28,6 +28,10 @@ class Listener:
 	var action_value: float
 	## APPLY_BUFF/CHANCE_APPLY_BUFF：要施加的 buff_id（配置层字符串ID）
 	var action_buff_id: String = ""
+	## DOT_*：要操作的 dot buff_id（配置层字符串ID）
+	var action_dot_buff_id: String = ""
+	## DOT_*：要操作的 dot tag_mask_any（bitmask；0 表示不做 tag 过滤）
+	var action_dot_tag_mask_any: int = 0
 	## CHANCE_APPLY_BUFF：触发概率（0..1）
 	var action_chance: float = 1.0
 	## 作用目标范围（最小约定）：
