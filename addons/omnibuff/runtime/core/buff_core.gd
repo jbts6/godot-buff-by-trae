@@ -183,9 +183,16 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		return new_id
 
 	if mode == "ADD_STACK":
+		# A2：ADD_STACK 命中已有实例时，是否刷新 remaining_turns 由 refresh_policy 驱动
+		# - 缺失/空字符串：默认 RESET_TO_MAX（保持旧行为）
+		# - RESET_TO_MAX：重置 remaining_turns=turns
+		# - 其它值（例如 NONE）：不刷新 remaining_turns
+		var refresh_policy := String(stack.get("refresh_policy", ""))
+		if refresh_policy == "":
+			refresh_policy = "RESET_TO_MAX"
 		old_inst.stacks = min(old_inst.stacks + 1, max_stack)
-		# 最小刷新语义：重置 remaining_turns
-		old_inst.remaining_turns = int(def.get("duration", {}).get("turns", -1))
+		if refresh_policy == "RESET_TO_MAX":
+			old_inst.remaining_turns = int(def.get("duration", {}).get("turns", -1))
 		# 让 modifier 随 stacks 生效（线性：value * stacks）
 		_rebuild_instance_modifiers(stats, old_inst_id)
 		return old_inst_id
