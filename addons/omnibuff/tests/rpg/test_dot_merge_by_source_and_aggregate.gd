@@ -53,7 +53,8 @@ func test_dot_two_sources_fire_dot_merge_by_source_and_aggregate() -> void:
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_3t", src1_id)
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_3t", src2_id)
 
-	var dots_any := tgt.buffs.dots_by_target.get(tgt_id, null)
+	# Godot 4：Dictionary.get() 返回 Variant，使用显式类型避免 “Cannot infer the type” 解析错误
+	var dots_any: Variant = tgt.buffs.dots_by_target.get(tgt_id, null)
 	assert_not_null(dots_any, "dots_by_target[target] should exist after applying dot")
 	var dots: Array = dots_any
 	assert_eq(int(dots.size()), 2, "two sources should produce 2 dot instances on the same target")
@@ -100,4 +101,3 @@ func test_dot_two_sources_fire_dot_merge_by_source_and_aggregate() -> void:
 	# 若聚合为 1 条 DamageTrace，则该条的 final_damage 应与 HP delta 一致
 	var dt = replay.damage_traces[before_damage_traces]
 	assert_true(is_equal_approx(float(dt.final_damage), hp_delta), "aggregated damage trace should match hp delta")
-
