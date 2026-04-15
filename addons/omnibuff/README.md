@@ -187,7 +187,10 @@ GODOT_BIN="/path/to/godot" ./run_gut_tests.sh
 ```
 
 说明：
-- 脚本会用 `-gdir=res://addons/omnibuff/tests -ginclude_subdirs` 递归执行 `tests/` 下所有子目录用例（包括 `tests/rpg/`）。
+- 脚本会显式指定两次 `-gdir` 来覆盖：
+  - `res://addons/omnibuff/tests`（根目录测试）
+  - `res://addons/omnibuff/tests/rpg`（rpg 大量用例）
+- 这样可以避免 `helpers/` 下的脚本被 GUT 扫描为测试导致 warning。
 
 退出码语义（用于 CI）：
 - `0`：测试全部通过（fail count = 0）

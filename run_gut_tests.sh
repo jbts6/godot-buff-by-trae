@@ -18,4 +18,10 @@ echo "[GUT] Import project (headless)..."
 "${GODOT_BIN}" --headless --import --quit
 
 echo "[GUT] Run tests..."
-"${GODOT_BIN}" --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://addons/omnibuff/tests -ginclude_subdirs -gexit
+# GUT 默认只扫描 -gdir 指定目录本身，不递归子目录。
+# 为了同时跑：
+# - res://addons/omnibuff/tests 下的“根目录测试”
+# - res://addons/omnibuff/tests/rpg 下的大量用例
+# 且避免把 helpers/ 下的脚本当成测试扫描导致 warning，
+# 我们显式指定两次 -gdir，不开启 -ginclude_subdirs。
+"${GODOT_BIN}" --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://addons/omnibuff/tests -gdir=res://addons/omnibuff/tests/rpg -gexit
