@@ -472,6 +472,81 @@ func remove_by_instance(stats: OmniStatsComponent, inst_id: int, force: bool = f
 	listener_ids_by_inst.erase(inst_id)
 	return true
 
+func remove_by_buff_id(stats: OmniStatsComponent, buff_id_str: String, scope: String = "ALL", source_entity_id: int = -1, include_implicit: bool = false, force: bool = false) -> int:
+	## A5：按 buff_id 主动移除（与 dispel_* 语义区分：remove_* 不检查“驱散免疫”）
+	## - scope: "ALL" | "FIRST"
+	## - source_entity_id>=0: 仅移除来自该 source 的实例
+	## - include_implicit=false: 默认不移除 IMPLICIT/PASSIVE（保持与 dispel 默认一致）
+	## - force=true: 强制移除（无视 undispellable）
+	var bdid: int = int(ds.buff_id(buff_id_str))
+	if bdid < 0:
+		return 0
+
+	var removed: int = 0
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if int(inst.buff_def_id) != bdid:
+			continue
+		if source_entity_id >= 0 and int(inst.source_entity_id) != source_entity_id:
+			continue
+		if (not include_implicit) and (inst.buff_type == "IMPLICIT" or inst.buff_type == "PASSIVE"):
+			continue
+		if (not force) and inst.undispellable:
+			continue
+		if remove_by_instance(stats, int(inst.inst_id), true):
+			removed += 1
+			if scope == "FIRST":
+				break
+	return removed
+
+func remove_by_tag(stats: OmniStatsComponent, tag_id: String, scope: String = "ALL", source_entity_id: int = -1, include_implicit: bool = false, force: bool = false) -> int:
+	## A5：按 tag 主动移除（不检查“驱散免疫”）
+	if enums_rt == null:
+		return 0
+	var tag_mask: int = int(enums_rt.tag_mask([tag_id]))
+	if tag_mask == 0:
+		return 0
+
+	var removed: int = 0
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if source_entity_id >= 0 and int(inst.source_entity_id) != source_entity_id:
+			continue
+		if (not include_implicit) and (inst.buff_type == "IMPLICIT" or inst.buff_type == "PASSIVE"):
+			continue
+		if (not force) and inst.undispellable:
+			continue
+		if (int(inst.tag_mask) & tag_mask) == 0:
+			continue
+		if remove_by_instance(stats, int(inst.inst_id), true):
+			removed += 1
+			if scope == "FIRST":
+				break
+	return removed
+
+func remove_by_source(stats: OmniStatsComponent, source_entity_id: int, scope: String = "ALL", include_implicit: bool = false, force: bool = false) -> int:
+	## A5：按来源实体主动移除（不检查“驱散免疫”）
+	var removed: int = 0
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if int(inst.source_entity_id) != source_entity_id:
+			continue
+		if (not include_implicit) and (inst.buff_type == "IMPLICIT" or inst.buff_type == "PASSIVE"):
+			continue
+		if (not force) and inst.undispellable:
+			continue
+		if remove_by_instance(stats, int(inst.inst_id), true):
+			removed += 1
+			if scope == "FIRST":
+				break
+	return removed
+
 func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: bool = false) -> int:
 	## 按 Tag 驱散（M7）
 	## - include_implicit=false：默认不驱散 IMPLICIT/PASSIVE（符合“装备/加点/套装不应被常规驱散”）
