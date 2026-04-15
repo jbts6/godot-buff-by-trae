@@ -1,0 +1,12 @@
+{
+  "pipeline": [
+	{ "stage": "build" },
+	{ "stage": "before_deal" },
+	{ "stage": "before_take" },
+	{ "stage": "resolve" },
+	{ "stage": "apply" },
+	{ "stage": "after_deal" },
+	{ "stage": "after_take" },
+	{ "stage": "death" }
+  ]
+}

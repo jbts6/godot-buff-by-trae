@@ -1,0 +1,12 @@
+{
+  "pipeline": [
+	{ "stage": "build", "emit_event": "DAMAGE", "phase": "BUILD" },
+	{ "stage": "before_deal", "emit_event": "DAMAGE", "phase": "BEFORE_DEAL", "side": "ATTACKER" },
+	{ "stage": "before_take", "emit_event": "DAMAGE", "phase": "BEFORE_TAKE", "side": "DEFENDER" },
+	{ "stage": "resolve", "emit_event": "DAMAGE", "phase": "RESOLVE", "side": "BOTH" },
+	{ "stage": "apply", "emit_event": "DAMAGE", "phase": "APPLY" },
+	{ "stage": "after_deal", "emit_event": "DAMAGE", "phase": "AFTER_DEAL", "side": "ATTACKER" },
+	{ "stage": "after_take", "emit_event": "DAMAGE", "phase": "AFTER_TAKE", "side": "DEFENDER" },
+	{ "stage": "death", "emit_event": "DEATH", "phase": "RESOLVE" }
+  ]
+}

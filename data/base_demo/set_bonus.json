@@ -1,0 +1,11 @@
+{
+  "sets": [
+	{
+	  "id": "set_wolf",
+	  "name": "狼之套装",
+	  "bonuses": [
+		{ "count": 4, "apply_buff_id": "buff_set4_atk_5p" }
+	  ]
+	}
+  ]
+}

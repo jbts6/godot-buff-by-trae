@@ -1,0 +1,14 @@
+{
+  "skills": [
+	{
+	  "id": "skill_triple_slash",
+	  "name": "三连斩（3段递增）",
+	  "damage_type": "PHYSICAL",
+	  "element": "NONE",
+	  "tags": ["BUFF"],
+	  "base_damage": 0.0,
+	  "on_cast": [],
+	  "on_hit": []
+	}
+  ]
+}

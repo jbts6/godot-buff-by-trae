@@ -1,0 +1,207 @@
+{
+  "buffs": [
+	{
+	  "id": "buff_atk_flat_20",
+	  "name": "测试：ATK+20(flat)",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 20.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_atk_pct_5",
+	  "name": "测试：ATK+5%(percent)",
+	  "buff_type": "PASSIVE",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "MUL", "phase": "PERCENT", "priority": 110, "value": 0.05 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_def_flat_20",
+	  "name": "测试：DEF+20(flat)",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 20.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_shield_50",
+	  "name": "测试：护盾+50",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "SHIELD", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 50.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dmg_reduce_20p",
+	  "name": "测试：受到伤害-20%",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DMG_REDUCE", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 0.20 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_force_crit",
+	  "name": "测试：必暴击（CRIT_RATE=1）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "CRIT_RATE", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 0.95 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_force_miss",
+	  "name": "测试：必未命中（HIT_RATE=0）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "ADD", "phase": "FLAT", "priority": 100, "value": -1.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dot_fire_3t",
+	  "name": "测试：灼烧DOT（3回合/回合结束结算）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF", "DOT", "FIRE"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
+	  "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "dot": { "tick_phase": "TURN_START", "element": "FIRE", "base_ratio": 0.3, "read_source_stat": "ATK" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_on_hit_apply_dot",
+	  "name": "测试：AFTER_DEAL 给目标挂灼烧",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"] },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_life_replace_atk_10_2t",
+	  "name": "生命周期：REPLACE ATK+10（2回合）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_stack_atk_10_2t_max3",
+	  "name": "生命周期：ADD_STACK ATK+10（2回合，最多3层）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 3, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_stack_atk_10_2t_max3_none",
+	  "name": "生命周期：ADD_STACK ATK+10（2回合，最多3层，不刷新）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 3, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_multi_atk_10_2t",
+	  "name": "生命周期：MULTI_INSTANCE ATK+10（2回合）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_life_stack_by_source_def_5_2t_max2",
+	  "name": "生命周期：按来源叠层 DEF+5（2回合，最多2层/来源）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 2, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_cond_hp_le_50_atk_up_10",
+	  "name": "条件：HP<=50 时 ATK+10",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "conditions": [
+		{ "condition_type": "STAT_THRESHOLD", "stat": "HP", "op": "LE", "value": 50.0 }
+	  ],
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_cond_hp_le_50_atk_up_10_2t",
+	  "name": "条件：HP<=50 时 ATK+10（2回合到期）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "conditions": [
+		{ "condition_type": "STAT_THRESHOLD", "stat": "HP", "op": "LE", "value": 50.0 }
+	  ],
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	}
+  ]
+}
