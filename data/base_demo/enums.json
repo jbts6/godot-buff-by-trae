@@ -14,7 +14,16 @@
 	"condition_type": ["HAS_TAG", "STAT_GE", "EQUIP_SET_COUNT_GE"],
 	"ownership_mode": ["GLOBAL", "BY_SOURCE", "BY_SOURCE_INSTANCE"],
 	"dispel_scope": ["ALL", "BY_TAG", "BY_SOURCE", "BY_TYPE"],
-	"action_kind": ["ADD_BASE_DAMAGE", "APPLY_BUFF", "CHANCE_APPLY_BUFF", "SET_STAT_FINAL"]
+	"action_kind": [
+	  "ADD_BASE_DAMAGE",
+	  "APPLY_BUFF",
+	  "CHANCE_APPLY_BUFF",
+	  "SET_STAT_FINAL",
+	  "DOT_MUL_STACKS",
+	  "DOT_ADD_STACKS",
+	  "DOT_SET_STACKS",
+	  "DOT_CLEAR"
+	]
   },
   "tags": [
 	{ "id": "BUFF", "code": 1 },

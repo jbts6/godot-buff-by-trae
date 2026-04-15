@@ -241,7 +241,15 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_effect := {"kind": true, "stat": true, "op": true, "phase": true, "priority": true, "value": true, "expr": true, "tags": true, "clamp_min": true, "clamp_max": true}
 	var allowed_trigger := {"event_type": true, "event_phase": true, "filters": true, "action": true, "scope": true}
 	var allowed_filters := {"tag_mask_any": true, "damage_type_any": true, "skill_id": true, "require_hit": true, "stat_threshold": true}
-	var allowed_action := {"kind": true, "value": true, "buff_id": true, "apply_buff_id": true, "chance": true}
+	var allowed_action := {
+		"kind": true,
+		"value": true,
+		"buff_id": true,
+		"apply_buff_id": true,
+		"chance": true,
+		"dot_buff_id": true,
+		"dot_tags_mask_any": true
+	}
 	var allowed_dot := {"tick_phase": true, "element": true, "base_ratio": true, "read_source_stat": true}
 	var allowed_dispel := {"dispellable": true, "immune_tags_any": true, "scope": true}
 	var allowed_condition := {"type": true, "set_id": true, "count": true, "tag": true, "stat": true, "value": true}
