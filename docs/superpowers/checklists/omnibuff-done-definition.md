@@ -15,12 +15,12 @@
 
 ## B. 驱散与免疫（可控性）
 
-- [ ] **B1 驱散按 Tag**：`dispel_by_tag(tag, include_implicit)` 正确；默认不驱散 `IMPLICIT/PASSIVE`。
-- [ ] **B2 驱散按来源**：`dispel_by_source(source, include_implicit)` 正确。
-- [ ] **B3 驱散按类型**：`dispel_by_type(EXPLICIT/IMPLICIT/PASSIVE/AURA)` 正确。
-- [ ] **B4 不可驱散**：支持 `undispellable`（数据配置 + 运行时遵守）。
-- [ ] **B5 驱散免疫**：`target_dispel_immunity_mask` 生效且有测试覆盖（免疫时 removed=0）。
-- [ ] **B6 驱散会清理 DOT**：驱散 debuff 后 DOT 不再 tick（已修复，但需长期回归用例锁死）。
+- [x] **B1 驱散按 Tag**：`dispel_by_tag(tag, include_implicit)` 正确；默认不驱散 `IMPLICIT/PASSIVE`。
+- [x] **B2 驱散按来源**：`dispel_by_source(source, include_implicit)` 正确。
+- [x] **B3 驱散按类型**：`dispel_by_type(EXPLICIT/IMPLICIT/PASSIVE/AURA)` 正确。
+- [x] **B4 不可驱散**：支持 `undispellable`（数据配置 + 运行时遵守）。
+- [x] **B5 驱散免疫**：`target_dispel_immunity_mask` 生效且有测试覆盖（免疫时 removed=0）。
+- [x] **B6 驱散会清理 DOT**：驱散 debuff 后 DOT 不再 tick（已修复，但需长期回归用例锁死）。
 
 ## C. 属性系统（StatCache / Modifiers / Phase）
 
