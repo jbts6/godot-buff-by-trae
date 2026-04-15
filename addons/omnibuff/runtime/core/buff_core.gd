@@ -575,6 +575,9 @@ func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: 
 
 func dispel_by_source(stats: OmniStatsComponent, source_entity_id: int, include_implicit: bool = false) -> int:
 	## 按来源实体驱散（M7）
+	# B5：驱散免疫（按约定影响全部 dispel_*）
+	if target_dispel_immunity_mask != 0:
+		return 0
 	var removed := 0
 	for id in inst_ids.duplicate():
 		var inst: BuffInst = instances_by_id.get(id, null)
@@ -592,6 +595,9 @@ func dispel_by_source(stats: OmniStatsComponent, source_entity_id: int, include_
 func dispel_by_type(stats: OmniStatsComponent, buff_type: String) -> int:
 	## 按 Buff 类型驱散（M7）
 	## buff_type 示例："EXPLICIT"（常用：只驱散战斗中获得的显式buff/debuff）
+	# B5：驱散免疫（按约定影响全部 dispel_*）
+	if target_dispel_immunity_mask != 0:
+		return 0
 	var removed := 0
 	for id in inst_ids.duplicate():
 		var inst: BuffInst = instances_by_id.get(id, null)
