@@ -36,6 +36,18 @@ class Listener:
 	## - "TARGET"/"DEFENDER"：ctx.defender_id
 	var scope: String = "SELF"
 
+	# === D：新增 filters/actions（最小集）===
+	# filters.require_hit：仅当 ctx.hit==true 才触发
+	var filter_require_hit: bool = false
+	# filters.stat_threshold：对指定 scope/stat 做阈值比较
+	var filter_stat_scope: String = ""
+	var filter_stat: String = ""
+	var filter_stat_op: String = ""
+	var filter_stat_value: float = 0.0
+
+	# action.SET_STAT_FINAL：要设定的 stat（值复用 action_value）
+	var action_stat: String = ""
+
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
 

@@ -347,8 +347,21 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 		var l := OmniEventIndex.Listener.new()
 		l.inst_id = int(inst.inst_id)
 		l.filter_tag_mask = filter_mask
+		# D：额外 filters
+		l.filter_require_hit = bool(filters.get("require_hit", false))
+		var st: Variant = filters.get("stat_threshold", null)
+		if typeof(st) == TYPE_DICTIONARY:
+			var std: Dictionary = st
+			l.filter_stat_scope = String(std.get("scope", ""))
+			l.filter_stat = String(std.get("stat", ""))
+			l.filter_stat_op = String(std.get("op", ""))
+			l.filter_stat_value = float(std.get("value", 0.0))
+
 		l.action_kind = String(action.get("kind", ""))
 		l.action_value = float(action.get("value", 0.0))
+		# D：SET_STAT_FINAL payload
+		if l.action_kind == "SET_STAT_FINAL":
+			l.action_stat = String(action.get("stat", ""))
 		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
 		if action.has("buff_id"):
 			l.action_buff_id = String(action.get("buff_id", ""))
@@ -868,6 +881,43 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		if l.filter_tag_mask != 0:
 			if (int(ctx.tags_mask) & l.filter_tag_mask) == 0:
 				continue
+		# D：require_hit
+		if l.filter_require_hit and (not bool(ctx.hit)):
+			continue
+		# D：stat_threshold
+		if l.filter_stat != "":
+			if not ctx.has_meta("runtime"):
+				continue
+			var rt: Variant = ctx.get_meta("runtime")
+			if typeof(rt) != TYPE_DICTIONARY:
+				continue
+			var runtime: Dictionary = rt
+			var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+			var feid := _resolve_scope_entity_id(l.filter_stat_scope, ctx)
+			if feid < 0:
+				continue
+			var fstats: OmniStatsComponent = stats_by_entity.get(feid, null)
+			if fstats == null:
+				continue
+			var fsid := ds.stat_id(l.filter_stat)
+			if fsid < 0:
+				continue
+			var lhs := float(fstats.get_final(fsid))
+			var rhs := float(l.filter_stat_value)
+			var ok := true
+			match String(l.filter_stat_op).to_upper():
+				"GT":
+					ok = lhs > rhs
+				"GE":
+					ok = lhs >= rhs
+				"LT":
+					ok = lhs < rhs
+				"LE":
+					ok = lhs <= rhs
+				_:
+					ok = true
+			if not ok:
+				continue
 		_triggered_inst_ids_last_emit.append(l.inst_id)
 		match l.action_kind:
 			"ADD_BASE_DAMAGE":
@@ -876,6 +926,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_apply_buff_from_event(l, ctx, false)
 			"CHANCE_APPLY_BUFF":
 				_apply_buff_from_event(l, ctx, true)
+			"SET_STAT_FINAL":
+				_set_stat_final_from_event(l, ctx)
 			_:
 				pass
 
@@ -928,6 +980,31 @@ func _apply_buff_from_event(l: OmniEventIndex.Listener, ctx: RefCounted, use_cha
 	# 约定：事件施加的来源实体为 ctx.attacker_id（最贴近“施法者/攻击者”）
 	var source_eid := int(ctx.attacker_id)
 	target_buff.apply_buff(target_stats, l.action_buff_id, source_eid)
+
+func _set_stat_final_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	## 事件动作：将某 stat 的最终值设为指定值（通过调整 base 实现）
+	## 依赖 ctx.meta["runtime"] 的 stats_by_entity
+	if l.action_stat == "":
+		return
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var sid := ds.stat_id(l.action_stat)
+	if sid < 0:
+		return
+	var desired := float(l.action_value)
+	var cur := float(target_stats.get_final(sid))
+	target_stats.add_base(sid, desired - cur)
 
 func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 	## 将 scope 映射为实体ID（最小约定）
