@@ -169,13 +169,14 @@ res://addons/gut/
 
 在 GUT 面板的 Test Directories 里添加：
 ```
-res://addons/omnibuff/tests
+res://addons/omnibuff/tests/base
+res://addons/omnibuff/tests/rpg
 ```
 
 关键用例（示例）：
-- `tests/test_multihit_attack.gd`（基础多段）
-- `tests/test_def_buff_reduces_damage.gd`（DEF 防守 buff）
-- `tests/test_dot_multi_source_trace.gd`（DOT 多来源）
+- `tests/base/test_multihit_attack.gd`（基础多段）
+- `tests/base/test_def_buff_reduces_damage.gd`（DEF 防守 buff）
+- `tests/base/test_dot_multi_source_trace.gd`（DOT 多来源）
 - `tests/rpg/*`（更复杂 RPG 机制 + 整回合脚本式集成测试）
 
 ### 7.3 Run tests (headless)
@@ -188,9 +189,9 @@ GODOT_BIN="/path/to/godot" ./run_gut_tests.sh
 
 说明：
 - 脚本会显式指定两次 `-gdir` 来覆盖：
-  - `res://addons/omnibuff/tests`（根目录测试）
+  - `res://addons/omnibuff/tests/base`（基础用例）
   - `res://addons/omnibuff/tests/rpg`（rpg 大量用例）
-- 这样可以避免 `helpers/` 下的脚本被 GUT 扫描为测试导致 warning。
+- GUT 默认只扫描 `-gdir` 指定目录本身，不递归子目录；为避免把 `helpers/` 下的脚本当成测试扫描导致 warning，我们**不**开启 `-ginclude_subdirs`。
 
 退出码语义（用于 CI）：
 - `0`：测试全部通过（fail count = 0）
@@ -218,8 +219,8 @@ addons/omnibuff/
     demo_scene.tscn
     demo_runner.gd
   tests/
+    base/
     helpers/
-    test_*.gd
     rpg/
       test_*.gd
 
@@ -239,3 +240,13 @@ data/
 ### Q2：为什么有些地方不建议用 `:=`？
 当变量类型是 `RefCounted` 或动态对象时，Godot 4 的静态分析可能无法推断 `:=` 的结果类型，导致解析期报错。  
 建议显式标注类型或直接用 `var x = ...`（不做推断约束）。
+
+---
+
+## Compatibility / Versioning
+
+- Godot：以 **4.7** 为基线（headless/CI 应使用相同 major/minor）
+- GUT：仓库内 vendor 到 `res://addons/gut/`（以仓库版本为准）
+- Dataset `schema_version`：当前为 `1`
+  - 升级策略：通过 `OmniMigrate.migrate(schema_from, schema_to, obj)` 在线迁移（不写回源文件）
+- Tag codes：`tags.code` 是兼容契约（只增不复用 / 不复用旧码语义）
