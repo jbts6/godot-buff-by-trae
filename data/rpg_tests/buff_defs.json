@@ -186,6 +186,28 @@
 	  ]
 	},
 	{
+	  "id": "buff_on_hit_shatter_shield",
+	  "name": "命中后碎盾（APPLY前置）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "APPLY",
+		  "scope": "TARGET",
+		  "filters": {
+			"tag_mask_any": ["BUFF"],
+			"require_hit": true,
+			"stat_threshold": { "scope": "TARGET", "stat": "SHIELD", "op": "GT", "value": 0.0 }
+		  },
+		  "action": { "kind": "SET_STAT_FINAL", "stat": "SHIELD", "value": 0.0 }
+		}
+	  ]
+	},
+	{
 	  "id": "buff_life_replace_atk_10_2t",
 	  "name": "生命周期：REPLACE ATK+10（2回合）",
 	  "buff_type": "EXPLICIT",
