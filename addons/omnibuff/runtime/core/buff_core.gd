@@ -606,12 +606,14 @@ func dispel_by_type(stats: OmniStatsComponent, buff_type: String) -> int:
 
 func _unregister_listeners_for_inst(inst_id: int) -> void:
 	# 内部：注销一个实例注册过的 listener
-	if not listener_ids_by_inst.has(inst_id):
-		return
-	var lids: PackedInt32Array = listener_ids_by_inst[inst_id]
+	var lids := PackedInt32Array()
+	if listener_ids_by_inst.has(inst_id):
+		lids = listener_ids_by_inst[inst_id]
+
+	# 正常路径：通过 listener_ids_by_inst 精确移除
 	for lid in lids:
 		var l = event_index.listener_data[lid]
-		if l != null:
+		if l != null and l.active:
 			l.active = false
 			var key: int = int(l.key)
 			# 从 listeners[key] 中移除该 lid（最小实现：重建数组）
@@ -621,6 +623,27 @@ func _unregister_listeners_for_inst(inst_id: int) -> void:
 				if x != lid:
 					out.append(x)
 			event_index.listeners[key] = out
+
+	# 兜底路径：若 listener_ids_by_inst 丢失/为空（例如历史 bug，或 active/inactive 切换导致记录被清空），
+	# 则扫描 listener_data，按 inst_id 匹配并移除。
+	for lid in range(event_index.listener_data.size()):
+		var l2 = event_index.listener_data[lid]
+		if l2 == null or (not l2.active):
+			continue
+		if int(l2.inst_id) != inst_id:
+			continue
+		l2.active = false
+		var key2: int = int(l2.key)
+		var arr2 := event_index.listeners[key2]
+		var out2 := PackedInt32Array()
+		for x2 in arr2:
+			if int(x2) != int(lid):
+				out2.append(x2)
+		event_index.listeners[key2] = out2
+
+	# 清理记录，避免后续误用
+	if listener_ids_by_inst.has(inst_id):
+		listener_ids_by_inst.erase(inst_id)
 
 func debug_dump_instances() -> String:
 	## 调试：打印当前目标身上的 BuffInstance 列表（用于验证驱散/到期是否正确）
