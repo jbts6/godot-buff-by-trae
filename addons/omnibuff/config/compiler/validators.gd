@@ -146,8 +146,19 @@ static func _validate_manifest(file: String, manifest: Dictionary, strict: bool,
 	# 规则：schema_version 必须存在且为 int
 	if not manifest.has("schema_version"):
 		_add_issue(issues, error(file, "path=$.schema_version", "", "missing schema_version"), strict)
-	elif typeof(manifest["schema_version"]) != TYPE_INT:
-		_add_issue(issues, error(file, "path=$.schema_version", "", "schema_version must be int"), strict)
+	else:
+		# Godot 的 JSON 解析会把数字读成 float；允许 1.0 这种“整数 float”作为 schema_version。
+		var v := manifest["schema_version"]
+		var tv := typeof(v)
+		if tv == TYPE_INT:
+			pass
+		elif tv == TYPE_FLOAT:
+			var vf := float(v)
+			# 仅允许“无小数部分”的 float
+			if not is_equal_approx(vf, float(int(vf))):
+				_add_issue(issues, error(file, "path=$.schema_version", "", "schema_version must be int"), strict)
+		else:
+			_add_issue(issues, error(file, "path=$.schema_version", "", "schema_version must be int"), strict)
 
 	# 规则：files[] 必须存在
 	if not manifest.has("files") or typeof(manifest["files"]) != TYPE_ARRAY:
