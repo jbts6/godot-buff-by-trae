@@ -40,11 +40,11 @@
 
 - [x] **D1 EventIndex 硬约束**：事件触发仅遍历 listeners 子集，不遍历全 buff。
 - [x] **D2 filters 完整**：至少支持并测试：`tag_mask_any`、（可选）`source_is_self/target_is_self`、`phase` 等。
-- [ ] **D3 action 完整**：至少支持并测试：
-  - [ ] `ADD_BASE_DAMAGE`
+- [x] **D3 action 完整**：至少支持并测试：
+  - [x] `ADD_BASE_DAMAGE`
   - [x] `APPLY_BUFF`
-  - [ ] `CHANCE_APPLY_BUFF`（概率）
-- [ ] **D4 概率可复盘**：事件概率与命中/暴击概率都能通过 seed 回放一致（同输入同输出）。
+  - [x] `CHANCE_APPLY_BUFF`（概率）
+- [x] **D4 概率可复盘**：事件概率与命中/暴击概率都能通过 seed 回放一致（同输入同输出）。
 - [x] **D5 触发链治理**：循环触发检测 + 过深触发链告警/阻断（validators）。
 
 ## E. DOT（持续伤害）
