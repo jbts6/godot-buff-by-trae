@@ -51,4 +51,3 @@ func test_shatter_shield_happens_before_shield_absorb() -> void:
 	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, base_damage, replay, 2, tags_mask, runtime)
 	assert_eq(float(defender.stats.get_final(shield_id)), 0.0)
 	assert_eq(float(defender.stats.get_final(hp_id)), hp0 - 30.0)
-
