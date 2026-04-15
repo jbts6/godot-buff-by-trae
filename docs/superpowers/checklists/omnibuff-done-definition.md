@@ -57,18 +57,18 @@
 
 ## F. DamagePipeline（战斗结算骨架）
 
-- [ ] **F1 阶段骨架稳定**：BUILD/BEFORE_DEAL/BEFORE_TAKE/RESOLVE/APPLY/AFTER_DEAL/AFTER_TAKE 阶段顺序与语义稳定。
-- [ ] **F2 护盾**：SHIELD 先吸收，再扣 HP（有单元测试 + 集成测试）。
-- [ ] **F3 减伤**：DMG_REDUCE 在 resolve 后、apply 前生效（顺序固定）。
-- [ ] **F4 命中/暴击**：确定性 RNG，且对旧数据集保持兼容（未启用 HIT_RATE/EVADE 时不改变旧期望）。
-- [ ] **F5 多段攻击支持**：多段产生多条 DamageTrace，且可断言“不会串段”。
+- [x] **F1 阶段骨架稳定**：BUILD/BEFORE_DEAL/BEFORE_TAKE/RESOLVE/APPLY/AFTER_DEAL/AFTER_TAKE 阶段顺序与语义稳定。
+- [x] **F2 护盾**：SHIELD 先吸收，再扣 HP（有单元测试 + 集成测试）。
+- [x] **F3 减伤**：DMG_REDUCE 在 resolve 后、apply 前生效（顺序固定）。
+- [x] **F4 命中/暴击**：确定性 RNG，且对旧数据集保持兼容（未启用 HIT_RATE/EVADE 时不改变旧期望）。
+- [x] **F5 多段攻击支持**：多段产生多条 DamageTrace，且可断言“不会串段”。
 
 ## G. 数据驱动与校验（manifest/enums/defs）
 
-- [ ] **G1 manifest 权威**：所有数据文件通过 manifest.files 加载，路径解析稳定。
-- [ ] **G2 enums 权威**：枚举与 tag 的 bitmask 映射稳定、可追溯。
-- [ ] **G3 Schema 治理**：深度未知字段治理（JSONPath 指明位置），strict/lenient 可控。
-- [ ] **G4 错误定位可用**：Issue 包含 file + loc + id + message。
+- [x] **G1 manifest 权威**：所有数据文件通过 manifest.files 加载，路径解析稳定。
+- [x] **G2 enums 权威**：枚举与 tag 的 bitmask 映射稳定、可追溯。
+- [x] **G3 Schema 治理**：深度未知字段治理（JSONPath 指明位置），strict/lenient 可控。
+- [x] **G4 错误定位可用**：Issue 包含 file + loc + id + message。
 
 ## H. 回放与追帧（Replay/Trace）
 
