@@ -1,40 +1,63 @@
-因此同一目标上，同一 DOT buff_id 的 DotInstance 数量最多为 1。
+# E（DOT 更完整）设计：E1 DOT 叠加策略（按来源合并）
 
-### 2) 再次施加时的合并规则（两件事）
+## 目标（本轮最小集）
 
-#### 2.1 duration 刷新（你已确认）
+把 DOT 的“叠加策略”做成可预测、可回归，并满足你的真实需求：
+
+> **同一目标身上的同一种 DOT（同 buff_id），不同来源的伤害要分开计算。**
+
+因此本轮采用：
+
+> **按来源实体合并：同目标 + 同 DOT buff_id + 同 source_entity_id 合并为 1 条 DotInstance；不同 source_entity_id 各自一条。**
+
+并保持性能约束不变：
+- tick 只遍历 `dots_by_target[target]`（不遍历全 buff 实例）
+- 有专门 GUT 单测覆盖（无单测不算完成）
+
+---
+
+## 背景/动机
+
+你指出的关键点成立：DOT 伤害可能读取“火焰伤害/ATK 等来源属性”，不同角色数值不同，因此“后施加覆盖前施加来源”会非常反直觉。
+
+所以我们需要：
+- **不同来源的 DOT 作为不同实例存在**（至少在计算上独立）
+- 同一来源重复施加时，才进行合并/叠层/刷新
+
+---
+
+## 新语义：按来源合并（per-source merge）
+
+### 1) 合并键
+
+合并键 = `(target_entity_id, buff_def_id, source_entity_id)`
+
+推论：
+- 同目标上，同 DOT buff_id 的 DotInstance 数量最多为“来源数”
+- 不同来源互不影响（伤害各读自己的来源属性）
+
+### 2) 同一来源重复施加时的合并规则（你已确认）
+
+#### 2.1 duration 刷新
 
 再次施加时：**直接重置**
 ```
 remaining_turns = turns
 ```
 
-#### 2.2 强度合并（沿用 stack.mode）
+#### 2.2 强度合并（叠层）
 
-强度使用 DotInstance 的 `stacks` 表示（新增字段），并按 buff_def.stack 驱动：
+强度使用 DotInstance 的 `stacks` 表示（新增字段），并按 `buff_def.stack` 驱动：
 
-- `stack.mode == "REPLACE"`：
+- `stack.mode == "REPLACE"`（或缺省 stack）：
   - `stacks = 1`
 - `stack.mode == "ADD_STACK"`：
   - `stacks = min(stacks + 1, max_stack)`
 - `stack.mode == "MULTI_INSTANCE"`：
-  - 对 DOT：本轮不再允许（否则与“全局合并”冲突）
-  - 编译校验：若 DOT buff 声明 MULTI_INSTANCE，则报错或强制降级为 REPLACE（推荐：报错，避免隐式语义）
+  - 对 DOT：本轮不支持（会与“按来源合并”语义冲突，且容易产生爆量实例）
+  - 编译校验：建议直接报错，避免隐式降级导致误用
 
-> 注：如果 dot buff 缺失 stack，则默认视为 REPLACE（stacks=1）。
-
-### 3) 来源实体（source_entity_id）处理
-
-由于全局只有 1 条实例，必须确定“来源是谁”。
-
-规则：**采用最后施加者覆盖**
-- 每次合并时，将 DotInstance.source_entity_id 更新为本次施加者 `source_entity_id`
-
-动机：
-- 符合“后施加覆盖前施加”的直觉与可解释性
-- 让 DOT 动态读取的来源属性（ATK等）能反映“最新来源”
-
-### 4) 伤害公式
+### 3) 伤害公式
 
 沿用现有最小实现，并引入 stacks：
 ```
@@ -46,18 +69,18 @@ damage = source_stat * base_ratio * stacks
 - `base_ratio` 来自 `buff_def.dot.base_ratio`
 - `stacks` 来自 DotInstance
 
-### 5) tick 与生命周期
+### 4) tick 与生命周期
 
-- tick_phase：仍支持 TURN_START / TURN_END
+- tick_phase：仍支持 `TURN_START / TURN_END`
 - 每次 tick 后：`remaining_turns -= 1`，到 0 移除 DotInstance
 - A4：若 owner buff 实例 inactive，则暂停 tick 且不递减 remaining_turns（保持现有行为）
 
-### 6) 清理规则（驱散/移除）
+### 5) 清理规则（驱散/移除）
 
 - DotInstance 仍记录 `owner_buff_inst_id`（归属的 buff 实例）
 - 当 `remove_by_instance` 移除该 buff 实例时，必须删除对应 DotInstance（已有逻辑）
-- 因为现在 DotInstance 被合并，需确保 “同 buff_id 多次施加时 owner_buff_inst_id 的更新策略”一致：
-  - 推荐：owner_buff_inst_id 更新为最新一次施加时创建/命中的实例（便于追溯最新来源）
+- 当同一来源重复施加并“命中既有 DotInstance”时：
+  - `owner_buff_inst_id` 更新为最新一次施加创建/命中的实例（便于追溯）
 
 ---
 
@@ -66,31 +89,28 @@ damage = source_stat * base_ratio * stacks
 新增测试用 DOT buff（示例）：
 - `buff_dot_fire_stack_3t`：`stack.mode=ADD_STACK max_stack=3`，duration turns=3
 
-以及一个触发 buff（或直接在测试里重复 apply_buff）用来构造：
-- 同回合多次施加同一个 DOT buff_id
-
 ---
 
 ## 单测（必须）
 
 新增 GUT 用例（建议放 `addons/omnibuff/tests/rpg/`）：
 
-1) `test_dot_global_merge_single_instance.gd`
-- 对同一目标连续 apply 同一个 DOT buff_id 3 次
-- 断言：`dots_by_target[target].size() == 1`
+1) `test_dot_merge_by_source_produces_two_instances.gd`
+- 同一目标分别由 source=3001 与 source=3002 施加同一个 DOT buff_id
+- 断言：`dots_by_target[target].size() == 2`
+- 并验证 tick 产生 2 条 dot_traces（与现有 `test_dot_multi_source_trace.gd` 语义一致）
 
-2) `test_dot_global_merge_refresh_and_stack.gd`
-- 对同一目标 apply DOT（ADD_STACK）两次
-- 断言：stacks 增加，tick 伤害随 stacks 增大
-- 断言：再次施加后 `remaining_turns` 重置为 turns（可通过 tick 若干回合验证不会过早结束）
+2) `test_dot_merge_by_source_refresh_and_stack.gd`
+- 同一来源对同一目标重复施加 DOT（ADD_STACK）
+- 断言：DotInstance 数量仍为 1
+- 断言：stacks 增加，且 tick 伤害随 stacks 增大
+- 断言：再次施加后 `remaining_turns` 被重置为 turns（不会提前到期）
 
 ---
 
 ## 验收标准
 
-- 新增 DOT 全局合并语义落地
-- 上述单测全绿
-- 现有 DOT 多来源追帧测试若依赖“多实例”行为，需要：
-  - 更新为验证“source 被覆盖为最后施加者”或
-  - 迁移到“按来源合并”分支（不在本轮）
+- 按来源合并语义落地
+- 新增单测全绿
+- 现有 `res://addons/omnibuff/tests/test_dot_multi_source_trace.gd` 保持通过（它正好验证“不同来源两条 trace”）
 
