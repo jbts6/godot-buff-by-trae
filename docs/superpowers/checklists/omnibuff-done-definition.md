@@ -11,7 +11,7 @@
 - [x] **A2 刷新策略完整**：`NONE / RESET_TO_MAX / EXTEND / REFRESH_DURATION`（至少明确实现/不实现的列表，且行为可预测）。
 - [x] **A3 到期/持续完整**：`duration.type=TURNS` 会随回合推进递减并到期移除；DOT 与非 DOT 都遵守到期。
 - [x] **A4 条件型持续完整**：`WHILE_CONDITION`（例如套装条件）在条件失效时按 policy 正确挂起/移除。
-- [ ] **A5 主动移除接口稳定**：提供明确 API（如 `remove_by_instance` / `remove_by_id`），并保证撤销 modifier、注销事件、清理 DOT。
+- [x] **A5 主动移除接口稳定**：提供明确 API（如 `remove_by_instance` / `remove_by_id`），并保证撤销 modifier、注销事件、清理 DOT。
 
 ## B. 驱散与免疫（可控性）
 
