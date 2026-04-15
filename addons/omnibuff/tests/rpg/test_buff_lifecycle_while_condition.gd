@@ -62,4 +62,3 @@ func test_while_condition_inactive_still_expires() -> void:
 	assert_eq(int(buffs.inst_ids.size()), 1)
 	turn.on_turn_end(ids, runtime["buff_by_entity"], runtime["stats_by_entity"], pipe, ds, null) # 1->0 到期
 	assert_eq(int(buffs.inst_ids.size()), 0)
-

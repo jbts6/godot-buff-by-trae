@@ -71,4 +71,3 @@ func test_add_stack_by_source_creates_two_owner_instances() -> void:
 	# 期望：存在 2 个实例（按来源拆分），DEF = 5 base + (5*2 + 5*1) = 20
 	assert_eq(_count_by_id(e.buffs, ds, "buff_life_stack_by_source_def_5_2t_max2"), 2)
 	assert_eq(float(e.stats.get_final(ds.stat_id("DEF"))), 20.0)
-

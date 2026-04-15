@@ -58,4 +58,3 @@ func test_refresh_policy_reset_to_max_resets_remaining_turns() -> void:
 	# 命中已有实例，应重置回2
 	e.buffs.apply_buff(e.stats, "buff_life_stack_atk_10_2t_max3", 111)
 	assert_eq(int(e.buffs.instances_by_id[inst_id].remaining_turns), 2)
-
