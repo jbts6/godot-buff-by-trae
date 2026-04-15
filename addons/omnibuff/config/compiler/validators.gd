@@ -173,6 +173,21 @@ static func _validate_enums(file: String, enums_obj: Dictionary, strict: bool, i
 	for name in required_enums:
 		if not enums.has(name) or typeof(enums[name]) != TYPE_ARRAY:
 			_add_issue(issues, error(file, "path=$.enums." + String(name), "", "missing required enum list: " + String(name)), strict)
+			continue
+
+		# 规则：enum 数组项必须是非空字符串，且不得重复（用于协议治理/错误定位）
+		var arr: Array = enums.get(name, [])
+		var seen := {}
+		for i in range(arr.size()):
+			var p := "path=$.enums.%s[%s]" % [String(name), i]
+			if typeof(arr[i]) != TYPE_STRING or String(arr[i]) == "":
+				_add_issue(issues, error(file, p, "", "enum item must be non-empty string"), strict)
+				continue
+			var v := String(arr[i])
+			if seen.has(v):
+				_add_issue(issues, error(file, p, "", "duplicate enum item: " + v), strict)
+			else:
+				seen[v] = true
 
 	# 规则：tag id/code 不重复；code 非负且 <=62（当前 bitmask 使用 int，63+ 会溢出风险）
 	var seen_id := {}

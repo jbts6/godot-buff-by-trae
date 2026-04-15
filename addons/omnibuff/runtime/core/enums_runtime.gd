@@ -54,3 +54,18 @@ func tag_mask(tags: Array) -> int:
 	for t in tags:
 		m |= int(tag_mask_by_id.get(String(t), 0))
 	return m
+
+func tags_from_mask(mask: int) -> Array[String]:
+	# 将 bitmask 反解为 tags:["DOT","FIRE"]；按 code 升序稳定输出（用于追溯/断言）
+	var pairs: Array = []
+	for id in tag_code_by_id.keys():
+		pairs.append([int(tag_code_by_id[id]), String(id)])
+	pairs.sort_custom(func(a, b): return int(a[0]) < int(b[0]))
+
+	var out: Array[String] = []
+	for p in pairs:
+		var code := int(p[0])
+		var id := String(p[1])
+		if (mask & (1 << code)) != 0:
+			out.append(id)
+	return out
