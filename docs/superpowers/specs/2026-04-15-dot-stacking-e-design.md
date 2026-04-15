@@ -75,6 +75,26 @@ damage = source_stat * base_ratio * stacks
 - 每次 tick 后：`remaining_turns -= 1`，到 0 移除 DotInstance
 - A4：若 owner buff 实例 inactive，则暂停 tick 且不递减 remaining_turns（保持现有行为）
 
+### 4.1 tick 结算聚合（你新增的关键需求）
+
+对同一次 tick（同 target_entity_id + 同 tick_phase）：
+
+> **对 tags_mask 相同的 DOT，将“各来源分别计算出来的 base_damage”求和，只对目标结算“一段伤害”。**
+
+示例：同一目标上 A 来源 DOT=10，B 来源 DOT=20  
+则目标只受到 **一段** 30 的 DOT 伤害（而不是 10、20 两段）。
+
+实现约束与解释：
+- “分别计算”仍然存在：每条 DotInstance 仍按其 `source_entity_id` 读取来源属性，得到自己的 `base_damage_i`
+- “一段伤害”只影响对目标的 `deal_damage_with_tags` 调用次数（以及 DamageTrace 的条数）
+- 为避免不同元素/标签混算，本轮采用你确认的聚合范围：**同 target + 同 tick_phase + 同 tags_mask 才聚合**
+  - 不同 tags_mask（例如 FIRE vs POISON）会分开结算为多段（未来做抗性/减免时更安全）
+  - 同 buff_id 的 tags_mask 通常相同，因此你的“多来源同类 DOT 合并为一段”自然成立
+
+追帧建议：
+- `dot_traces` 仍可按 DotInstance 逐条记录（用于调试“每个来源贡献了多少”）
+- 但 `damage_traces`（若有）应体现为“聚合后的一段伤害”
+
 ### 5) 清理规则（驱散/移除）
 
 - DotInstance 仍记录 `owner_buff_inst_id`（归属的 buff 实例）
@@ -99,6 +119,7 @@ damage = source_stat * base_ratio * stacks
 - 同一目标分别由 source=3001 与 source=3002 施加同一个 DOT buff_id
 - 断言：`dots_by_target[target].size() == 2`
 - 并验证 tick 产生 2 条 dot_traces（与现有 `test_dot_multi_source_trace.gd` 语义一致）
+- 以及验证：对目标的伤害结算为 1 段（两来源的 base_damage 被聚合）
 
 2) `test_dot_merge_by_source_refresh_and_stack.gd`
 - 同一来源对同一目标重复施加 DOT（ADD_STACK）
@@ -113,4 +134,4 @@ damage = source_stat * base_ratio * stacks
 - 按来源合并语义落地
 - 新增单测全绿
 - 现有 `res://addons/omnibuff/tests/test_dot_multi_source_trace.gd` 保持通过（它正好验证“不同来源两条 trace”）
-
+- “多来源同 tags_mask 的 DOT 对目标只造成一段伤害”的单测通过
