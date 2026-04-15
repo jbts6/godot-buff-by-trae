@@ -172,6 +172,36 @@
 		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
 	  ],
 	  "triggers": []
+	},
+	{
+	  "id": "buff_cond_hp_le_50_atk_up_10",
+	  "name": "条件：HP<=50 时 ATK+10",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "conditions": [
+		{ "condition_type": "STAT_THRESHOLD", "stat": "HP", "op": "LE", "value": 50.0 }
+	  ],
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_cond_hp_le_50_atk_up_10_2t",
+	  "name": "条件：HP<=50 时 ATK+10（2回合到期）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "conditions": [
+		{ "condition_type": "STAT_THRESHOLD", "stat": "HP", "op": "LE", "value": 50.0 }
+	  ],
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
 	}
   ]
 }
