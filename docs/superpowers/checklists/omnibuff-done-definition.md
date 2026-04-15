@@ -24,36 +24,36 @@
 
 ## C. 属性系统（StatCache / Modifiers / Phase）
 
-- [ ] **C1 读取路径统一**：热路径属性读取只经 `StatsComponent.get_final(stat_id)`（StatCache）。
-- [ ] **C2 Dirty 粒度正确**：施加/移除 Buff 仅标脏受影响 stat，不做全量重算。
-- [ ] **C3 Modifier 语义完整（阶段）**：至少明确并实现以下阶段（或明确不支持并拒绝加载）：
-  - [ ] BASE（基础覆盖/加成）
-  - [ ] FLAT（平铺）
-  - [ ] PERCENT（百分比）
-  - [ ] FINAL（最终修正）
-  - [ ] CLAMP（区间裁剪）
-- [ ] **C4 Operator 完整**：`ADD / MUL / OVERRIDE`（至少对每种 op + phase 的组合给出支持矩阵）。
-- [ ] **C5 Priority 排序完整**：同一 stat 的 modifier 按 `priority` 稳定排序、可预测。
-- [ ] **C6 数值边界一致**：遵守 `stat_defs` 的 min/max/clamp 语义，且测试覆盖（特别是 0..1 概率类 stat）。
+- [x] **C1 读取路径统一**：热路径属性读取只经 `StatsComponent.get_final(stat_id)`（StatCache）。
+- [x] **C2 Dirty 粒度正确**：施加/移除 Buff 仅标脏受影响 stat，不做全量重算。
+- [x] **C3 Modifier 语义完整（阶段）**：至少明确并实现以下阶段（或明确不支持并拒绝加载）：
+  - [x] BASE（基础覆盖/加成）
+  - [x] FLAT（平铺）
+  - [x] PERCENT（百分比）
+  - [x] FINAL（最终修正）
+  - [x] CLAMP（区间裁剪）
+- [x] **C4 Operator 完整**：`ADD / MUL / OVERRIDE`（至少对每种 op + phase 的组合给出支持矩阵）。
+- [x] **C5 Priority 排序完整**：同一 stat 的 modifier 按 `priority` 稳定排序、可预测。
+- [x] **C6 数值边界一致**：遵守 `stat_defs` 的 min/max/clamp 语义，且测试覆盖（特别是 0..1 概率类 stat）。
 
 ## D. 事件系统（EventIndex / Triggers）
 
-- [ ] **D1 EventIndex 硬约束**：事件触发仅遍历 listeners 子集，不遍历全 buff。
-- [ ] **D2 filters 完整**：至少支持并测试：`tag_mask_any`、（可选）`source_is_self/target_is_self`、`phase` 等。
+- [x] **D1 EventIndex 硬约束**：事件触发仅遍历 listeners 子集，不遍历全 buff。
+- [x] **D2 filters 完整**：至少支持并测试：`tag_mask_any`、（可选）`source_is_self/target_is_self`、`phase` 等。
 - [ ] **D3 action 完整**：至少支持并测试：
   - [ ] `ADD_BASE_DAMAGE`
-  - [ ] `APPLY_BUFF`
+  - [x] `APPLY_BUFF`
   - [ ] `CHANCE_APPLY_BUFF`（概率）
 - [ ] **D4 概率可复盘**：事件概率与命中/暴击概率都能通过 seed 回放一致（同输入同输出）。
-- [ ] **D5 触发链治理**：循环触发检测 + 过深触发链告警/阻断（validators）。
+- [x] **D5 触发链治理**：循环触发检测 + 过深触发链告警/阻断（validators）。
 
 ## E. DOT（持续伤害）
 
-- [ ] **E1 结算点明确**：默认 `TURN_START` 结算，且数据集与测试一致。
-- [ ] **E2 按来源独立实例**：同种 DOT 不同来源独立实例（DotInstance），且稳定排序。
-- [ ] **E3 每跳读取来源属性**：tick 时读取来源 `StatCache`，不遍历来源 buff。
-- [ ] **E4 DOT 生命周期完整**：remaining_turns 递减到 0 移除（与回合推进一致）。
-- [ ] **E5 驱散与免疫交互**：驱散/免疫对 DOT 的行为可预测且有整回合集成测试锁死。
+- [x] **E1 结算点明确**：默认 `TURN_START` 结算，且数据集与测试一致。
+- [x] **E2 按来源独立实例**：同种 DOT 不同来源独立实例（DotInstance），且稳定排序。
+- [x] **E3 每跳读取来源属性**：tick 时读取来源 `StatCache`，不遍历来源 buff。
+- [x] **E4 DOT 生命周期完整**：remaining_turns 递减到 0 移除（与回合推进一致）。
+- [x] **E5 驱散与免疫交互**：驱散/免疫对 DOT 的行为可预测且有整回合集成测试锁死。
 
 ## F. DamagePipeline（战斗结算骨架）
 
