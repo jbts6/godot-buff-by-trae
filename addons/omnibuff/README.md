@@ -178,6 +178,18 @@ res://addons/omnibuff/tests
 - `tests/test_dot_multi_source_trace.gd`（DOT 多来源）
 - `tests/rpg/*`（更复杂 RPG 机制 + 整回合脚本式集成测试）
 
+### 7.3 Run tests (headless)
+
+在包含 `project.godot` 的目录（即仓库根目录 `godot-buff/`）执行：
+
+```bash
+GODOT_BIN="/path/to/godot" ./run_gut_tests.sh
+```
+
+退出码语义（用于 CI）：
+- `0`：测试全部通过（fail count = 0）
+- `1`：存在失败用例或 GUT 内部错误（fail count > 0 / 运行前置检查失败等）
+
 ---
 
 ## 8. 目录结构速览
@@ -221,4 +233,3 @@ data/
 ### Q2：为什么有些地方不建议用 `:=`？
 当变量类型是 `RefCounted` 或动态对象时，Godot 4 的静态分析可能无法推断 `:=` 的结果类型，导致解析期报错。  
 建议显式标注类型或直接用 `var x = ...`（不做推断约束）。
-
