@@ -91,9 +91,9 @@
 
 ## K. 文档（换上下文可用）
 
-- [ ] **K1 README 完整**：安装/启用、OmniBuff 入口、最小示例、DOT TURN_START 语义、测试运行方式。
-- [ ] **K2 API 约定写清楚**：runtime dict（stats_by_entity/buff_by_entity）用途、事件 scope 语义等。
-- [ ] **K3 版本与兼容策略**：说明对 Godot 版本、GUT 分支、数据 schema_version 的兼容范围。
+- [x] **K1 README 完整**：安装/启用、OmniBuff 入口、最小示例、DOT TURN_START 语义、测试运行方式。
+- [x] **K2 API 约定写清楚**：runtime dict（stats_by_entity/buff_by_entity）用途、事件 scope 语义等。
+- [x] **K3 版本与兼容策略**：说明对 Godot 版本、GUT 分支、数据 schema_version 的兼容范围。
 
 ---
 
