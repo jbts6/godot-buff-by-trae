@@ -18,4 +18,4 @@ echo "[GUT] Import project (headless)..."
 "${GODOT_BIN}" --headless --import --quit
 
 echo "[GUT] Run tests..."
-godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://addons/omnibuff/tests -gexit
+"${GODOT_BIN}" --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://addons/omnibuff/tests -gexit
