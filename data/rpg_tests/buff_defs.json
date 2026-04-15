@@ -85,6 +85,78 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_c_override_hit_0_p900",
+	  "name": "C测试：HIT_RATE=0（OVERRIDE/FINAL p900）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "OVERRIDE", "phase": "FINAL", "priority": 900, "value": 0.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_c_override_hit_1_p800",
+	  "name": "C测试：HIT_RATE=1（OVERRIDE/FINAL p800）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "OVERRIDE", "phase": "FINAL", "priority": 800, "value": 1.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_c_override_hit_0_p850",
+	  "name": "C测试：HIT_RATE=0（OVERRIDE/FINAL p850）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "OVERRIDE", "phase": "FINAL", "priority": 850, "value": 0.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_c_override_hit_1_p850",
+	  "name": "C测试：HIT_RATE=1（OVERRIDE/FINAL p850）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "OVERRIDE", "phase": "FINAL", "priority": 850, "value": 1.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_c_final_add_hit_plus_0_2",
+	  "name": "C测试：HIT_RATE 最终+0.2（ADD/FINAL）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "ADD", "phase": "FINAL", "priority": 950, "value": 0.2 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_c_add_hit_plus_2",
+	  "name": "C测试：HIT_RATE +2（ADD/FLAT）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "HIT_RATE", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 2.0 }
+	  ],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_dot_fire_3t",
 	  "name": "测试：灼烧DOT（3回合/回合结束结算）",
 	  "buff_type": "EXPLICIT",
