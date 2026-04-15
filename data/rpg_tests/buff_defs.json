@@ -138,6 +138,18 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_life_stack_atk_10_2t_max3_none",
+	  "name": "生命周期：ADD_STACK ATK+10（2回合，最多3层，不刷新）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 2, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 3, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_life_multi_atk_10_2t",
 	  "name": "生命周期：MULTI_INSTANCE ATK+10（2回合）",
 	  "buff_type": "EXPLICIT",
