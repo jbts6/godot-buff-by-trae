@@ -72,9 +72,9 @@
 
 ## H. 回放与追帧（Replay/Trace）
 
-- [ ] **H1 DamageTrace 完整**：至少记录 turn、atk/def、hit/crit、base/final、tags_mask、triggered_inst_ids、stage_triggers。
-- [ ] **H2 DotTrace 完整**：至少记录 turn、source/target、read_source_stat/value、ratio、base/final、tags_mask。
-- [ ] **H3 Debug dump 可读**：提供 range dump，便于多段/多DOT排障。
+- [x] **H1 DamageTrace 完整**：至少记录 turn、atk/def、hit/crit、base/final、tags_mask、triggered_inst_ids、stage_triggers。
+- [x] **H2 DotTrace 完整**：至少记录 turn、source/target、read_source_stat/value、ratio、base/final、tags_mask。
+- [x] **H3 Debug dump 可读**：提供 range dump，便于多段/多DOT排障。
 
 ## I. 测试与回归（GUT）
 
