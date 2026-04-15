@@ -202,6 +202,55 @@
 		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
 	  ],
 	  "triggers": []
+	},
+	{
+	  "id": "buff_dispel_implicit_atk_10",
+	  "name": "驱散测试：IMPLICIT ATK+10",
+	  "buff_type": "IMPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dispel_passive_atk_10",
+	  "name": "驱散测试：PASSIVE ATK+10",
+	  "buff_type": "PASSIVE",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dispel_undispellable_atk_10",
+	  "name": "驱散测试：不可驱散 ATK+10",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "dispel": { "dispellable": false },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "ATK", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 10.0 }
+	  ],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dispel_source_mark",
+	  "name": "驱散测试：按来源拆分 DEF+5",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DEF", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
+	  ],
+	  "triggers": []
 	}
   ]
 }
