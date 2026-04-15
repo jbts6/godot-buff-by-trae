@@ -8,14 +8,16 @@ extends GutTest
 ## - 对 defender 连续 3 段攻击（base=12/14/18, tags_mask=BUFF）
 ## - 断言 defender 的 buff 实例数为 3（全部为 buff_dot_fire_3t）
 ## - 执行 TurnComponent.on_turn_end 推进到下一回合（不结算 DOT）
-## - 执行 TurnComponent.on_turn_start 结算 DOT，断言新增 3 条 DotTrace，且 source_entity_id 全为 attacker
+## - 执行 TurnComponent.on_turn_start 结算 DOT：
+##   - DOT 按来源合并：同一来源仅 1 条 DotTrace
+##   - source_entity_id 为 attacker
 
 const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
 const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
 const TestBattle := preload("res://addons/omnibuff/tests/helpers/test_battle.gd")
 
 
-func test_multihit_each_hit_applies_dot_and_ticks_three_traces() -> void:
+func test_multihit_each_hit_applies_dot_and_ticks_traces() -> void:
 	var loaded := TestDataset.load_rpg_tests(true)
 	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
 	var ds: OmniCompiledDataset = loaded.ds
@@ -61,7 +63,7 @@ func test_multihit_each_hit_applies_dot_and_ticks_three_traces() -> void:
 
 	# DOT 默认在 TURN_START 结算：
 	# - TurnEnd：仅推进到下一回合，不应产出 dot trace
-	# - TurnStart：一次 tick 应产生 3 条 DotTrace（每个 DOT 实例一条），来源都归因到 attacker
+	# - TurnStart：DOT 按来源合并后，一次 tick 应产生 1 条 DotTrace（同一来源）
 	var turn := OmniTurnComponent.new()
 	var entity_ids := PackedInt32Array([attacker_id, defender_id])
 	entity_ids.sort()
@@ -75,7 +77,7 @@ func test_multihit_each_hit_applies_dot_and_ticks_three_traces() -> void:
 	turn.on_turn_start(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	var after := replay.dot_traces.size()
 
-	assert_eq(after - before, 3, "one tick should create 3 dot traces for 3 dot instances")
+	assert_eq(after - before, 1, "one tick should create 1 dot trace per source (merge-by-source)")
 	for i in range(before, after):
 		assert_eq(int(replay.dot_traces[i].source_entity_id), attacker_id)
 		assert_eq(int(replay.dot_traces[i].target_entity_id), defender_id)

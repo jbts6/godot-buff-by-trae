@@ -5,7 +5,7 @@ extends GutTest
 ## 流程：
 ## - Turn1：defender 上盾
 ## - Turn2：attacker 挂 buff_on_hit_apply_dot，并三连对 defender（每段 AFTER_DEAL 挂 1 个 DOT）
-## - Turn3 start：DOT 结算（3 traces）
+## - Turn3 start：DOT 结算（按来源合并：同一来源仅 1 条 trace）
 ## - Turn3：驱散 DEBUFF 成功（移除 DOT）
 ## - Turn4 start：无 trace
 ## - Turn4：再三连挂 DOT；设置 defender 对 DEBUFF 驱散免疫，驱散失败
@@ -119,13 +119,13 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 	after_end = replay.dot_traces.size()
 	assert_eq(after_end - before_end, 0, "applying dots this turn should not tick at turn end (TURN_START semantics)")
 
-	# === Turn 3 start：DOT 结算（应产出 3 条 trace）===
+	# === Turn 3 start：DOT 结算（按来源合并：同一来源仅 1 条 trace）===
 	var hp_before := float(defender.stats.get_final(hp_id))
 	var before := replay.dot_traces.size()
 	turn.on_turn_start(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	var after := replay.dot_traces.size()
-	assert_eq(after - before, 3, "Turn3 start should tick 3 dot instances (3 traces)")
-	_assert_dot_traces(replay, before, 3, attacker_id, defender_id)
+	assert_eq(after - before, 1, "Turn3 start should tick DOT once per source (1 trace)")
+	_assert_dot_traces(replay, before, 1, attacker_id, defender_id)
 	assert_true(float(defender.stats.get_final(hp_id)) < hp_before, "DOT tick should reduce HP")
 
 	# === Turn 3：驱散 DEBUFF（应移除 DOT）===
@@ -176,11 +176,11 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 	after_end = replay.dot_traces.size()
 	assert_eq(after_end - before_end, 0)
 
-	# === Turn 5 start：DOT 仍应结算（trace + 3）===
+	# === Turn 5 start：DOT 仍应结算（按来源合并：trace + 1）===
 	hp_before = float(defender.stats.get_final(hp_id))
 	before = replay.dot_traces.size()
 	turn.on_turn_start(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	after = replay.dot_traces.size()
-	assert_eq(after - before, 3, "Turn5 start should tick 3 dot instances (3 traces)")
-	_assert_dot_traces(replay, before, 3, attacker_id, defender_id)
+	assert_eq(after - before, 1, "Turn5 start should tick DOT once per source (1 trace)")
+	_assert_dot_traces(replay, before, 1, attacker_id, defender_id)
 	assert_true(float(defender.stats.get_final(hp_id)) < hp_before, "DOT tick should reduce HP on Turn5 start")
