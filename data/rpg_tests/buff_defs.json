@@ -208,6 +208,78 @@
 	  ]
 	},
 	{
+	  "id": "buff_on_hit_dot_mul2",
+	  "name": "E2测试：命中后DOT翻倍",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "DOT_MUL_STACKS", "dot_buff_id": "buff_dot_fire_stack_3t", "value": 2 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_on_hit_dot_add_minus1",
+	  "name": "E2测试：命中后DOT减1层",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "DOT_ADD_STACKS", "dot_buff_id": "buff_dot_fire_stack_3t", "value": -1 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_on_hit_dot_set3",
+	  "name": "E2测试：命中后DOT设为3层",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "DOT_SET_STACKS", "dot_buff_id": "buff_dot_fire_stack_3t", "value": 3 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_on_hit_dot_clear_poison",
+	  "name": "E2测试：命中后清除POISON DOT",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "DOT_CLEAR", "dot_tags_mask_any": ["POISON"] }
+		}
+	  ]
+	},
+	{
 	  "id": "buff_on_hit_shatter_shield",
 	  "name": "命中后碎盾（APPLY前置）",
 	  "buff_type": "EXPLICIT",
