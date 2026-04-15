@@ -40,7 +40,7 @@ func test_rpg_tests_manifest_only_refs_rpg_tests_files_and_shared_enums() -> voi
 
 	var files: Array = m.get("files", [])
 	for f in files:
-		assert_true(typeof(f) == TYPE_DICTIONARY, "manifest.files[] must be objects, got: %s" % String(typeof(f)))
+		assert_true(typeof(f) == TYPE_DICTIONARY, "manifest.files[] must be objects, got: %s" % str(typeof(f)))
 		var d: Dictionary = f
 		var rel: String = String(d.get("path", ""))
 		assert_true(_is_allowed_rpg_tests_rel_path(rel), "unexpected rpg_tests manifest path: %s" % rel)
@@ -52,8 +52,7 @@ func test_base_demo_manifest_does_not_ref_rpg_tests() -> void:
 
 	var files: Array = m.get("files", [])
 	for f in files:
-		assert_true(typeof(f) == TYPE_DICTIONARY, "manifest.files[] must be objects, got: %s" % String(typeof(f)))
+		assert_true(typeof(f) == TYPE_DICTIONARY, "manifest.files[] must be objects, got: %s" % str(typeof(f)))
 		var d: Dictionary = f
 		var rel: String = String(d.get("path", ""))
 		assert_true(rel.find("rpg_tests") < 0, "base_demo manifest should not reference rpg_tests: %s" % rel)
-
