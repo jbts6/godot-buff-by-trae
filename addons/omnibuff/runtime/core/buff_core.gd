@@ -57,6 +57,10 @@ class BuffInst:
 	var remaining_turns: int
 	## 该实例注入到 StatsCore 的 modifier 引用（用于将来撤销/重建聚合视图）
 	var modifier_refs: Array[OmniModifierRef] = []
+	## A4：while-condition 路线A（挂起/恢复）
+	## - active=true：该实例生效（modifiers/triggers 已注册）
+	## - active=false：该实例挂起（撤销 modifiers/监听；但实例仍存在，可到期/可被驱散）
+	var active: bool = true
 
 class DotInstance:
 	extends RefCounted
@@ -194,7 +198,9 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		if refresh_policy == "RESET_TO_MAX":
 			old_inst.remaining_turns = int(def.get("duration", {}).get("turns", -1))
 		# 让 modifier 随 stacks 生效（线性：value * stacks）
-		_rebuild_instance_modifiers(stats, old_inst_id)
+		# A4：若该实例处于 inactive（while-condition 不满足），则不要重建 modifiers（避免“挂起但仍生效”）
+		if old_inst.active:
+			_rebuild_instance_modifiers(stats, old_inst_id)
 		return old_inst_id
 
 	# 未知 mode：退化为 MULTI_INSTANCE（避免“吃掉 buff”）
@@ -238,38 +244,7 @@ func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id
 	_rebuild_instance_modifiers(stats, inst.inst_id)
 
 	# === triggers -> EventIndex（事件型：变动时注册监听）===
-	if enums_rt != null:
-		var triggers: Array = ds.buff_defs[bdid].get("triggers", [])
-		for t in triggers:
-			var et_str := String(t.get("event_type", ""))
-			var ph_str := String(t.get("event_phase", ""))
-			var et := enums_rt.enum_int("event_type", et_str)
-			var ph := enums_rt.enum_int("event_phase", ph_str)
-			if et < 0 or ph < 0:
-				continue
-			var key := et * OmniEventIndex.PHASE_COUNT + ph
-
-			var filters: Dictionary = t.get("filters", {})
-			var tag_any: Array = filters.get("tag_mask_any", [])
-			var filter_mask := enums_rt.tag_mask(tag_any)
-
-			var action: Dictionary = t.get("action", {})
-			var l := OmniEventIndex.Listener.new()
-			l.inst_id = inst.inst_id
-			l.filter_tag_mask = filter_mask
-			l.action_kind = String(action.get("kind", ""))
-			l.action_value = float(action.get("value", 0.0))
-			# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
-			if action.has("buff_id"):
-				l.action_buff_id = String(action.get("buff_id", ""))
-			elif action.has("apply_buff_id"):
-				l.action_buff_id = String(action.get("apply_buff_id", ""))
-			l.action_chance = float(action.get("chance", 1.0))
-			l.scope = String(t.get("scope", "SELF"))
-			var lid := event_index.register_listener(key, l)
-			if not listener_ids_by_inst.has(inst.inst_id):
-				listener_ids_by_inst[inst.inst_id] = PackedInt32Array()
-			(listener_ids_by_inst[inst.inst_id] as PackedInt32Array).append(lid)
+	_register_triggers_for_instance(inst, ds.buff_defs[bdid])
 
 	# === DOT实例（按来源独立）===
 	# 规则：只要 buff_defs[bdid] 存在 dot 字段，则视为DOT型buff；每次施加创建新的 DotInstance
@@ -295,7 +270,94 @@ func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id
 			dots_by_target[stats.entity_id] = []
 		(dots_by_target[stats.entity_id] as Array).append(d)
 
+	# A4：创建后立即评估 while-condition；不满足则 deactivate（但保留实例 + DOT实例）
+	var def: Dictionary = ds.buff_defs[bdid]
+	if not _conditions_satisfied(stats, def):
+		_deactivate_instance(stats, inst)
+
 	return inst.inst_id
+
+func _conditions_satisfied(stats: OmniStatsComponent, def: Dictionary) -> bool:
+	# A4 v1：仅实现 STAT_THRESHOLD
+	var conds: Array = def.get("conditions", [])
+	if conds.is_empty():
+		return true
+	for c in conds:
+		if String(c.get("condition_type", "")) != "STAT_THRESHOLD":
+			# v1：未知条件类型先忽略（避免“吃掉 buff”）
+			continue
+		var stat_id := ds.stat_id(String(c.get("stat", "")))
+		if stat_id < 0:
+			continue
+		var op := String(c.get("op", "LE"))
+		var rhs := float(c.get("value", 0.0))
+		var lhs := float(stats.get_final(stat_id))
+		var ok := true
+		match op:
+			"LE": ok = lhs <= rhs
+			"LT": ok = lhs < rhs
+			"GE": ok = lhs >= rhs
+			"GT": ok = lhs > rhs
+			_: ok = true
+		if not ok:
+			return false
+	return true
+
+func _deactivate_instance(stats: OmniStatsComponent, inst: BuffInst) -> void:
+	# A4：撤销 modifiers + 注销 triggers，保留实例（用于到期/驱散）
+	if inst == null:
+		return
+	_remove_modifiers_for_inst(stats, inst)
+	_unregister_listeners_for_inst(int(inst.inst_id))
+	# 避免 active/inactive 来回切时 listener id 列表无限增长
+	listener_ids_by_inst[int(inst.inst_id)] = PackedInt32Array()
+	inst.active = false
+
+func _activate_instance(stats: OmniStatsComponent, inst: BuffInst, def: Dictionary) -> void:
+	# A4：恢复 modifiers + triggers
+	if inst == null:
+		return
+	_rebuild_instance_modifiers(stats, int(inst.inst_id))
+	_register_triggers_for_instance(inst, def)
+	inst.active = true
+
+func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
+	# 内部：从 buff_def 注册 triggers（供 create/activate 复用）
+	if inst == null:
+		return
+	if enums_rt == null:
+		return
+	var triggers: Array = def.get("triggers", [])
+	for t in triggers:
+		var et_str := String(t.get("event_type", ""))
+		var ph_str := String(t.get("event_phase", ""))
+		var et := enums_rt.enum_int("event_type", et_str)
+		var ph := enums_rt.enum_int("event_phase", ph_str)
+		if et < 0 or ph < 0:
+			continue
+		var key := et * OmniEventIndex.PHASE_COUNT + ph
+
+		var filters: Dictionary = t.get("filters", {})
+		var tag_any: Array = filters.get("tag_mask_any", [])
+		var filter_mask := enums_rt.tag_mask(tag_any)
+
+		var action: Dictionary = t.get("action", {})
+		var l := OmniEventIndex.Listener.new()
+		l.inst_id = int(inst.inst_id)
+		l.filter_tag_mask = filter_mask
+		l.action_kind = String(action.get("kind", ""))
+		l.action_value = float(action.get("value", 0.0))
+		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
+		if action.has("buff_id"):
+			l.action_buff_id = String(action.get("buff_id", ""))
+		elif action.has("apply_buff_id"):
+			l.action_buff_id = String(action.get("apply_buff_id", ""))
+		l.action_chance = float(action.get("chance", 1.0))
+		l.scope = String(t.get("scope", "SELF"))
+		var lid := event_index.register_listener(key, l)
+		if not listener_ids_by_inst.has(int(inst.inst_id)):
+			listener_ids_by_inst[int(inst.inst_id)] = PackedInt32Array()
+		(listener_ids_by_inst[int(inst.inst_id)] as PackedInt32Array).append(lid)
 
 func _remove_modifiers_for_inst(stats: OmniStatsComponent, inst: BuffInst) -> void:
 	# 内部：仅撤销一个实例注入到 StatsCore 的 modifiers（不移除实例本身）
@@ -552,6 +614,12 @@ func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary
 		if d.remaining_turns <= 0:
 			continue
 
+		# A4：若该DOT归属的 buff 实例处于 inactive，则暂停 tick 且不递减 remaining_turns
+		var owner_inst: BuffInst = instances_by_id.get(int(d.owner_buff_inst_id), null)
+		if owner_inst == null or (not owner_inst.active):
+			kept.append(d)
+			continue
+
 		var source_stats: OmniStatsComponent = stats_by_entity.get(d.source_entity_id, null)
 		var source_buff: OmniBuffCore = buff_by_entity.get(d.source_entity_id, null)
 		if source_stats == null or source_buff == null:
@@ -596,13 +664,38 @@ func on_turn_start(turn_index: int, stats_by_entity: Dictionary = {}, buff_by_en
 	# 兼容：允许旧调用只传 turn_index，此时不会触发DOT结算
 	if pipeline == null or dataset == null:
 		return
+	_eval_while_conditions_and_toggle_active(stats_by_entity)
 	_tick_dots(turn_index, "TURN_START", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
 	_tick_non_dot_turns("TURN_START", stats_by_entity)
 
 func on_turn_end(turn_index: int, stats_by_entity: Dictionary, buff_by_entity: Dictionary, pipeline: OmniDamagePipeline, dataset: OmniCompiledDataset, replay: RefCounted = null) -> void:
 	# TurnEnd tick（DOT结算）
+	_eval_while_conditions_and_toggle_active(stats_by_entity)
 	_tick_dots(turn_index, "TURN_END", stats_by_entity, buff_by_entity, pipeline, dataset, replay)
 	_tick_non_dot_turns("TURN_END", stats_by_entity)
+
+func _eval_while_conditions_and_toggle_active(stats_by_entity: Dictionary) -> void:
+	# A4：在 TurnStart/TurnEnd tick 中评估 while-condition，并切换 active 状态（挂起/恢复）
+	if owner_entity_id < 0:
+		return
+	if stats_by_entity.is_empty():
+		return
+	var owner_stats: OmniStatsComponent = stats_by_entity.get(owner_entity_id, null)
+	if owner_stats == null:
+		return
+
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
+		var want_active := _conditions_satisfied(owner_stats, def)
+		if want_active == inst.active:
+			continue
+		if want_active:
+			_activate_instance(owner_stats, inst, def)
+		else:
+			_deactivate_instance(owner_stats, inst)
 
 func _tick_non_dot_turns(tick_phase: String, stats_by_entity: Dictionary) -> void:
 	# 内部：非 DOT 的 TURNS buff 到期递减与移除（按 duration.tick_phase）
