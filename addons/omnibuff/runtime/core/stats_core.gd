@@ -65,6 +65,11 @@ func recompute(stat_id: int) -> void:
 	var base := base_values[stat_id]
 	var flat := 0.0
 	var pct := 0.0
+	var final_add := 0.0
+	var has_override := false
+	var override_v := 0.0
+	var override_pri := -2147483648
+	var override_src := -2147483648
 	for m in modifiers_by_stat[stat_id]:
 		# 当前约定：BuffCore 注入的 modifier 一定是 OmniModifierRef（包含 op/phase/value）。
 		# 这里不依赖 class_name 的全局类表，只依赖字段名存在。
@@ -73,12 +78,30 @@ func recompute(stat_id: int) -> void:
 		var op := String(m.op)
 		var ph := String(m.phase)
 		var val := float(m.value)
+		var pri := int(m.priority)
+		var src := int(m.source_inst_id)
 		if op == "ADD" and ph == "FLAT":
 			flat += val
 		elif op == "MUL" and ph == "PERCENT":
 			pct += val
+		elif op == "ADD" and ph == "FINAL":
+			final_add += val
+		elif op == "OVERRIDE" and ph == "FINAL":
+			if (not has_override) or (pri > override_pri) or (pri == override_pri and src > override_src):
+				has_override = true
+				override_pri = pri
+				override_src = src
+				override_v = val
 
-	final_values[stat_id] = (base + flat) * (1.0 + pct)
+	var v := (base + flat) * (1.0 + pct)
+	if has_override:
+		v = override_v
+	v += final_add
+
+	var def: Dictionary = ds.stat_defs[stat_id]
+	if bool(def.get("clamp", false)):
+		v = clamp(v, float(def.get("min", v)), float(def.get("max", v)))
+	final_values[stat_id] = v
 
 func get_final(stat_id: int) -> float:
 	# 热路径读取：若脏则重算一次，然后返回快照

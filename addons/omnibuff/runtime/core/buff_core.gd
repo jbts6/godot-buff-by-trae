@@ -27,6 +27,8 @@ class OmniModifierRef:
 	var op: String = ""
 	## modifier phase（如 "FLAT"/"PERCENT"）
 	var phase: String = ""
+	## modifier priority（用于 OVERRIDE 等冲突裁决；数值越大越靠后/越优先）
+	var priority: int = 0
 	## modifier 原始值（与配置 value 一致；例如 20.0 / 0.05）
 	var value: float = 0.0
 	## 兼容字段：平铺加成值（旧实现只读取 add_value）
@@ -390,10 +392,14 @@ func _rebuild_instance_modifiers(stats: OmniStatsComponent, inst_id: int) -> voi
 			continue
 		var op := String(e.get("op", ""))
 		var phase := String(e.get("phase", ""))
-		# 当前运行时支持：
+		# 当前运行时支持（C plan Task4）：
 		# - ADD/FLAT（平铺加成）
 		# - MUL/PERCENT（百分比加成：最终值按 (base+flat)*(1+pct) 计算）
-		var supported := (op == "ADD" and phase == "FLAT") or (op == "MUL" and phase == "PERCENT")
+		# - ADD/FINAL（最终加成：在 OVERRIDE 裁决后再叠加）
+		# - OVERRIDE/FINAL（最终覆盖：按 priority/后施加胜）
+		var supported := (op == "ADD" and (phase == "FLAT" or phase == "FINAL")) \
+			or (op == "MUL" and phase == "PERCENT") \
+			or (op == "OVERRIDE" and phase == "FINAL")
 		if not supported:
 			continue
 
@@ -408,6 +414,7 @@ func _rebuild_instance_modifiers(stats: OmniStatsComponent, inst_id: int) -> voi
 		mr.stat_id = stat_id
 		mr.op = op
 		mr.phase = phase
+		mr.priority = int(e.get("priority", 0))
 		mr.value = v
 		if op == "ADD" and phase == "FLAT":
 			mr.add_value = v
