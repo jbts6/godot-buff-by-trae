@@ -552,10 +552,11 @@ func dispel_by_tag(stats: OmniStatsComponent, tag_id: String, include_implicit: 
 	## - include_implicit=false：默认不驱散 IMPLICIT/PASSIVE（符合“装备/加点/套装不应被常规驱散”）
 	if enums_rt == null:
 		return 0
+	# B5：驱散免疫（按约定影响全部 dispel_*；只要 mask 非 0 就阻止驱散）
+	if target_dispel_immunity_mask != 0:
+		return 0
 	var tag_mask := enums_rt.tag_mask([tag_id])
 	if tag_mask == 0:
-		return 0
-	if (target_dispel_immunity_mask & tag_mask) != 0:
 		return 0
 
 	var removed := 0
