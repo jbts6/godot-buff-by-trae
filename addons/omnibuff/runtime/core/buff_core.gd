@@ -68,17 +68,21 @@ class DotInstance:
 	extends RefCounted
 	## DOT实例ID（运行时递增，用于稳定排序/追帧）
 	var dot_inst_id: int
+	## DOT对应的 buff_def_id（用于复用查找：buff_def_id + source_entity_id + tick_phase）
+	var buff_def_id: int
 	## 该DOT归属的 buff inst_id（便于追溯来源buff实例）
 	var owner_buff_inst_id: int
 	## 目标实体ID（DOT挂在谁身上）
 	var target_entity_id: int
 	## 来源实体ID（谁施加的DOT；每跳读取其StatCache）
 	var source_entity_id: int
+	## DOT层数（用于 DOT 伤害缩放：base_damage = source_stat * base_ratio * stacks）
+	var stacks: int = 1
 	## 剩余回合数（每次tick扣减，到0移除）
 	var remaining_turns: int
 	## tick阶段：字符串 "TURN_START"/"TURN_END"（本demo仅用TURN_END）
 	var tick_phase: String
-	## DOT基础系数：damage = source_stat * base_ratio
+	## DOT基础系数：damage = source_stat * base_ratio * stacks
 	var base_ratio: float
 	## DOT读取的来源属性（字符串，如 "ATK"）
 	var read_source_stat: String
@@ -159,22 +163,35 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	var max_stack := int(stack.get("max_stack", 1))
 	var ownership_mode := String(stack.get("ownership_mode", "GLOBAL"))
 
-	# 兼容：DOT 默认按来源独立、多实例（避免无 stack 配置时语义回归）
 	var dot_def: Dictionary = def.get("dot", {})
+	var duration_turns := int(def.get("duration", {}).get("turns", -1))
+	var target_entity_id := int(stats.entity_id)
+	var dot_tick_phase := String(dot_def.get("tick_phase", "TURN_END"))
+
+	# 兼容：旧实现中 DOT（缺失 stack 配置）默认 MULTI_INSTANCE；
+	# 现在 DOT 本身会按 (buff_def_id, source, tick_phase) 复用，因此仍保留该默认值，仅影响 buff 实例数量。
 	if (not dot_def.is_empty()) and stack.is_empty():
 		mode = "MULTI_INSTANCE"
 		ownership_mode = "BY_SOURCE_INSTANCE"
 
+	# 先按 stack.mode 处理 buff 实例（A1/A2），再按新规则 upsert DOT 实例。
+	var result_inst_id := -1
+
 	if mode == "MULTI_INSTANCE":
-		return _create_new_instance(stats, bdid, source_entity_id, -1)
+		result_inst_id = _create_new_instance(stats, bdid, source_entity_id, -1)
+		if not dot_def.is_empty():
+			_upsert_dot_for_apply(target_entity_id, bdid, source_entity_id, result_inst_id, dot_def, mode, max_stack, duration_turns, def.get("tags", []))
+		return result_inst_id
 
 	var key := _ownership_key(bdid, ownership_mode, source_entity_id)
 	var old_inst_id := int(inst_id_by_ownership.get(key, -1))
 
 	if old_inst_id < 0:
-		var new_id := _create_new_instance(stats, bdid, source_entity_id, key)
-		inst_id_by_ownership[key] = new_id
-		return new_id
+		result_inst_id = _create_new_instance(stats, bdid, source_entity_id, key)
+		inst_id_by_ownership[key] = result_inst_id
+		if not dot_def.is_empty():
+			_upsert_dot_for_apply(target_entity_id, bdid, source_entity_id, result_inst_id, dot_def, mode, max_stack, duration_turns, def.get("tags", []))
+		return result_inst_id
 
 	var old_inst: BuffInst = instances_by_id.get(old_inst_id, null)
 	if old_inst == null:
@@ -183,10 +200,19 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		return apply_buff(stats, buff_id_str, source_entity_id)
 
 	if mode == "REPLACE":
+		# E1：REPLACE 时若存在可复用的 DOT，则先暂时“解绑 owner_buff_inst_id”，避免 remove_by_instance 把它清掉。
+		if not dot_def.is_empty():
+			var reuse_dot := _find_dot_instance(target_entity_id, bdid, source_entity_id, dot_tick_phase)
+			if reuse_dot != null:
+				reuse_dot.owner_buff_inst_id = -1
+
 		remove_by_instance(stats, old_inst_id, true)
-		var new_id := _create_new_instance(stats, bdid, source_entity_id, key)
-		inst_id_by_ownership[key] = new_id
-		return new_id
+		result_inst_id = _create_new_instance(stats, bdid, source_entity_id, key)
+		inst_id_by_ownership[key] = result_inst_id
+
+		if not dot_def.is_empty():
+			_upsert_dot_for_apply(target_entity_id, bdid, source_entity_id, result_inst_id, dot_def, mode, max_stack, duration_turns, def.get("tags", []))
+		return result_inst_id
 
 	if mode == "ADD_STACK":
 		# A2：ADD_STACK 命中已有实例时，是否刷新 remaining_turns 由 refresh_policy 驱动
@@ -198,15 +224,84 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 			refresh_policy = "RESET_TO_MAX"
 		old_inst.stacks = min(old_inst.stacks + 1, max_stack)
 		if refresh_policy == "RESET_TO_MAX":
-			old_inst.remaining_turns = int(def.get("duration", {}).get("turns", -1))
+			old_inst.remaining_turns = duration_turns
 		# 让 modifier 随 stacks 生效（线性：value * stacks）
 		# A4：若该实例处于 inactive（while-condition 不满足），则不要重建 modifiers（避免“挂起但仍生效”）
 		if old_inst.active:
 			_rebuild_instance_modifiers(stats, old_inst_id)
+
+		# E1：ADD_STACK 时 DOT 也应按 (buff_def_id, source, tick_phase) 复用并增加 stacks（capped），同时刷新 remaining_turns
+		if not dot_def.is_empty():
+			_upsert_dot_for_apply(target_entity_id, bdid, source_entity_id, old_inst_id, dot_def, mode, max_stack, duration_turns, def.get("tags", []))
 		return old_inst_id
 
 	# 未知 mode：退化为 MULTI_INSTANCE（避免“吃掉 buff”）
-	return _create_new_instance(stats, bdid, source_entity_id, -1)
+	result_inst_id = _create_new_instance(stats, bdid, source_entity_id, -1)
+	if not dot_def.is_empty():
+		_upsert_dot_for_apply(target_entity_id, bdid, source_entity_id, result_inst_id, dot_def, mode, max_stack, duration_turns, def.get("tags", []))
+	return result_inst_id
+
+func _find_dot_instance(target_entity_id: int, buff_def_id: int, source_entity_id: int, tick_phase: String) -> DotInstance:
+	# 内部：按 (buff_def_id, source_entity_id, tick_phase) 查找可复用 DOT
+	if not dots_by_target.has(target_entity_id):
+		return null
+	var dots: Array = dots_by_target[target_entity_id]
+	for x in dots:
+		var d: DotInstance = x
+		if d == null:
+			continue
+		if int(d.buff_def_id) != buff_def_id:
+			continue
+		if int(d.source_entity_id) != source_entity_id:
+			continue
+		if String(d.tick_phase) != tick_phase:
+			continue
+		return d
+	return null
+
+func _upsert_dot_for_apply(target_entity_id: int, buff_def_id: int, source_entity_id: int, owner_buff_inst_id: int, dot_def: Dictionary, stack_mode: String, max_stack: int, duration_turns: int, buff_tags: Array) -> void:
+	# E1：施加/刷新 DOT：
+	# - 复用 key = (buff_def_id, source_entity_id, tick_phase)
+	# - 复用时 remaining_turns 重置为 turns
+	# - 复用时按 stack_mode 更新 stacks：
+	#   - ADD_STACK：+1 capped
+	#   - REPLACE：1
+	#   - 其它：1
+	if dot_def.is_empty():
+		return
+	var tick_phase := String(dot_def.get("tick_phase", "TURN_END"))
+
+	var d := _find_dot_instance(target_entity_id, buff_def_id, source_entity_id, tick_phase)
+	var reused := (d != null)
+	if d == null:
+		d = DotInstance.new()
+		d.dot_inst_id = next_dot_inst_id
+		next_dot_inst_id += 1
+		d.buff_def_id = buff_def_id
+		d.target_entity_id = target_entity_id
+		d.source_entity_id = source_entity_id
+		d.tick_phase = tick_phase
+		d.stacks = 1
+		if not dots_by_target.has(target_entity_id):
+			dots_by_target[target_entity_id] = []
+		(dots_by_target[target_entity_id] as Array).append(d)
+
+	# 刷新公共字段（即使复用也更新，避免配置变更时出现“旧字段残留”）
+	d.owner_buff_inst_id = owner_buff_inst_id
+	d.remaining_turns = duration_turns
+	d.base_ratio = float(dot_def.get("base_ratio", 0.0))
+	d.read_source_stat = String(dot_def.get("read_source_stat", "ATK"))
+	if enums_rt != null:
+		d.tags_mask = enums_rt.tag_mask(buff_tags)
+	else:
+		d.tags_mask = 0
+
+	# stacks 更新（仅复用时需要根据 stack_mode 变化；新建保持 1）
+	if reused:
+		if stack_mode == "ADD_STACK":
+			d.stacks = min(int(d.stacks) + 1, max_stack)
+		else:
+			d.stacks = 1
 
 func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id: int, ownership_key: int = -1) -> int:
 	# 内部：创建实例 + 注入 modifiers + 注册 triggers + 生成 DOT（保持旧行为）
@@ -247,30 +342,6 @@ func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id
 
 	# === triggers -> EventIndex（事件型：变动时注册监听）===
 	_register_triggers_for_instance(inst, ds.buff_defs[bdid])
-
-	# === DOT实例（按来源独立）===
-	# 规则：只要 buff_defs[bdid] 存在 dot 字段，则视为DOT型buff；每次施加创建新的 DotInstance
-	var dot_def: Dictionary = ds.buff_defs[bdid].get("dot", {})
-	if not dot_def.is_empty():
-		var d := DotInstance.new()
-		d.dot_inst_id = next_dot_inst_id
-		next_dot_inst_id += 1
-		d.owner_buff_inst_id = inst.inst_id
-		d.target_entity_id = stats.entity_id
-		d.source_entity_id = source_entity_id
-		d.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", 0))
-		d.tick_phase = String(dot_def.get("tick_phase", "TURN_END"))
-		d.base_ratio = float(dot_def.get("base_ratio", 0.0))
-		d.read_source_stat = String(dot_def.get("read_source_stat", "ATK"))
-		# DOT tags：默认使用 buff 自身 tags（例如 DOT/FIRE），映射为 bitmask
-		if enums_rt != null:
-			d.tags_mask = enums_rt.tag_mask(ds.buff_defs[bdid].get("tags", []))
-		else:
-			d.tags_mask = 0
-
-		if not dots_by_target.has(stats.entity_id):
-			dots_by_target[stats.entity_id] = []
-		(dots_by_target[stats.entity_id] as Array).append(d)
 
 	# A4：创建后立即评估 while-condition；不满足则 deactivate（但保留实例 + DOT实例）
 	var def: Dictionary = ds.buff_defs[bdid]
@@ -730,13 +801,23 @@ func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary
 	if target_buff == null:
 		return
 
+	# E1：两段式 DOT tick：
+	# 1) 逐 DOT 计算 base_damage_i = source_stat * base_ratio * stacks，并记录 dot_trace 输入
+	# 2) 按 tags_mask 汇总 sum_base_damage_by_tags，并对每个 tags_mask 调一次 pipeline.deal_damage_with_tags
+	#    - replay.damage_traces 增量 == tags_mask 分组数
 	var kept: Array = []
-	for d in dots:
+	var groups: Dictionary = {} # tags_mask(int) -> {sum_base: float, items: Array, attacker_stats, attacker_buff}
+	var ticked_items_all: Array = [] # 用于稳定输出 dot_traces（dot_inst_id 升序）
+
+	for x in dots:
+		var d: DotInstance = x
+		if d == null:
+			continue
 		# 仅处理匹配 tick_phase 的DOT；其它DOT保持不动
-		if d.tick_phase != tick_phase:
+		if String(d.tick_phase) != tick_phase:
 			kept.append(d)
 			continue
-		if d.remaining_turns <= 0:
+		if int(d.remaining_turns) <= 0:
 			continue
 
 		# A4：若该DOT归属的 buff 实例处于 inactive，则暂停 tick 且不递减 remaining_turns
@@ -745,23 +826,91 @@ func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary
 			kept.append(d)
 			continue
 
-		var source_stats: OmniStatsComponent = stats_by_entity.get(d.source_entity_id, null)
-		var source_buff: OmniBuffCore = buff_by_entity.get(d.source_entity_id, null)
+		var source_stats: OmniStatsComponent = stats_by_entity.get(int(d.source_entity_id), null)
+		var source_buff: OmniBuffCore = buff_by_entity.get(int(d.source_entity_id), null)
 		if source_stats == null or source_buff == null:
 			# 来源不存在：直接丢弃该DOT（避免僵尸引用）
 			continue
 
 		# 动态读取施法者当前属性：必须走 StatCache（禁止遍历来源Buff）
-		# 注意：dots 是未类型化的 Array，for-in 得到的 d 在编译期会被视作 Variant，
-		# 因此这里显式标注类型，避免 Godot 4 的类型推断失败。
-		var read_stat_id: int = dataset.stat_id(d.read_source_stat)
+		var read_stat_id: int = dataset.stat_id(String(d.read_source_stat))
 		var src_v: float = source_stats.get_final(read_stat_id)
 
-		# base_damage 必须是 float：显式转换 d.base_ratio（Variant->float），避免推断错误
-		var base_damage: float = src_v * float(d.base_ratio)
-		var ctx := pipeline.deal_damage_with_tags(source_stats, target_stats, source_buff, target_buff, dataset, base_damage, d.tags_mask, replay, turn_index)
+		# E1：base_damage_i 乘 stacks
+		var stacks_f := float(max(1, int(d.stacks)))
+		var base_damage_i: float = src_v * float(d.base_ratio) * stacks_f
 
-		# 追帧：记录 DOT 每跳的“来源属性快照”与最终伤害（用于证明走StatCache）
+		var tm := int(d.tags_mask)
+		if not groups.has(tm):
+			groups[tm] = {
+				"sum_base": 0.0,
+				"items": [],
+				# 聚合结算需要一个 attacker/buff 入口；此处取该 tags_mask 组内第一个 DOT 的来源
+				"attacker_stats": source_stats,
+				"attacker_buff": source_buff,
+			}
+		var g: Dictionary = groups[tm]
+		g["sum_base"] = float(g.get("sum_base", 0.0)) + base_damage_i
+
+		var item := {
+			"dot": d,
+			"source_stat_value": src_v,
+			"base_damage": base_damage_i,
+			"final_damage": 0.0,
+		}
+		(g["items"] as Array).append(item)
+		ticked_items_all.append(item)
+		groups[tm] = g
+
+	# 先按 tags_mask 分组结算一次伤害（damage_traces 分段=分组数），再回填每个 DOT 的 final_damage（按 base_damage 占比分摊）
+	var masks: Array = groups.keys()
+	masks.sort()
+	for m in masks:
+		var g: Dictionary = groups[int(m)]
+		var sum_base: float = float(g.get("sum_base", 0.0))
+		var attacker_stats: OmniStatsComponent = g.get("attacker_stats", null)
+		var attacker_buff: OmniBuffCore = g.get("attacker_buff", null)
+		if attacker_stats == null or attacker_buff == null:
+			continue
+
+		var ctx := pipeline.deal_damage_with_tags(attacker_stats, target_stats, attacker_buff, target_buff, dataset, sum_base, int(m), replay, turn_index)
+		var group_final := float(ctx.final_damage)
+
+		var items: Array = g.get("items", [])
+		var allocated := 0.0
+		for i in range(items.size()):
+			var it: Dictionary = items[i]
+			var bd := float(it.get("base_damage", 0.0))
+			var fd := 0.0
+			if i == items.size() - 1:
+				# 最后一段吃掉浮点误差，保证 sum(dot_final)==group_final
+				fd = group_final - allocated
+			else:
+				if sum_base > 0.0:
+					fd = group_final * (bd / sum_base)
+				else:
+					fd = 0.0
+				allocated += fd
+			it["final_damage"] = fd
+			items[i] = it
+		g["items"] = items
+		groups[int(m)] = g
+
+	# 追帧：按 dot_inst_id 升序输出每个 DOT 的 dot_trace（每 DOT 一条）
+	ticked_items_all.sort_custom(func(a, b):
+		var da: DotInstance = a.get("dot", null)
+		var db: DotInstance = b.get("dot", null)
+		if da == null or db == null:
+			return false
+		return int(da.dot_inst_id) < int(db.dot_inst_id)
+	)
+	for it in ticked_items_all:
+		var d: DotInstance = it.get("dot", null)
+		if d == null:
+			continue
+		var src_v := float(it.get("source_stat_value", 0.0))
+		var base_damage_i := float(it.get("base_damage", 0.0))
+		var final_damage_i := float(it.get("final_damage", 0.0))
 		if replay != null and replay.has_method("trace_dot_tick"):
 			replay.trace_dot_tick(
 				turn_index,
@@ -772,13 +921,14 @@ func _tick_dots(turn_index: int, tick_phase: String, stats_by_entity: Dictionary
 				String(d.read_source_stat),
 				float(src_v),
 				float(d.base_ratio),
-				float(base_damage),
-				float(ctx.final_damage),
+				float(base_damage_i),
+				float(final_damage_i),
 				int(d.tags_mask)
 			)
 
+		# 到期递减（保持 A4 inactive 暂停逻辑：inactive 时前面已 continue，不会走到这里）
 		d.remaining_turns -= 1
-		if d.remaining_turns > 0:
+		if int(d.remaining_turns) > 0:
 			kept.append(d)
 
 	# 回写（移除到期DOT）
