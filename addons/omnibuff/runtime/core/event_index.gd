@@ -45,6 +45,20 @@ class Listener:
 	# === D：新增 filters/actions（最小集）===
 	# filters.require_hit：仅当 ctx.hit==true 才触发
 	var filter_require_hit: bool = false
+	# filters.require_crit：仅当 ctx.crit==true 才触发
+	var filter_require_crit: bool = false
+	# filters.skill_id：仅当 ctx.skill_id==该值才触发（-1 表示不过滤）
+	var filter_skill_id: int = -1
+	# filters.damage_type_any：bitmask；0 表示不过滤
+	var filter_damage_type_mask_any: int = 0
+	# filters.element_any：bitmask；0 表示不过滤
+	var filter_element_mask_any: int = 0
+	# filters.require_shield_absorbed：仅当 absorbed_shield>0 才触发
+	var filter_require_shield_absorbed: bool = false
+	# filters.min_absorbed_shield：仅当 absorbed_shield>=阈值才触发
+	var filter_min_absorbed_shield: float = 0.0
+	# filters.min_final_damage：仅当 ctx.final_damage>=阈值才触发
+	var filter_min_final_damage: float = 0.0
 	# filters.stat_threshold：对指定 scope/stat 做阈值比较
 	var filter_stat_scope: String = ""
 	var filter_stat: String = ""
