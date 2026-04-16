@@ -26,6 +26,7 @@
 	  "LIFESTEAL",
 	  "REFLECT_DAMAGE",
 	  "CANCEL_COMMAND",
+	  "BONUS_DAMAGE",
 	  "DOT_MUL_STACKS",
 	  "DOT_ADD_STACKS",
 	  "DOT_SET_STACKS",
@@ -40,6 +41,8 @@
 	{ "id": "EQUIP", "code": 5 },
 	{ "id": "SET_BONUS", "code": 6 },
 	  { "id": "POISON", "code": 7 },
-	  { "id": "BASIC_ATTACK", "code": 8 }
+	  { "id": "BASIC_ATTACK", "code": 8 },
+	  { "id": "BONUS_DAMAGE", "code": 9 }
   ]
+}
 }
