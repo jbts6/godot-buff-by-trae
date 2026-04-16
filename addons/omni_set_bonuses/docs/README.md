@@ -51,3 +51,15 @@ mgr.refresh_entity(actor.stats, actor.buffs, equipped_items, set_defs, actor.sta
 - 本管理器会在内部缓存“该实体当前激活的套装buff列表”，因此重复调用是幂等的。
 - 撤销时使用 `remove_by_buff_id(..., force=true)`，确保套装能被可靠移除。
 
+---
+
+## 3) Demo（演示场景）
+
+打开场景：
+
+- `res://addons/omni_set_bonuses/demo/set_bonus_demo.tscn`
+
+演示内容：
+- UI 按钮模拟换装（0/2件/4件）
+- 每次点击都会调用 `OmniSetBonusManager.refresh_entity(...)`
+- 文本显示 `ATK` 最终值（直接读 `StatsComponent.get_final`）
