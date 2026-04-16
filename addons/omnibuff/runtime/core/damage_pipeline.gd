@@ -55,7 +55,7 @@ static func _roll01(turn_index: int, roll_key: int, attacker_id: int, defender_i
 	# [0, 1)（除以 2^32）
 	return float(u) / 4294967296.0
 
-func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0) -> DamageContext:
+func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
 	## 性能约束：
@@ -66,6 +66,9 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	var ctx := DamageContext.new()
 	ctx.attacker_id = attacker.entity_id
 	ctx.defender_id = defender.entity_id
+	ctx.skill_id = skill_id
+	ctx.damage_type = damage_type
+	ctx.element = element
 	ctx.base_damage = base_damage
 	# tags_mask 必须在事件触发前写入，供 filters 使用
 	ctx.tags_mask = tags_mask
@@ -210,10 +213,10 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 		replay.trace_damage(turn_index, ctx, triggered_all, stage_triggers)
 	return ctx
 
-func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: RefCounted = null, turn_index: int = 0) -> DamageContext:
+func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: RefCounted = null, turn_index: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
 	## 与 deal_damage 相同，但允许外部指定 ctx.tags_mask（用于 filters 与追帧）
 	##
 	## 注意：tags_mask 必须在 BUILD/BEFORE_DEAL/BEFORE_TAKE 阶段之前写入，
 	## 否则 filters.tag_mask_any 在事件触发时将无法命中。
 	# 复用主流程：把 tags_mask 作为参数传入，确保在 BUILD 之前就可用于 filters
-	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask, {})
+	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask, {}, 0, skill_id, damage_type, element)
