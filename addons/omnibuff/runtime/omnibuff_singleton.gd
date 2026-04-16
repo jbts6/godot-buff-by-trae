@@ -18,6 +18,8 @@ extends Node
 ## - 插件使用方建议：
 ##   - 业务代码里尽量通过 `OmniBuff.Xxx` / preload 引用脚本，不要直接写 `class_name` 标识符（例如 OmniExprContext），
 ##     以避免在“插件未加载完全/脚本未被解析”时出现编译错误。
+##   - 对 `DamagePipeline.deal_damage()`：若你更在意 API 兼容性（插件升级不炸），建议优先使用 `deal_damage_v1()`（旧签名兼容层），
+##     而不是到处用位置参数直接调用 `deal_damage(...)`（未来可能继续演进签名）。
 
 # --- Runtime Core ---
 const EnumsRuntime := preload("res://addons/omnibuff/runtime/core/enums_runtime.gd")
