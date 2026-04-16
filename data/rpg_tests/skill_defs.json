@@ -7,6 +7,9 @@
 	  "element": "NONE",
 	  "tags": ["BUFF"],
 	  "base_damage": 0.0,
+	  "hit_count": 3,
+	  "hit_base_damage": [12.0, 14.0, 18.0],
+	  "targeting": "FIRST",
 	  "on_cast": [],
 	  "on_hit": []
 	},
@@ -17,6 +20,32 @@
 	  "element": "NONE",
 	  "tags": ["BUFF", "BASIC_ATTACK"],
 	  "base_damage": 0.0,
+	  "on_cast": [],
+	  "on_hit": []
+	},
+	{
+	  "id": "skill_whirlwind",
+	  "name": "旋风斩（群攻）",
+	  "damage_type": "PHYSICAL",
+	  "element": "NONE",
+	  "tags": ["BUFF"],
+	  "base_damage": 0.0,
+	  "hit_count": 1,
+	  "hit_base_damage": [10.0],
+	  "targeting": "ALL",
+	  "on_cast": [],
+	  "on_hit": []
+	},
+	{
+	  "id": "skill_double_strike_all",
+	  "name": "双连击（群攻）",
+	  "damage_type": "PHYSICAL",
+	  "element": "NONE",
+	  "tags": ["BUFF"],
+	  "base_damage": 0.0,
+	  "hit_count": 2,
+	  "hit_base_damage": [8.0, 8.0],
+	  "targeting": "ALL",
 	  "on_cast": [],
 	  "on_hit": []
 	}
