@@ -266,7 +266,18 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_stack := {"mode": true, "max_stack": true, "refresh_policy": true, "ownership_mode": true}
 	var allowed_effect := {"kind": true, "stat": true, "op": true, "phase": true, "priority": true, "value": true, "layer": true, "expr": true, "tags": true, "clamp_min": true, "clamp_max": true}
 	var allowed_trigger := {"event_type": true, "event_phase": true, "filters": true, "action": true, "scope": true}
-	var allowed_filters := {"tag_mask_any": true, "damage_type_any": true, "skill_id": true, "require_hit": true, "stat_threshold": true}
+	var allowed_filters := {
+		"tag_mask_any": true,
+		"damage_type_any": true,
+		"element_any": true,
+		"skill_id": true,
+		"require_hit": true,
+		"require_crit": true,
+		"require_shield_absorbed": true,
+		"min_absorbed_shield": true,
+		"min_final_damage": true,
+		"stat_threshold": true
+	}
 	var allowed_action := {
 		"kind": true,
 		"value": true,
@@ -407,6 +418,38 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 				_unknown_fields(file, p + ".triggers[%s].filters" % ti, id, filters, allowed_filters, strict, issues)
 			if et == "DAMAGE" and filters.is_empty():
 				_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].filters" % ti, id, "DAMAGE trigger has no filters (may bloat listeners)"), strict)
+
+			# Phase 1：filters 校验（最小集）
+			if filters.has("skill_id"):
+				var sidv: Variant = filters.get("skill_id")
+				if typeof(sidv) != TYPE_INT and typeof(sidv) != TYPE_FLOAT:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.skill_id" % ti, id, "skill_id must be int"), strict)
+				else:
+					var si := int(sidv)
+					if si < 0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.skill_id" % ti, id, "skill_id must be >= 0"), strict)
+
+			if filters.has("min_absorbed_shield"):
+				var mv := float(filters.get("min_absorbed_shield", -1.0))
+				if mv < 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.min_absorbed_shield" % ti, id, "min_absorbed_shield must be >= 0"), strict)
+			if filters.has("min_final_damage"):
+				var md := float(filters.get("min_final_damage", -1.0))
+				if md < 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.min_final_damage" % ti, id, "min_final_damage must be >= 0"), strict)
+
+			if filters.has("damage_type_any"):
+				var arr_dt: Array = filters.get("damage_type_any", [])
+				for x in arr_dt:
+					var s := String(x)
+					if s == "" or not _enum_has(enums, "damage_type", s):
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.damage_type_any" % ti, id, "unknown damage_type=" + s), strict)
+			if filters.has("element_any"):
+				var arr_el: Array = filters.get("element_any", [])
+				for x in arr_el:
+					var s := String(x)
+					if s == "" or not _enum_has(enums, "element", s):
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.element_any" % ti, id, "unknown element=" + s), strict)
 
 			var action: Dictionary = t.get("action", {})
 			var ak := String(action.get("kind", ""))
