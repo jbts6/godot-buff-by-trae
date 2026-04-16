@@ -143,7 +143,15 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - `ADD_BASE_DAMAGE`
 - `APPLY_BUFF`
 - `CHANCE_APPLY_BUFF`
-- filters：`tag_mask_any`（最小实现）
+- filters（已实现）：
+  - `tag_mask_any`（tags any-of）
+  - `require_hit` / `require_crit`（命中/暴击门控；全阶段可用）
+  - `skill_id`（全阶段可用；ctx.skill_id 默认 -1 表示未知）
+  - `damage_type_any` / `element_any`（全阶段可用）
+  - `require_shield_absorbed`（建议 AFTER_TAKE；依赖 ctx.meta.absorbed_shield）
+  - `min_absorbed_shield`（建议 AFTER_TAKE；absorbed_shield>=阈值）
+  - `min_final_damage`（建议 APPLY/AFTER_*；final_damage>=阈值）
+  - `stat_threshold`（STAT 门控；依赖 runtime）
 
 ### 6.4 DOT
 - DOT 运行时由 **DotInstance** 管理（独立于 BuffInst）
