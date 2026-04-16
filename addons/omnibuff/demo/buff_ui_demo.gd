@@ -960,12 +960,17 @@ func _sc_executor_multihit_triple_slash() -> void:
 	cmd.targets = PackedInt32Array([int(defender["id"])])
 	cmd.skill_id = 0 # rpg_tests/skill_triple_slash（按 skill_defs.skills 索引）
 
-	var dmg_from := replay.damage_traces.size()
+	var r: OmniReplay = replay as OmniReplay
+	var dmg_from: int = 0
+	if r != null:
+		dmg_from = int(r.damage_traces.size())
 	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
-	var dmg_to := replay.damage_traces.size()
+	var dmg_to: int = 0
+	if r != null:
+		dmg_to = int(r.damage_traces.size())
 	_log("damage traces +" + str(dmg_to - dmg_from))
-	if dmg_to > dmg_from:
-		_log(replay.debug_dump_damage_range(dmg_from))
+	if r != null and dmg_to > dmg_from:
+		_log(r.debug_dump_damage_range(dmg_from))
 
 
 func _sc_executor_multitarget_all() -> void:
@@ -983,12 +988,17 @@ func _sc_executor_multitarget_all() -> void:
 	cmd.targets = PackedInt32Array([int(a["id"]), int(b["id"])])
 	cmd.skill_id = 2 # rpg_tests/skill_whirlwind（按 skill_defs.skills 索引）
 
-	var dmg_from := replay.damage_traces.size()
+	var r: OmniReplay = replay as OmniReplay
+	var dmg_from: int = 0
+	if r != null:
+		dmg_from = int(r.damage_traces.size())
 	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
-	var dmg_to := replay.damage_traces.size()
+	var dmg_to: int = 0
+	if r != null:
+		dmg_to = int(r.damage_traces.size())
 	_log("damage traces +" + str(dmg_to - dmg_from))
-	if dmg_to > dmg_from:
-		_log(replay.debug_dump_damage_range(dmg_from))
+	if r != null and dmg_to > dmg_from:
+		_log(r.debug_dump_damage_range(dmg_from))
 
 
 func _sc_event_chance_apply_determinism() -> void:
