@@ -221,6 +221,11 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 		replay.trace_damage(turn_index, ctx, triggered_all, stage_triggers)
 	return ctx
 
+
+func deal_damage_v1(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
+	## 对外稳定兼容入口（旧签名）：不包含 is_bonus_damage 参数
+	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask, runtime, roll_key, skill_id, damage_type, element, false)
+
 func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: RefCounted = null, turn_index: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
 	## 与 deal_damage 相同，但允许外部指定 ctx.tags_mask（用于 filters 与追帧）
 	##
