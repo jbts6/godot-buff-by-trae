@@ -48,4 +48,3 @@ func test_roll_key_changes_rng_with_same_turn_index() -> void:
 	# Replay 必须记录 roll_key
 	assert_eq(int(replay.damage_traces[0].roll_key), 1001)
 	assert_eq(int(replay.damage_traces[1].roll_key), 1002)
-
