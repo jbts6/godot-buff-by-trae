@@ -6,6 +6,8 @@ extends Window
 ## - HUD 不维护全局实体注册表；只接受 demo 传入 runtime：
 ##   runtime = { "stats_by_entity": {eid:StatsComponent}, "buff_by_entity": {eid:BuffCore} }
 
+const DUMP_MAX_CHARS := 20000
+
 @onready var entity_select: OptionButton = %EntitySelect
 @onready var stats_box: RichTextLabel = %StatsBox
 @onready var buffs_box: RichTextLabel = %BuffsBox
@@ -410,22 +412,30 @@ func _format_stat_mods() -> String:
 			])
 	return "\n".join(out)
 
+
+func _join_sections(sections: Array[String]) -> String:
+	var s := "\n\n".join(sections).strip_edges()
+	if s.length() > DUMP_MAX_CHARS:
+		return s.substr(0, DUMP_MAX_CHARS) + "\n\n...(truncated)"
+	return s
+
 func _make_dump() -> String:
 	var parts: Array[String] = []
-	parts.append("[OmniBuffDebugHUD]")
-	parts.append(_format_stats())
-	parts.append("")
-	parts.append(_format_buffs())
-	parts.append("")
-	parts.append(_format_dots())
-	parts.append("")
-	parts.append(_format_listeners())
-	parts.append("")
-	parts.append(_format_stat_mods())
-	return "\n".join(parts).strip_edges()
-
+	var sections: Array[String] = []
+	sections.append("[OmniBuffDebugHUD]")
+	# 固定顺序：Stats → StatMods → Buffs → Dots → Listeners
+	sections.append(_format_stats())
+	sections.append(_format_stat_mods())
+	sections.append(_format_buffs())
+	sections.append(_format_dots())
+	sections.append(_format_listeners())
+	return _join_sections(sections)
 
 func _copy_dump() -> void:
 	var dump := _make_dump()
 	DisplayServer.clipboard_set(dump)
 	title = "Debug HUD（已复制 %s 字符）" % [dump.length()]
+	var suffix := ""
+	if dump.contains("...(truncated)"):
+		suffix = "，已截断"
+	title = "Debug HUD（已复制 %s 字符%s）" % [dump.length(), suffix]
