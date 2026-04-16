@@ -7,8 +7,8 @@
 	"stack_mode": ["REPLACE", "ADD_STACK", "MULTI_INSTANCE"],
 	"refresh_policy": ["RESET_TO_MAX", "KEEP_MAX", "NONE"],
 	"buff_type": ["EXPLICIT", "IMPLICIT", "PASSIVE", "AURA"],
-	"event_type": ["DAMAGE", "TURN_TICK", "BUFF_APPLY", "BUFF_REMOVE", "DEATH"],
-	"event_phase": ["BUILD", "BEFORE_DEAL", "BEFORE_TAKE", "RESOLVE", "APPLY", "AFTER_DEAL", "AFTER_TAKE"],
+	"event_type": ["DAMAGE", "TURN_TICK", "BUFF_APPLY", "BUFF_REMOVE", "DEATH", "COMMAND"],
+	"event_phase": ["BUILD", "BEFORE_DEAL", "BEFORE_TAKE", "RESOLVE", "APPLY", "AFTER_DEAL", "AFTER_TAKE", "CMD_BEFORE", "CMD_AFTER"],
 	"damage_type": ["PHYSICAL", "MAGIC", "TRUE"],
 	"element": ["NONE", "FIRE", "ICE", "LIGHTNING", "POISON"],
 	"condition_type": ["HAS_TAG", "STAT_GE", "EQUIP_SET_COUNT_GE"],
@@ -25,6 +25,7 @@
 	  "DISPEL",
 	  "LIFESTEAL",
 	  "REFLECT_DAMAGE",
+	  "CANCEL_COMMAND",
 	  "DOT_MUL_STACKS",
 	  "DOT_ADD_STACKS",
 	  "DOT_SET_STACKS",
@@ -38,6 +39,8 @@
 	{ "id": "FIRE", "code": 4 },
 	{ "id": "EQUIP", "code": 5 },
 	{ "id": "SET_BONUS", "code": 6 },
-	{ "id": "POISON", "code": 7 }
+	  { "id": "POISON", "code": 7 },
+	  { "id": "BASIC_ATTACK", "code": 8 }
   ]
+}
 }
