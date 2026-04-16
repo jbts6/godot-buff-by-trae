@@ -532,6 +532,21 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 
 		l.action_kind = String(action.get("kind", ""))
 		l.action_value = float(action.get("value", 0.0))
+		# Phase 1 actions：payload
+		# - LIFESTEAL / REFLECT_DAMAGE
+		if action.has("ratio"):
+			l.action_ratio = float(action.get("ratio", 0.0))
+		# - DISPEL
+		if action.has("mode"):
+			l.action_dispel_mode = String(action.get("mode", ""))
+		if action.has("tag"):
+			l.action_dispel_tag = String(action.get("tag", ""))
+		if action.has("buff_type"):
+			l.action_dispel_buff_type = String(action.get("buff_type", ""))
+		if action.has("source"):
+			l.action_dispel_source_scope = String(action.get("source", ""))
+		if action.has("include_implicit"):
+			l.action_include_implicit = bool(action.get("include_implicit", false))
 		# D：SET_STAT_FINAL payload
 		if l.action_kind == "SET_STAT_FINAL":
 			l.action_stat = String(action.get("stat", ""))
