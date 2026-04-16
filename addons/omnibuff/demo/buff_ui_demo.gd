@@ -354,6 +354,41 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_filters_min_absorbed_shield")
 		},
 		{
+			"id": "action_heal",
+			"title": "Phase1 Actions / HEAL (+30 after take)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_actions_phase1.gd (heal)"],
+			"fn": Callable(self, "_sc_action_heal")
+		},
+		{
+			"id": "action_add_shield",
+			"title": "Phase1 Actions / ADD_SHIELD (+50 before take)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_actions_phase1.gd (add shield)"],
+			"fn": Callable(self, "_sc_action_add_shield")
+		},
+		{
+			"id": "action_dispel_debuff",
+			"title": "Phase1 Actions / DISPEL (by_tag=DEBUFF)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_actions_phase1.gd (dispel)"],
+			"fn": Callable(self, "_sc_action_dispel_debuff")
+		},
+		{
+			"id": "action_lifesteal",
+			"title": "Phase1 Actions / LIFESTEAL (20%)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_actions_phase1.gd (lifesteal)"],
+			"fn": Callable(self, "_sc_action_lifesteal")
+		},
+		{
+			"id": "action_reflect",
+			"title": "Phase1 Actions / REFLECT_DAMAGE (30%)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_actions_phase1.gd (reflect)"],
+			"fn": Callable(self, "_sc_action_reflect")
+		},
+		{
 			"id": "event_chance_apply_determinism",
 			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
 			"dataset": "rpg_tests",
@@ -675,6 +710,88 @@ func _sc_filters_min_absorbed_shield() -> void:
 	defender["stats"].add_base(shield_id, 50.0 - float(defender["stats"].get_final(shield_id)))
 	var ctx2 = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 2, tags_mask, runtime, 0, 1001)
 	_log("B absorbed=" + str(float(ctx2.get_meta("absorbed_shield"))) + " mark cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+
+func _sc_action_heal() -> void:
+	var attacker := _mk_actor(9001)
+	var defender := _mk_actor(9002)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var hp_id: int = int(ds.stat_id("HP"))
+
+	# 先扣点血
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 20.0, replay, 1, tags_mask, runtime, 0)
+	_log("before heal HP=" + str(float(defender["stats"].get_final(hp_id))))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_action_heal_30", int(defender["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, 2, tags_mask, runtime, 0)
+	_log("after heal HP=" + str(float(defender["stats"].get_final(hp_id))))
+
+
+func _sc_action_add_shield() -> void:
+	var attacker := _mk_actor(9011)
+	var defender := _mk_actor(9012)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var shield_id: int = int(ds.stat_id("SHIELD"))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_action_add_shield_50", int(defender["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 1, tags_mask, runtime, 0)
+	_log("after hit SHIELD=" + str(float(defender["stats"].get_final(shield_id))) + " absorbed=" + str(float(replay.damage_traces.back().get("absorbed_shield", 0.0))))
+
+
+func _sc_action_dispel_debuff() -> void:
+	var attacker := _mk_actor(9021)
+	var defender := _mk_actor(9022)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	# 先挂一个 DOT（DEBUFF）
+	defender["buffs"].apply_buff(defender["stats"], "buff_dot_fire_3t", int(attacker["id"]))
+	_log("before dispel dot cnt=" + str(_count_instances_by_buff_id(defender["buffs"], "buff_dot_fire_3t")))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_action_dispel_debuff", int(defender["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, 1, tags_mask, runtime, 0)
+	_log("after dispel dot cnt=" + str(_count_instances_by_buff_id(defender["buffs"], "buff_dot_fire_3t")))
+
+
+func _sc_action_lifesteal() -> void:
+	var attacker := _mk_actor(9031)
+	var defender := _mk_actor(9032)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var hp_id: int = int(ds.stat_id("HP"))
+
+	# attacker 先掉血
+	attacker["stats"].add_base(hp_id, -50.0)
+	_log("before lifesteal attacker.HP=" + str(float(attacker["stats"].get_final(hp_id))))
+
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_action_lifesteal_20p", int(attacker["id"]))
+	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 1, tags_mask, runtime, 0)
+	_log("damage.final=" + str(float(ctx.final_damage)) + " after lifesteal attacker.HP=" + str(float(attacker["stats"].get_final(hp_id))))
+
+
+func _sc_action_reflect() -> void:
+	var attacker := _mk_actor(9041)
+	var defender := _mk_actor(9042)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var hp_id: int = int(ds.stat_id("HP"))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_action_reflect_30p", int(defender["id"]))
+	var hp0 := float(attacker["stats"].get_final(hp_id))
+	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 40.0, replay, 1, tags_mask, runtime, 0)
+	_log("damage.final=" + str(float(ctx.final_damage)) + " attacker.HP " + str(hp0) + " -> " + str(float(attacker["stats"].get_final(hp_id))))
 
 
 func _sc_event_chance_apply_determinism() -> void:

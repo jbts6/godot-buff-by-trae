@@ -730,6 +730,96 @@
 		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_action_heal_30",
+	  "name": "Phase1动作：AFTER_TAKE 自疗 +30",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "HEAL", "value": 30.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_action_add_shield_50",
+	  "name": "Phase1动作：BEFORE_TAKE 加盾 +50",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "ADD_SHIELD", "value": 50.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_action_dispel_debuff",
+	  "name": "Phase1动作：AFTER_TAKE 驱散 DEBUFF",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "DISPEL", "mode": "BY_TAG", "tag": "DEBUFF", "include_implicit": false }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_action_lifesteal_20p",
+	  "name": "Phase1动作：AFTER_DEAL 吸血 20%",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "LIFESTEAL", "ratio": 0.2 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_action_reflect_30p",
+	  "name": "Phase1动作：AFTER_TAKE 反伤 30% 给攻击者",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SOURCE",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "REFLECT_DAMAGE", "ratio": 0.3 }
+		}
+	  ]
 	}
   ]
 }
