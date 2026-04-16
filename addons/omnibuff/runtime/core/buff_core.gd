@@ -1345,8 +1345,12 @@ func _apply_buff_from_event(l: OmniEventIndex.Listener, ctx: RefCounted, use_cha
 	if target_stats == null or target_buff == null:
 		return
 
-	# 约定：事件施加的来源实体为 ctx.attacker_id（最贴近“施法者/攻击者”）
-	var source_eid := int(ctx.attacker_id)
+	# 约定：事件施加的来源实体为 SOURCE（优先 ctx.attacker_id，否则 ctx.actor_id）
+	# - DAMAGE：SOURCE=attacker_id
+	# - COMMAND：SOURCE=actor_id
+	var source_eid := _resolve_scope_entity_id("SOURCE", ctx)
+	if source_eid < 0:
+		source_eid = owner_entity_id
 	# 可选：额外叠层（默认 1）。语义：同一来源+同一buff 的 apply，会合并并增加 stacks。
 	var add_stacks: int = int(l.action_add_stacks)
 	if add_stacks < 1:
