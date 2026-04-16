@@ -443,6 +443,13 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_executor_multitarget_all")
 		},
 		{
+			"id": "bonus_damage_nonrecursive",
+			"title": "BonusDamage / non-recursive extra damage (AFTER_DEAL)",
+			"dataset": "rpg_tests",
+			"covers": ["test_bonus_damage_nonrecursive.gd"],
+			"fn": Callable(self, "_sc_bonus_damage_nonrecursive")
+		},
+		{
 			"id": "event_chance_apply_determinism",
 			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
 			"dataset": "rpg_tests",
@@ -997,6 +1004,35 @@ func _sc_executor_multitarget_all() -> void:
 	if r != null:
 		dmg_to = int(r.damage_traces.size())
 	_log("damage traces +" + str(dmg_to - dmg_from))
+	if r != null and dmg_to > dmg_from:
+		_log(r.debug_dump_damage_range(dmg_from))
+
+
+func _sc_bonus_damage_nonrecursive() -> void:
+	var exec := BattleExecutor.new()
+	var attacker := _mk_actor(9341)
+	var defender := _mk_actor(9342)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_bonus_damage_3_nonrecursive", int(attacker["id"]))
+
+	var cmd := CommandContext.new()
+	cmd.actor_id = int(attacker["id"])
+	cmd.command_kind = "ATTACK"
+	cmd.targets = PackedInt32Array([int(defender["id"])])
+	cmd.skill_id = 1 # skill_basic_attack_1（按 skill_defs.skills 索引）
+
+	var r: OmniReplay = replay as OmniReplay
+	var dmg_from: int = 0
+	if r != null:
+		dmg_from = int(r.damage_traces.size())
+	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
+	var dmg_to: int = 0
+	if r != null:
+		dmg_to = int(r.damage_traces.size())
+	_log("damage traces +" + str(dmg_to - dmg_from) + " (expect 2: base + bonus)")
 	if r != null and dmg_to > dmg_from:
 		_log(r.debug_dump_damage_range(dmg_from))
 
