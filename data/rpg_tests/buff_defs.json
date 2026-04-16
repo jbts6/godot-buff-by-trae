@@ -208,6 +208,24 @@
 	  ]
 	},
 	{
+	  "id": "buff_on_hit_apply_dot_require_hit",
+	  "name": "测试：命中后给目标挂灼烧（require_hit）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t" }
+		}
+	  ]
+	},
+	{
 	  "id": "buff_on_hit_dot_mul2",
 	  "name": "E2测试：命中后DOT翻倍",
 	  "buff_type": "EXPLICIT",
