@@ -128,18 +128,11 @@ func _execute_skill(
 	replay: RefCounted,
 	out_res: ExecuteResult
 ) -> void:
-	# 目标：targets[0]
 	var tv: Variant = ctx.get("targets")
 	if tv == null or typeof(tv) != TYPE_PACKED_INT32_ARRAY:
 		return
 	var targets: PackedInt32Array = tv
 	if targets.is_empty():
-		return
-	var target_id := int(targets[0])
-
-	var target_stats: OmniStatsComponent = stats_by_entity.get(target_id, null)
-	var target_buffs: OmniBuffCore = buff_by_entity.get(target_id, null)
-	if target_stats == null or target_buffs == null:
 		return
 
 	# 最小实现：skill_id 作为 skill_defs.skills 的索引
@@ -151,6 +144,9 @@ func _execute_skill(
 	var skill_id_str := ""
 	var tags: Array = []
 	var base_damage := 10.0
+	var hit_count := 1
+	var hit_base_damage: Array = []
+	var targeting := "FIRST"
 	var dmg_type := 0
 	var element := 0
 
@@ -161,6 +157,12 @@ func _execute_skill(
 		tags = skill.get("tags", [])
 		if skill.has("base_damage"):
 			base_damage = float(skill.get("base_damage", 10.0))
+		if skill.has("hit_count"):
+			hit_count = int(skill.get("hit_count", 1))
+		if skill.has("hit_base_damage"):
+			hit_base_damage = skill.get("hit_base_damage", [])
+		if skill.has("targeting"):
+			targeting = String(skill.get("targeting", "FIRST")).to_upper()
 		var dt_str := String(skill.get("damage_type", "PHYSICAL"))
 		var el_str := String(skill.get("element", "NONE"))
 		dmg_type = int(enums_rt.enum_int("damage_type", dt_str))
@@ -174,21 +176,48 @@ func _execute_skill(
 	if replay != null and replay.has_method("record_cast_skill"):
 		replay.record_cast_skill(turn_index, actor_id, skill_id_str, targets, 0)
 
-	var dmg_ctx = pipeline.deal_damage(
-		actor_stats,
-		target_stats,
-		actor_buffs,
-		target_buffs,
-		ds,
-		base_damage,
-		replay,
-		turn_index,
-		tags_mask,
-		{"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity},
-		0,
-		skill_idx,
-		dmg_type,
-		element
-	)
-	out_res.last_damage_ctx = dmg_ctx
+	if hit_count < 1:
+		hit_count = 1
 
+	# 目标列表：FIRST = targets[0]；ALL = targets 全部（稳定排序）
+	var targets_sorted := PackedInt32Array()
+	if targeting == "ALL":
+		targets_sorted = targets.duplicate()
+		targets_sorted.sort()
+	else:
+		targets_sorted = PackedInt32Array([int(targets[0])])
+
+	var roll_key := 0
+	for tid in targets_sorted:
+		var target_id := int(tid)
+		var target_stats: OmniStatsComponent = stats_by_entity.get(target_id, null)
+		var target_buffs: OmniBuffCore = buff_by_entity.get(target_id, null)
+		if target_stats == null or target_buffs == null:
+			continue
+
+		for hi in range(hit_count):
+			var bd := base_damage
+			if not hit_base_damage.is_empty():
+				if hit_base_damage.size() == 1:
+					bd = float(hit_base_damage[0])
+				elif hi < hit_base_damage.size():
+					bd = float(hit_base_damage[hi])
+
+			var dmg_ctx = pipeline.deal_damage(
+				actor_stats,
+				target_stats,
+				actor_buffs,
+				target_buffs,
+				ds,
+				bd,
+				replay,
+				turn_index,
+				tags_mask,
+				{"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity},
+				roll_key,
+				skill_idx,
+				dmg_type,
+				element
+			)
+			out_res.last_damage_ctx = dmg_ctx
+			roll_key += 1
