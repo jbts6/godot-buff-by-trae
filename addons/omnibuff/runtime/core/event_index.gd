@@ -92,6 +92,12 @@ class Listener:
 	var action_bonus_tags_mask_any: int = 0
 	# - scope：决定 bonus damage 的目标（默认 TARGET）
 	var action_bonus_scope: String = "TARGET"
+	# - ratio：bonus = ctx.final_damage * ratio（0 表示不用 ratio）
+	var action_bonus_ratio: float = 0.0
+	# - min/max/round_mode：对 ratio/value 结果做二次处理（0 表示不启用）
+	var action_bonus_min_damage: float = 0.0
+	var action_bonus_max_damage: float = 0.0
+	var action_bonus_round_mode: String = ""
 
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
