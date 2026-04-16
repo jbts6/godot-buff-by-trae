@@ -362,6 +362,22 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 			action_str = "SET_STAT_FINAL(%s=%s)" % [String(l.action_stat), str(float(l.action_value))]
 		"SET_SHIELD_TO_FINAL_DAMAGE":
 			action_str = "SET_SHIELD_TO_FINAL_DAMAGE(SHIELD=ctx.final_damage)"
+		"ADD_SHIELD":
+			action_str = "ADD_SHIELD(+%s)" % [str(float(l.action_value))]
+		"HEAL":
+			action_str = "HEAL(+%s)" % [str(float(l.action_value))]
+		"LIFESTEAL":
+			action_str = "LIFESTEAL(ratio=%s)" % [str(float(l.action_ratio))]
+		"REFLECT_DAMAGE":
+			action_str = "REFLECT_DAMAGE(ratio=%s)" % [str(float(l.action_ratio))]
+		"DISPEL":
+			action_str = "DISPEL(mode=%s, tag=%s, source=%s, buff_type=%s, include_implicit=%s)" % [
+				String(l.action_dispel_mode),
+				String(l.action_dispel_tag),
+				String(l.action_dispel_source_scope),
+				String(l.action_dispel_buff_type),
+				str(bool(l.action_include_implicit)),
+			]
 		"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS":
 			action_str = "%s(dot=%s, value=%s, tag_mask_any=%s)" % [
 				ak,
