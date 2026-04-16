@@ -1532,8 +1532,8 @@ func _lifesteal_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
 	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
 	if target_stats == null:
 		return
-	var ratio := clamp(float(l.action_ratio), 0.0, 1.0)
-	var heal := float(ctx.final_damage) * ratio
+	var ratio: float = clampf(float(l.action_ratio), 0.0, 1.0)
+	var heal: float = float(ctx.final_damage) * ratio
 	if heal <= 0.0:
 		return
 	var sid := ds.stat_id("HP")
@@ -1554,8 +1554,8 @@ func _reflect_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> 
 	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
 	if target_stats == null:
 		return
-	var ratio := clamp(float(l.action_ratio), 0.0, 1.0)
-	var dmg := float(ctx.final_damage) * ratio
+	var ratio: float = clampf(float(l.action_ratio), 0.0, 1.0)
+	var dmg: float = float(ctx.final_damage) * ratio
 	if dmg <= 0.0:
 		return
 	var sid := ds.stat_id("HP")
