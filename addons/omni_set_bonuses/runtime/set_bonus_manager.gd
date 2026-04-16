@@ -78,7 +78,8 @@ func refresh_entity(
 	for buff_id in prev:
 		if not desired.has(buff_id):
 			# force=true：套装属于“装备状态”，应可被可靠撤销
-			buffs.remove_by_buff_id(stats, String(buff_id), "ALL", -1, false, true)
+			# include_implicit=true：套装buff通常是 PASSIVE/IMPLICIT（不应被常规驱散），但必须能被管理器移除
+			buffs.remove_by_buff_id(stats, String(buff_id), "ALL", -1, true, true)
 
 	_active_by_entity[eid] = desired
 
@@ -88,6 +89,5 @@ func clear_entity(stats: RefCounted, buffs: RefCounted) -> void:
 	var eid: int = int(stats.entity_id)
 	var prev: PackedStringArray = PackedStringArray(_active_by_entity.get(eid, PackedStringArray()))
 	for buff_id in prev:
-		buffs.remove_by_buff_id(stats, String(buff_id), "ALL", -1, false, true)
+		buffs.remove_by_buff_id(stats, String(buff_id), "ALL", -1, true, true)
 	_active_by_entity.erase(eid)
-
