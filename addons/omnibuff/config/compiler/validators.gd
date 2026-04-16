@@ -270,6 +270,7 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"tag_mask_any": true,
 		"command_kind_any": true,
 		"item_id": true,
+		"require_not_bonus_damage": true,
 		"damage_type_any": true,
 		"element_any": true,
 		"skill_id": true,
@@ -283,6 +284,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_action := {
 		"kind": true,
 		"value": true,
+		"tags_mask_any": true,
+		"scope": true,
 		"ratio": true,
 		"mode": true,
 		"tag": true,
@@ -474,6 +477,12 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 				elif int(iv) < 0:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.item_id" % ti, id, "item_id must be >= 0"), strict)
 
+			# Phase 2：bonus damage guard
+			if filters.has("require_not_bonus_damage"):
+				var vnb: Variant = filters.get("require_not_bonus_damage")
+				if typeof(vnb) != TYPE_BOOL:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.require_not_bonus_damage" % ti, id, "require_not_bonus_damage must be bool"), strict)
+
 			var action: Dictionary = t.get("action", {})
 			var ak := String(action.get("kind", ""))
 			if typeof(action) == TYPE_DICTIONARY:
@@ -558,6 +567,19 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.buff_type" % ti, id, "DISPEL BY_TYPE requires buff_type (e.g. EXPLICIT)"), strict)
 				else:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.mode" % ti, id, "unknown DISPEL mode=" + mode), strict)
+
+			# Phase 2：BONUS_DAMAGE
+			if ak == "BONUS_DAMAGE":
+				if not action.has("value"):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id,
+						"missing value for BONUS_DAMAGE (hint: {\"kind\":\"BONUS_DAMAGE\",\"value\":3,\"tags_mask_any\":[\"BONUS_DAMAGE\"]})"
+					), strict)
+				elif float(action.get("value", 0.0)) <= 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be > 0 for BONUS_DAMAGE"), strict)
+				if action.has("scope"):
+					var sc := String(action.get("scope", "")).to_upper()
+					if sc != "SELF" and sc != "SOURCE" and sc != "TARGET" and sc != "":
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.scope" % ti, id, "BONUS_DAMAGE scope must be SELF/SOURCE/TARGET"), strict)
 
 			if ak.begins_with("DOT_"):
 				var has_dot_id := action.has("dot_buff_id")
