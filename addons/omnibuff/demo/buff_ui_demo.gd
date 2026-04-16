@@ -18,6 +18,7 @@ const BuffCore = preload("res://addons/omnibuff/runtime/core/buff_core.gd")
 const DamagePipeline = preload("res://addons/omnibuff/runtime/core/damage_pipeline.gd")
 const Replay = preload("res://addons/omnibuff/runtime/core/replay.gd")
 const CommandContext = preload("res://addons/omnibuff/runtime/core/command_context.gd")
+const BattleExecutor = preload("res://addons/omnibuff/runtime/core/battle_executor.gd")
 const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_component.gd")
 const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
 
@@ -37,6 +38,7 @@ const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
 var replay: RefCounted
 var enums_rt: RefCounted
 var ds: RefCounted
+var sources: Dictionary = {}
 var pipe: RefCounted
 var turn: RefCounted
 
@@ -100,6 +102,7 @@ func _reset_state() -> void:
 	turn = TurnComponent.new()
 	enums_rt = null
 	ds = null
+	sources = {}
 	lbl_status.text = "未加载数据集"
 	_log("[UI Demo] reset")
 
@@ -121,6 +124,7 @@ func _load_dataset_by_id(dataset_id: String) -> bool:
 
 	enums_rt = EnumsRuntime.from_enums_json(result.enums)
 	ds = DatasetCompiler.compile(result.manifest, enums_rt, result.sources)
+	sources = result.sources
 	lbl_status.text = "已加载 %s（ATK=%s HP=%s）" % [dataset_id, ds.stat_id("ATK"), ds.stat_id("HP")]
 	return true
 
@@ -409,6 +413,20 @@ func _register_scenarios() -> void:
 			"dataset": "rpg_tests",
 			"covers": ["test_command_events_phase1.gd (use item)"],
 			"fn": Callable(self, "_sc_command_use_item")
+		},
+		{
+			"id": "executor_attack_basic",
+			"title": "Executor / ATTACK basic attack bonus -> DAMAGE chain",
+			"dataset": "rpg_tests",
+			"covers": ["test_battle_executor_minimal.gd (attack)"],
+			"fn": Callable(self, "_sc_executor_attack_basic")
+		},
+		{
+			"id": "executor_escape_cancel",
+			"title": "Executor / ESCAPE canceled by COMMAND",
+			"dataset": "rpg_tests",
+			"covers": ["test_battle_executor_minimal.gd (escape)"],
+			"fn": Callable(self, "_sc_executor_escape_cancel")
 		},
 		{
 			"id": "event_chance_apply_determinism",
@@ -871,6 +889,47 @@ func _sc_command_use_item() -> void:
 
 	actor["buffs"].emit_event("COMMAND", "CMD_AFTER", ctx)
 	_log("item 2001 mark cnt=" + str(_count_instances_by_buff_id(actor["buffs"], "buff_dummy_mark_1")))
+
+
+func _sc_executor_attack_basic() -> void:
+	var exec := BattleExecutor.new()
+	var attacker := _mk_actor(9301)
+	var defender := _mk_actor(9302)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	# attacker：普攻加成（DAMAGE/BEFORE_DEAL + BASIC_ATTACK）
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_basic_attack_add_base_5", int(attacker["id"]))
+
+	var cmd := CommandContext.new()
+	cmd.actor_id = int(attacker["id"])
+	cmd.command_kind = "ATTACK"
+	cmd.targets = PackedInt32Array([int(defender["id"])])
+	cmd.skill_id = 1 # rpg_tests/skill_basic_attack_1（按 skill_defs.skills 索引）
+
+	var res = exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
+	if res.last_damage_ctx != null:
+		_log("damage.base=" + str(float(res.last_damage_ctx.base_damage)) + " final=" + str(float(res.last_damage_ctx.final_damage)))
+	else:
+		_log("[ERROR] no damage ctx")
+
+
+func _sc_executor_escape_cancel() -> void:
+	var exec := BattleExecutor.new()
+	var actor := _mk_actor(9311)
+	_hud_attacker_id = int(actor["id"])
+	_hud_defender_id = -1
+	var runtime := _mk_runtime([actor])
+
+	actor["buffs"].apply_buff(actor["stats"], "buff_cmd_cancel_escape", int(actor["id"]))
+
+	var cmd := CommandContext.new()
+	cmd.actor_id = int(actor["id"])
+	cmd.command_kind = "ESCAPE"
+
+	var res = exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
+	_log("escape canceled=" + str(bool(res.canceled)) + " escaped=" + str(bool(res.escaped)))
 
 
 func _sc_event_chance_apply_determinism() -> void:
