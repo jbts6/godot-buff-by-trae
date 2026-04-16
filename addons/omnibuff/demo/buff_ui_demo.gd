@@ -319,6 +319,27 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_shield_and_reduction")
 		},
 		{
+			"id": "filters_require_crit",
+			"title": "Phase1 Filters / require_crit gates triggers",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_filters_extended.gd (require_crit)"],
+			"fn": Callable(self, "_sc_filters_require_crit")
+		},
+		{
+			"id": "filters_shield_absorbed",
+			"title": "Phase1 Filters / require_shield_absorbed",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_filters_extended.gd (shield_absorbed)"],
+			"fn": Callable(self, "_sc_filters_shield_absorbed")
+		},
+		{
+			"id": "filters_fire_immunity",
+			"title": "Phase1 Filters / element=FIRE -> fire immunity (final_damage=0)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_filters_extended.gd (fire immunity)"],
+			"fn": Callable(self, "_sc_filters_fire_immunity")
+		},
+		{
 			"id": "event_chance_apply_determinism",
 			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
 			"dataset": "rpg_tests",
@@ -514,6 +535,79 @@ func _sc_shield_and_reduction() -> void:
 	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 11, tags_mask, runtime, 0)
 	_log("after hit with dmg_reduce HP=" + str(float(defender["stats"].get_final(hp_id))))
 	_log(defender["buffs"].debug_dump_instances())
+
+
+func _sc_filters_require_crit() -> void:
+	var attacker := _mk_actor(8851)
+	var defender := _mk_actor(8852)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	# 固定命中
+	var hit_id := int(ds.stat_id("HIT_RATE"))
+	var evade_id := int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	defender["stats"].add_base(evade_id, 0.0 - float(defender["stats"].get_final(evade_id)))
+
+	# 强制暴击：CRIT_RATE=1；CRIT_DMG=0 避免额外倍伤影响观测
+	var cr_id := int(ds.stat_id("CRIT_RATE"))
+	var cd_id := int(ds.stat_id("CRIT_DMG"))
+	attacker["stats"].add_base(cr_id, 1.0 - float(attacker["stats"].get_final(cr_id)))
+	attacker["stats"].add_base(cd_id, 0.0 - float(attacker["stats"].get_final(cd_id)))
+
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_filter_require_crit_add_base_5", int(attacker["id"]))
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0)
+	_log("crit=" + str(bool(ctx.crit)) + " base_damage(after buffs)=" + str(float(ctx.base_damage)))
+
+
+func _sc_filters_shield_absorbed() -> void:
+	var attacker := _mk_actor(8861)
+	var defender := _mk_actor(8862)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	var hit_id := int(ds.stat_id("HIT_RATE"))
+	var evade_id := int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	defender["stats"].add_base(evade_id, 0.0 - float(defender["stats"].get_final(evade_id)))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_filter_require_shield_absorbed_apply_buff", int(defender["id"]))
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	var shield_id := int(ds.stat_id("SHIELD"))
+	# 1) 无护盾：不触发
+	defender["stats"].add_base(shield_id, 0.0 - float(defender["stats"].get_final(shield_id)))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0)
+	_log("no shield: attacker.buff_dummy_mark_1 cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+	# 2) 有护盾：触发
+	defender["stats"].add_base(shield_id, 50.0 - float(defender["stats"].get_final(shield_id)))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 2, tags_mask, runtime, 0)
+	_log("with shield: attacker.buff_dummy_mark_1 cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+
+func _sc_filters_fire_immunity() -> void:
+	# Boss 火焰免疫：element=FIRE 时 final_damage=0（通过 BEFORE_TAKE 设置超大 SHIELD 实现）
+	var attacker := _mk_actor(8871)
+	var boss := _mk_actor(8872)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(boss["id"])
+	var runtime := _mk_runtime([attacker, boss])
+
+	var hit_id := int(ds.stat_id("HIT_RATE"))
+	var evade_id := int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	boss["stats"].add_base(evade_id, 0.0 - float(boss["stats"].get_final(evade_id)))
+
+	boss["buffs"].apply_buff(boss["stats"], "buff_boss_fire_immunity", int(boss["id"]))
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var el_fire := int(enums_rt.enum_int("element", "FIRE"))
+	var dt_magic := int(enums_rt.enum_int("damage_type", "MAGIC"))
+	var ctx = pipe.deal_damage(attacker["stats"], boss["stats"], attacker["buffs"], boss["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0, -1, dt_magic, el_fire)
+	_log("fire damage: final_damage=" + str(float(ctx.final_damage)) + " absorbed_shield=" + str(float(ctx.get_meta("absorbed_shield"))))
 
 
 func _sc_event_chance_apply_determinism() -> void:

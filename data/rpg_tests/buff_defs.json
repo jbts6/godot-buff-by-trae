@@ -594,6 +594,106 @@
 		  "action": { "kind": "CHANCE_APPLY_BUFF", "chance": 0.5, "buff_id": "buff_dot_fire_3t" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_dummy_mark_1",
+	  "name": "Phase1测试：占位标记Buff（无效果）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_filter_require_crit_add_base_5",
+	  "name": "Phase1测试：require_crit 才增加基础伤害+5",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_DEAL",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_hit": true, "require_crit": true },
+		  "action": { "kind": "ADD_BASE_DAMAGE", "value": 5.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_filter_require_shield_absorbed_apply_buff",
+	  "name": "Phase1测试：absorbed_shield>0 才给攻击者挂标记",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SOURCE",
+		  "filters": { "tag_mask_any": ["BUFF"], "require_shield_absorbed": true },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_filter_min_final_damage_apply_dot",
+	  "name": "Phase1测试：final_damage>=5 才给自己挂DOT",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "min_final_damage": 5.0 },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_filter_magic_fire_immunity",
+	  "name": "Phase1测试：MAGIC+FIRE 免疫（护盾吸收）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "damage_type_any": ["MAGIC"], "element_any": ["FIRE"] },
+		  "action": { "kind": "SET_STAT_FINAL", "stat": "SHIELD", "value": 999999.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_boss_fire_immunity",
+	  "name": "Phase1测试：Boss 火焰免疫（element=FIRE 时 final_damage=0）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF", "BOSS"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_TAKE",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BUFF"], "element_any": ["FIRE"] },
+		  "action": { "kind": "SET_STAT_FINAL", "stat": "SHIELD", "value": 999999.0 }
+		}
+	  ]
 	}
   ]
 }
