@@ -427,7 +427,10 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 				elif action.has("apply_buff_id"):
 					target_buff_id = String(action.get("apply_buff_id", ""))
 				if target_buff_id == "":
-					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "missing buff_id/apply_buff_id for action.kind=" + ak), strict)
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id,
+						"missing buff_id/apply_buff_id for action.kind=" + ak \
+						+ " (hint: {\"kind\":\"" + ak + "\",\"buff_id\":\"some_buff\"})"
+					), strict)
 				else:
 					# 复用 buff_ids 表（在本函数开头构建）
 					if not seen.has(target_buff_id):
@@ -440,6 +443,26 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 								break
 						if not exists:
 							_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "action references missing buff_id=" + target_buff_id), strict)
+
+			# action.kind 字段要求矩阵（Phase 0：最小集 + 可读 hint）
+			if ak == "SET_STAT_FINAL":
+				var st_name := String(action.get("stat", ""))
+				if st_name == "":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.stat" % ti, id,
+						"missing stat for SET_STAT_FINAL (hint: {\"kind\":\"SET_STAT_FINAL\",\"stat\":\"SHIELD\",\"value\":0})"
+					), strict)
+				if not action.has("value"):
+					_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.value" % ti, id,
+						"missing value for SET_STAT_FINAL (defaults to 0; hint: {\"kind\":\"SET_STAT_FINAL\",\"stat\":\"SHIELD\",\"value\":0})"
+					), strict)
+
+			if ak.begins_with("DOT_"):
+				var has_dot_id := action.has("dot_buff_id")
+				var has_dot_tags := action.has("dot_tags_mask_any")
+				if (not has_dot_id) and (not has_dot_tags):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id,
+						"DOT action must specify dot_buff_id or dot_tags_mask_any (hint: {\"kind\":\"" + ak + "\",\"dot_buff_id\":\"buff_dot_fire_3t\",\"value\":1})"
+					), strict)
 			# add_stacks：仅 APPLY_BUFF/CHANCE_APPLY_BUFF 可用；必须为 int 且 >=1
 			if action.has("add_stacks"):
 				if not (ak == "APPLY_BUFF" or ak == "CHANCE_APPLY_BUFF"):
