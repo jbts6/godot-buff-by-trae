@@ -577,6 +577,19 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 				l.action_bonus_max_damage = float(action.get("max_damage", 0.0))
 			if action.has("round_mode"):
 				l.action_bonus_round_mode = String(action.get("round_mode", ""))
+			# Phase 3：expr（注册时 parse/编译；触发时 execute）
+			if action.has("expr"):
+				l.action_bonus_expr = String(action.get("expr", ""))
+				if l.action_bonus_expr.strip_edges() != "":
+					var e := Expression.new()
+					var inputs := _bonus_damage_expr_inputs()
+					var err := e.parse(l.action_bonus_expr, inputs)
+					if err != OK:
+						push_error("[BONUS_DAMAGE] expr parse failed: " + e.get_error_text() + " expr=" + l.action_bonus_expr)
+						l.active = false
+					else:
+						l.action_bonus_expr_inputs = inputs
+						l.action_bonus_expr_obj = e
 		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
 		if action.has("buff_id"):
 			l.action_buff_id = String(action.get("buff_id", ""))
@@ -1683,8 +1696,13 @@ func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> vo
 
 	var base_offset := 10000
 	var bd := float(l.action_value)
+
+	# expr 模式：最优先（若已编译）
+	if l.action_bonus_expr_obj != null:
+		base_offset = 30000
+		bd = _eval_bonus_damage_expr(l, ctx, runtime, attacker_stats, target_stats, ds2)
 	# ratio 模式：按本次最终伤害比例追加
-	if float(l.action_bonus_ratio) > 0.0:
+	elif float(l.action_bonus_ratio) > 0.0:
 		base_offset = 20000
 		var fd_v: Variant = ctx.get("final_damage")
 		var fd := 0.0
@@ -1801,6 +1819,133 @@ func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 				return int(t[0])
 		return -1
 	return -1
+
+
+static func _bonus_damage_expr_inputs() -> PackedStringArray:
+	# 固定变量名表：parse 时使用；execute 时按该顺序传入 inputs 数组
+	return PackedStringArray([
+		"base_damage",
+		"final_damage",
+		"absorbed_shield",
+		"dmg_reduce_ratio",
+		"turn_index",
+		"roll_key",
+		"atk", "def", "hp", "shield",
+		"crit_rate", "crit_dmg", "hit_rate", "evade", "dmg_reduce",
+		"t_atk", "t_def", "t_hp", "t_shield",
+		"t_crit_rate", "t_crit_dmg", "t_hit_rate", "t_evade", "t_dmg_reduce"
+	])
+
+
+static func _stat_final(stats: OmniStatsComponent, ds: OmniCompiledDataset, stat_name: String) -> float:
+	var sid := ds.stat_id(stat_name)
+	if sid < 0 or stats == null:
+		return 0.0
+	return float(stats.get_final(sid))
+
+
+func _eval_bonus_damage_expr(
+	l: OmniEventIndex.Listener,
+	ctx: RefCounted,
+	runtime: Dictionary,
+	attacker_stats: OmniStatsComponent,
+	target_stats: OmniStatsComponent,
+	ds2: OmniCompiledDataset
+) -> float:
+	var expr: Expression = l.action_bonus_expr_obj
+	if expr == null:
+		return 0.0
+	var inputs := l.action_bonus_expr_inputs
+	if inputs.is_empty():
+		inputs = _bonus_damage_expr_inputs()
+
+	var absorbed_shield := 0.0
+	if ctx.has_meta("absorbed_shield"):
+		absorbed_shield = float(ctx.get_meta("absorbed_shield"))
+	var dmg_reduce_ratio := 0.0
+	if ctx.has_meta("dmg_reduce_ratio"):
+		dmg_reduce_ratio = float(ctx.get_meta("dmg_reduce_ratio"))
+	var turn_index := 0
+	if ctx.has_meta("turn_index"):
+		turn_index = int(ctx.get_meta("turn_index"))
+	var roll_key := 0
+	if ctx.has_meta("roll_key"):
+		roll_key = int(ctx.get_meta("roll_key"))
+
+	var base_damage := 0.0
+	var bd_v: Variant = ctx.get("base_damage")
+	if bd_v != null:
+		base_damage = float(bd_v)
+	var final_damage := 0.0
+	var fd_v: Variant = ctx.get("final_damage")
+	if fd_v != null:
+		final_damage = float(fd_v)
+
+	# 组装 inputs（必须按 inputs 顺序对齐）
+	var arr: Array = []
+	arr.resize(inputs.size())
+	for i in range(inputs.size()):
+		var k := String(inputs[i])
+		match k:
+			"base_damage":
+				arr[i] = base_damage
+			"final_damage":
+				arr[i] = final_damage
+			"absorbed_shield":
+				arr[i] = absorbed_shield
+			"dmg_reduce_ratio":
+				arr[i] = dmg_reduce_ratio
+			"turn_index":
+				arr[i] = turn_index
+			"roll_key":
+				arr[i] = roll_key
+			"atk":
+				arr[i] = _stat_final(attacker_stats, ds2, "ATK")
+			"def":
+				arr[i] = _stat_final(attacker_stats, ds2, "DEF")
+			"hp":
+				arr[i] = _stat_final(attacker_stats, ds2, "HP")
+			"shield":
+				arr[i] = _stat_final(attacker_stats, ds2, "SHIELD")
+			"crit_rate":
+				arr[i] = _stat_final(attacker_stats, ds2, "CRIT_RATE")
+			"crit_dmg":
+				arr[i] = _stat_final(attacker_stats, ds2, "CRIT_DMG")
+			"hit_rate":
+				arr[i] = _stat_final(attacker_stats, ds2, "HIT_RATE")
+			"evade":
+				arr[i] = _stat_final(attacker_stats, ds2, "EVADE")
+			"dmg_reduce":
+				arr[i] = _stat_final(attacker_stats, ds2, "DMG_REDUCE")
+			"t_atk":
+				arr[i] = _stat_final(target_stats, ds2, "ATK")
+			"t_def":
+				arr[i] = _stat_final(target_stats, ds2, "DEF")
+			"t_hp":
+				arr[i] = _stat_final(target_stats, ds2, "HP")
+			"t_shield":
+				arr[i] = _stat_final(target_stats, ds2, "SHIELD")
+			"t_crit_rate":
+				arr[i] = _stat_final(target_stats, ds2, "CRIT_RATE")
+			"t_crit_dmg":
+				arr[i] = _stat_final(target_stats, ds2, "CRIT_DMG")
+			"t_hit_rate":
+				arr[i] = _stat_final(target_stats, ds2, "HIT_RATE")
+			"t_evade":
+				arr[i] = _stat_final(target_stats, ds2, "EVADE")
+			"t_dmg_reduce":
+				arr[i] = _stat_final(target_stats, ds2, "DMG_REDUCE")
+			_:
+				arr[i] = 0.0
+
+	var ctx_obj := OmniExprContext.new()
+	var out: Variant = expr.execute(arr, ctx_obj, true)
+	if expr.has_execute_failed():
+		push_error("[BONUS_DAMAGE] expr execute failed: " + expr.get_error_text() + " expr=" + l.action_bonus_expr)
+		return 0.0
+	if typeof(out) != TYPE_INT and typeof(out) != TYPE_FLOAT:
+		return 0.0
+	return float(out)
 
 func _event_seed(ctx: RefCounted, inst_id: int) -> int:
 	## 生成一个稳定 seed（用于 CHANCE_APPLY_BUFF 的伪随机）
