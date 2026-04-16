@@ -40,4 +40,3 @@ func test_bonus_damage_should_not_recurse() -> void:
 	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
 	var after := int(replay.damage_traces.size())
 	assert_eq(after - before, 2, "should produce exactly 2 damage traces (base + bonus), no recursion")
-
