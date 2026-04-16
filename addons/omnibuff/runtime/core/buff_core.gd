@@ -1236,6 +1236,16 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_set_stat_final_from_event(l, ctx)
 			"SET_SHIELD_TO_FINAL_DAMAGE":
 				_set_shield_to_final_damage_from_event(l, ctx)
+			"ADD_SHIELD":
+				_add_shield_from_event(l, ctx)
+			"HEAL":
+				_heal_from_event(l, ctx)
+			"DISPEL":
+				_dispel_from_event(l, ctx)
+			"LIFESTEAL":
+				_lifesteal_from_event(l, ctx)
+			"REFLECT_DAMAGE":
+				_reflect_damage_from_event(l, ctx)
 			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
 				_apply_dot_action_from_event(l, ctx)
 			_:
@@ -1434,6 +1444,124 @@ func _set_shield_to_final_damage_from_event(l: OmniEventIndex.Listener, ctx: Ref
 	var desired := float(ctx.final_damage)
 	var cur := float(target_stats.get_final(sid))
 	target_stats.add_base(sid, desired - cur)
+
+
+func _add_shield_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：对目标追加护盾（SHIELD += value）
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var sid := ds.stat_id("SHIELD")
+	if sid < 0:
+		return
+	var v := float(l.action_value)
+	if v <= 0.0:
+		return
+	target_stats.add_base(sid, v)
+
+
+func _heal_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：对目标治疗（HP += value）
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var sid := ds.stat_id("HP")
+	if sid < 0:
+		return
+	var v := float(l.action_value)
+	if v <= 0.0:
+		return
+	target_stats.add_base(sid, v)
+
+
+func _dispel_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：驱散（复用现有 dispel_by_*）
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	var target_buffs: OmniBuffCore = buff_by_entity.get(target_eid, null)
+	if target_stats == null or target_buffs == null:
+		return
+
+	var mode := String(l.action_dispel_mode).to_upper()
+	var include_implicit := bool(l.action_include_implicit)
+	match mode:
+		"BY_TAG":
+			if String(l.action_dispel_tag) != "":
+				target_buffs.dispel_by_tag(target_stats, String(l.action_dispel_tag), include_implicit)
+		"BY_SOURCE":
+			var se := _resolve_scope_entity_id(String(l.action_dispel_source_scope), ctx)
+			if se >= 0:
+				target_buffs.dispel_by_source(target_stats, se, include_implicit)
+		"BY_TYPE":
+			if String(l.action_dispel_buff_type) != "":
+				target_buffs.dispel_by_type(target_stats, String(l.action_dispel_buff_type))
+		_:
+			pass
+
+
+func _lifesteal_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：吸血（heal = ctx.final_damage * ratio；建议 scope=SOURCE）
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var ratio := clamp(float(l.action_ratio), 0.0, 1.0)
+	var heal := float(ctx.final_damage) * ratio
+	if heal <= 0.0:
+		return
+	var sid := ds.stat_id("HP")
+	if sid < 0:
+		return
+	target_stats.add_base(sid, heal)
+
+
+func _reflect_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：反伤（HP -= ctx.final_damage * ratio；不走 pipeline，避免递归）
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var ratio := clamp(float(l.action_ratio), 0.0, 1.0)
+	var dmg := float(ctx.final_damage) * ratio
+	if dmg <= 0.0:
+		return
+	var sid := ds.stat_id("HP")
+	if sid < 0:
+		return
+	target_stats.add_base(sid, -dmg)
 
 func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 	## 将 scope 映射为实体ID（最小约定）
