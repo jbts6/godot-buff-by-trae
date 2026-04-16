@@ -161,6 +161,8 @@ func test_damage_type_and_element_any_filters() -> void:
 	assert_true(is_equal_approx(float(defender.stats.get_final(hp_id)), hp0))
 
 	# 期望：PHYSICAL+NONE 不免疫 => final_damage>0
+	# 注意：上一段 MAGIC+FIRE 会把 SHIELD 设为超大值并仅消耗 10 点；这里重置护盾，避免影响本断言。
+	_set_stat_final(defender, ds, "SHIELD", 0.0)
 	var ctx2 := pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 2, tags_mask, runtime, 0, -1, dmg_phys, el_none)
 	assert_true(float(ctx2.final_damage) > 0.0)
 
@@ -196,4 +198,3 @@ func test_boss_fire_immunity_element_fire_final_damage_zero() -> void:
 	var ctx := pipe.deal_damage(attacker.stats, boss.stats, attacker.buffs, boss.buffs, ds, 10.0, replay, 1, tags_mask, runtime, 0, -1, int(enums_rt.enum_int("damage_type", "MAGIC")), el_fire)
 	assert_true(is_equal_approx(float(ctx.final_damage), 0.0), "fire immune should make final_damage=0")
 	assert_true(is_equal_approx(float(boss.stats.get_final(hp_id)), hp0), "fire immune should not reduce HP")
-
