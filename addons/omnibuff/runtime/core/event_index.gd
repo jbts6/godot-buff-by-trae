@@ -99,6 +99,11 @@ class Listener:
 	var action_bonus_max_damage: float = 0.0
 	var action_bonus_round_mode: String = ""
 
+	# Phase 3：BONUS_DAMAGE expr payload（注册时 parse，一次编译，多次执行）
+	var action_bonus_expr: String = ""
+	var action_bonus_expr_inputs: PackedStringArray = PackedStringArray()
+	var action_bonus_expr_obj: Expression = null
+
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
 
