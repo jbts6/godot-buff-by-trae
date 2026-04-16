@@ -64,7 +64,7 @@ func recompute(stat_id: int) -> void:
 	# 注意：这里遍历的是“该 stat 的 modifier 聚合列表”，不是遍历全部 BuffInstance
 	var base := base_values[stat_id]
 	var flat := 0.0
-	var pct := 0.0
+	var pct_by_layer: Dictionary = {} # int -> float（percent layers）
 	var final_add := 0.0
 	var has_override := false
 	var override_v := 0.0
@@ -83,7 +83,11 @@ func recompute(stat_id: int) -> void:
 		if op == "ADD" and ph == "FLAT":
 			flat += val
 		elif op == "MUL" and ph == "PERCENT":
-			pct += val
+			# layer 缺省为 0（OmniModifierRef 默认字段）；旧数据保持兼容
+			var layer: int = int(m.layer)
+			if not pct_by_layer.has(layer):
+				pct_by_layer[layer] = 0.0
+			pct_by_layer[layer] = float(pct_by_layer[layer]) + val
 		elif op == "ADD" and ph == "FINAL":
 			final_add += val
 		elif op == "OVERRIDE" and ph == "FINAL":
@@ -93,7 +97,12 @@ func recompute(stat_id: int) -> void:
 				override_src = src
 				override_v = val
 
-	var v := (base + flat) * (1.0 + pct)
+	var v := (base + flat)
+	if not pct_by_layer.is_empty():
+		var layers: Array = pct_by_layer.keys()
+		layers.sort()
+		for l in layers:
+			v *= (1.0 + float(pct_by_layer[l]))
 	if has_override:
 		v = override_v
 	v += final_add
