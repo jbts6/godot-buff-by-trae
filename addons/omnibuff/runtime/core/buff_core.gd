@@ -531,6 +531,9 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 			l.filter_command_kind_mask_any = m_ck
 		if filters.has("item_id"):
 			l.filter_item_id = int(filters.get("item_id", -1))
+		# Phase 2：bonus damage guard
+		if filters.has("require_not_bonus_damage"):
+			l.filter_require_not_bonus_damage = bool(filters.get("require_not_bonus_damage", false))
 		var st: Variant = filters.get("stat_threshold", null)
 		if typeof(st) == TYPE_DICTIONARY:
 			var std: Dictionary = st
@@ -559,6 +562,13 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 		# D：SET_STAT_FINAL payload
 		if l.action_kind == "SET_STAT_FINAL":
 			l.action_stat = String(action.get("stat", ""))
+		# Phase 2：BONUS_DAMAGE payload
+		if l.action_kind == "BONUS_DAMAGE":
+			if action.has("tags_mask_any"):
+				var arr2: Array = action.get("tags_mask_any", [])
+				l.action_bonus_tags_mask_any = int(enums_rt.tag_mask(arr2))
+			if action.has("scope"):
+				l.action_bonus_scope = String(action.get("scope", "TARGET"))
 		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
 		if action.has("buff_id"):
 			l.action_buff_id = String(action.get("buff_id", ""))
@@ -1164,9 +1174,14 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	var key := et * OmniEventIndex.PHASE_COUNT + ph
 	var arr := event_index.get_listeners_for(key)
 	var is_command := event_type.to_upper() == "COMMAND"
+	var is_bonus := false
+	if ctx.has_meta("is_bonus_damage") and bool(ctx.get_meta("is_bonus_damage")):
+		is_bonus = true
 	for lid in arr:
 		var l := event_index.listener_data[lid]
 		if l == null or l.active == false:
+			continue
+		if l.filter_require_not_bonus_damage and is_bonus:
 			continue
 		if l.filter_tag_mask != 0:
 			if (int(ctx.tags_mask) & l.filter_tag_mask) == 0:
@@ -1294,6 +1309,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_reflect_damage_from_event(l, ctx)
 			"CANCEL_COMMAND":
 				_cancel_command_from_event(l, ctx)
+			"BONUS_DAMAGE":
+				_bonus_damage_from_event(l, ctx)
 			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
 				_apply_dot_action_from_event(l, ctx)
 			_:
@@ -1621,6 +1638,92 @@ func _cancel_command_from_event(_l: OmniEventIndex.Listener, ctx: RefCounted) ->
 	if ctx.get("cancel") == null:
 		return
 	ctx.set("cancel", true)
+
+
+func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作（DAMAGE）：追加一次“额外伤害”，并通过 ctx.meta.is_bonus_damage 防递归
+	# 运行时依赖：ctx.meta["runtime"] = {stats_by_entity, buff_by_entity, pipeline, ds, enums_rt}
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+
+	var pipeline: OmniDamagePipeline = runtime.get("pipeline", null)
+	var ds2: OmniCompiledDataset = runtime.get("ds", null)
+	if pipeline == null or ds2 == null:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+
+	var attacker_id := _resolve_scope_entity_id("SOURCE", ctx)
+	if attacker_id < 0:
+		return
+	var target_id := _resolve_scope_entity_id(String(l.action_bonus_scope), ctx)
+	if target_id < 0:
+		target_id = _resolve_scope_entity_id("TARGET", ctx)
+	if target_id < 0:
+		return
+
+	var attacker_stats: OmniStatsComponent = stats_by_entity.get(attacker_id, null)
+	var attacker_buffs: OmniBuffCore = buff_by_entity.get(attacker_id, null)
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_id, null)
+	var target_buffs: OmniBuffCore = buff_by_entity.get(target_id, null)
+	if attacker_stats == null or attacker_buffs == null or target_stats == null or target_buffs == null:
+		return
+
+	var bd := float(l.action_value)
+	if bd <= 0.0:
+		return
+
+	# roll_key：尽量与原 hit 分离，保证 deterministic 且不干扰原 roll（固定偏移）
+	var roll_key := 10000
+	if ctx.has_meta("roll_key"):
+		roll_key = int(ctx.get_meta("roll_key")) + 10000
+
+	var turn_index := 0
+	if ctx.has_meta("turn_index"):
+		turn_index = int(ctx.get_meta("turn_index"))
+
+	var tags_mask := 0
+	var tags_v: Variant = ctx.get("tags_mask")
+	if tags_v != null:
+		tags_mask = int(tags_v)
+	tags_mask |= int(l.action_bonus_tags_mask_any)
+
+	var skill_id := -1
+	var sid_v: Variant = ctx.get("skill_id")
+	if sid_v != null:
+		skill_id = int(sid_v)
+
+	var damage_type := 0
+	var dt_v: Variant = ctx.get("damage_type")
+	if dt_v != null:
+		damage_type = int(dt_v)
+	var element := 0
+	var el_v: Variant = ctx.get("element")
+	if el_v != null:
+		element = int(el_v)
+
+	var dmg_ctx := pipeline.deal_damage(
+		attacker_stats,
+		target_stats,
+		attacker_buffs,
+		target_buffs,
+		ds2,
+		bd,
+		runtime.get("replay", null),
+		turn_index,
+		tags_mask,
+		runtime,
+		roll_key,
+		skill_id,
+		damage_type,
+		element
+	)
+	if dmg_ctx != null:
+		dmg_ctx.set_meta("is_bonus_damage", true)
 
 
 func _command_kind_bit(kind: String) -> int:
