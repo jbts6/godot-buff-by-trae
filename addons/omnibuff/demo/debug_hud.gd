@@ -128,10 +128,14 @@ func _format_buffs() -> String:
 		var buff_id_str := "?"
 		var buff_type := String(inst.buff_type)
 		var tags := []
-		if ds != null and ds.has("buff_defs"):
-			var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
-			buff_id_str = String(def.get("id", buff_id_str))
-			tags = def.get("tags", [])
+		# ds 为 OmniCompiledDataset（RefCounted）；不能用 Dictionary.has。
+		# 只要提供 ds（且包含 buff_defs 数组），就反查 buff_id/tags 以便显示。
+		if ds != null and ds.has_method("buff_id"):
+			var bdid: int = int(inst.buff_def_id)
+			if bdid >= 0 and bdid < ds.buff_defs.size():
+				var def: Dictionary = ds.buff_defs[bdid]
+				buff_id_str = String(def.get("id", buff_id_str))
+				tags = def.get("tags", [])
 		lines.append("- %s type=%s src=%s stacks=%s turns=%s active=%s tags=%s" % [
 			buff_id_str,
 			buff_type,
@@ -157,4 +161,3 @@ func _copy_dump() -> void:
 	var dump := _make_dump()
 	DisplayServer.clipboard_set(dump)
 	title = "Debug HUD（已复制 %s 字符）" % [dump.length()]
-
