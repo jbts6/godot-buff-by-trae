@@ -36,11 +36,12 @@ static func _xorshift32(x: int) -> int:
 	x = int(x ^ ((x << 5) & _U32_MASK)) & _U32_MASK
 	return x & _U32_MASK
 
-static func _make_seed(turn_index: int, attacker_id: int, defender_id: int, salt: int) -> int:
-	# 将 turn_index / attacker_id / defender_id 组合成一个 32-bit seed，并用 salt 扰动
+static func _make_seed(turn_index: int, roll_key: int, attacker_id: int, defender_id: int, salt: int) -> int:
+	# 将 turn_index / roll_key / attacker_id / defender_id 组合成一个 32-bit seed，并用 salt 扰动
 	# 注意：避免 seed=0（xorshift32(0)=0，导致 roll 恒为0）
 	var x := 0x9E3779B9
 	x = int((x + (turn_index * 1103515245)) & _U32_MASK)
+	x = int((x ^ (roll_key * 2246822519)) & _U32_MASK)
 	x = int((x ^ (attacker_id * 2654435761)) & _U32_MASK)
 	x = int((x + (defender_id * 374761393)) & _U32_MASK)
 	x = int((x ^ salt) & _U32_MASK)
@@ -48,13 +49,13 @@ static func _make_seed(turn_index: int, attacker_id: int, defender_id: int, salt
 		x = 1
 	return x
 
-static func _roll01(turn_index: int, attacker_id: int, defender_id: int, salt: int) -> float:
-	var seed := _make_seed(turn_index, attacker_id, defender_id, salt)
+static func _roll01(turn_index: int, roll_key: int, attacker_id: int, defender_id: int, salt: int) -> float:
+	var seed := _make_seed(turn_index, roll_key, attacker_id, defender_id, salt)
 	var u := _xorshift32(seed)
 	# [0, 1)（除以 2^32）
 	return float(u) / 4294967296.0
 
-func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}) -> DamageContext:
+func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
 	## 性能约束：
@@ -71,6 +72,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	# 通过 meta 传递运行时信息，避免对 DamageContext 增加强耦合字段
 	ctx.set_meta("turn_index", turn_index)
 	ctx.set_meta("runtime", runtime)
+	ctx.set_meta("roll_key", roll_key)
 
 	# 追帧：收集每个阶段命中的 inst_id 列表（稳定顺序：按阶段追加）
 	var stage_triggers: Dictionary = {}
@@ -125,7 +127,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 		if evade_id >= 0:
 			evade = float(defender.get_final(evade_id))
 		var hit_chance := clamp(hit_rate - evade, 0.0, 1.0)
-		var hit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _HIT_SALT)
+		var hit_roll := _roll01(turn_index, roll_key, ctx.attacker_id, ctx.defender_id, _HIT_SALT)
 		if hit_roll >= hit_chance:
 			ctx.hit = false
 			ctx.crit = false
@@ -143,7 +145,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 				crit_rate = float(attacker.get_final(crit_rate_id))
 			if crit_dmg_id >= 0:
 				crit_dmg = float(attacker.get_final(crit_dmg_id))
-			var crit_roll := _roll01(turn_index, ctx.attacker_id, ctx.defender_id, _CRIT_SALT)
+			var crit_roll := _roll01(turn_index, roll_key, ctx.attacker_id, ctx.defender_id, _CRIT_SALT)
 			if crit_roll < crit_rate:
 				ctx.crit = true
 				ctx.final_damage = ctx.final_damage * (1.0 + crit_dmg)
