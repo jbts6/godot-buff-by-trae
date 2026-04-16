@@ -185,6 +185,14 @@ func _execute_skill(
 	if replay != null and replay.has_method("record_cast_skill"):
 		replay.record_cast_skill(turn_index, actor_id, skill_id_str, targets, 0)
 
+	# 追加伤害等事件动作需要 pipeline/ds 等运行时依赖，因此这里必须把“扩展 runtime”继续传进 deal_damage，
+	# 让 DamageContext.meta["runtime"] 包含这些字段。
+	var rt2: Dictionary = {"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity}
+	if ctx.has_meta("runtime"):
+		var rv: Variant = ctx.get_meta("runtime")
+		if typeof(rv) == TYPE_DICTIONARY:
+			rt2 = rv
+
 	if hit_count < 1:
 		hit_count = 1
 
@@ -222,7 +230,7 @@ func _execute_skill(
 				replay,
 				turn_index,
 				tags_mask,
-				{"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity},
+				rt2,
 				roll_key,
 				skill_idx,
 				dmg_type,
