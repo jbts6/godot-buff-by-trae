@@ -161,6 +161,31 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
   - 支持切换数据集：`base_demo` / `rpg_tests`
   - 以 Scenario 形式覆盖 `tests/rpg` 的主要能力点
 
+### 6.6 调试工作流（Phase 0 / Demo-only）
+
+推荐工作流（适合提 issue / 远程协作定位）：
+
+1) 打开 `buff_ui_demo.tscn`，选择 dataset（通常 `rpg_tests`），运行能复现问题的 scenario  
+2) 打开 **Debug HUD**：
+   - `Dots`：查看 DOT 的 turns/stacks（权威来自 DotInstance）
+   - `Listeners`：查看有哪些监听者、最近一次触发命中了哪些 inst
+   - `StatMods`：查看某个 stat 的 modifier 贡献项（可反查到 buff_id）
+3) 点击 “复制日志” 和 “复制 dump”，将两段文本粘贴到 issue
+
+dump 建议格式（节选，真实内容会更长）：
+```
+[OmniBuffDebugHUD]
+[Stats] ...
+
+[StatMods] ...
+
+[Buffs] ...
+
+[Dots] ...
+
+[Listeners] ...
+```
+
 ---
 
 ## 7. 自动化测试（GUT）
