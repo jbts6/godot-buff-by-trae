@@ -1681,19 +1681,16 @@ func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> vo
 	if attacker_stats == null or attacker_buffs == null or target_stats == null or target_buffs == null:
 		return
 
+	var base_offset := 10000
 	var bd := float(l.action_value)
 	# ratio 模式：按本次最终伤害比例追加
 	if float(l.action_bonus_ratio) > 0.0:
+		base_offset = 20000
 		var fd_v: Variant = ctx.get("final_damage")
 		var fd := 0.0
 		if fd_v != null:
 			fd = float(fd_v)
 		bd = fd * float(l.action_bonus_ratio)
-		# roll_key：ratio 模式单独偏移，避免与固定 value 冲突
-		if ctx.has_meta("roll_key"):
-			roll_key = int(ctx.get_meta("roll_key")) + 20000
-		else:
-			roll_key = 20000
 	if bd <= 0.0:
 		return
 
@@ -1713,9 +1710,9 @@ func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> vo
 		bd = ceilf(bd)
 
 	# roll_key：尽量与原 hit 分离，保证 deterministic 且不干扰原 roll（固定偏移）
-	var roll_key := 10000
+	var roll_key := base_offset
 	if ctx.has_meta("roll_key"):
-		roll_key = int(ctx.get_meta("roll_key")) + 10000
+		roll_key = int(ctx.get_meta("roll_key")) + base_offset
 
 	var turn_index := 0
 	if ctx.has_meta("turn_index"):
