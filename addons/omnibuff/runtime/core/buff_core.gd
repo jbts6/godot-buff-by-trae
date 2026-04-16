@@ -522,6 +522,15 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 			l.filter_min_absorbed_shield = float(filters.get("min_absorbed_shield", 0.0))
 		if filters.has("min_final_damage"):
 			l.filter_min_final_damage = float(filters.get("min_final_damage", 0.0))
+		# Phase 1：COMMAND filters
+		if filters.has("command_kind_any"):
+			var arr_ck: Array = filters.get("command_kind_any", [])
+			var m_ck := 0
+			for s in arr_ck:
+				m_ck |= _command_kind_bit(String(s))
+			l.filter_command_kind_mask_any = m_ck
+		if filters.has("item_id"):
+			l.filter_item_id = int(filters.get("item_id", -1))
 		var st: Variant = filters.get("stat_threshold", null)
 		if typeof(st) == TYPE_DICTIONARY:
 			var std: Dictionary = st
@@ -1154,6 +1163,7 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		return
 	var key := et * OmniEventIndex.PHASE_COUNT + ph
 	var arr := event_index.get_listeners_for(key)
+	var is_command := event_type.to_upper() == "COMMAND"
 	for lid in arr:
 		var l := event_index.listener_data[lid]
 		if l == null or l.active == false:
@@ -1161,22 +1171,53 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		if l.filter_tag_mask != 0:
 			if (int(ctx.tags_mask) & l.filter_tag_mask) == 0:
 				continue
+		# Phase 1：COMMAND filters（仅对 COMMAND 有意义）
+		if is_command:
+			if int(l.filter_command_kind_mask_any) != 0:
+				var ck := String(ctx.get("command_kind")).to_upper()
+				var ck_bit := _command_kind_bit(ck)
+				if ck_bit == 0 or ((int(l.filter_command_kind_mask_any) & ck_bit) == 0):
+					continue
+			if int(l.filter_item_id) >= 0:
+				var item_id_v: Variant = ctx.get("item_id")
+				var item_id := -1
+				if item_id_v != null:
+					item_id = int(item_id_v)
+				if item_id != int(l.filter_item_id):
+					continue
 		# D：require_hit
-		if l.filter_require_hit and (not bool(ctx.hit)):
+		if l.filter_require_hit and (not bool(ctx.get("hit"))):
 			continue
 		# Phase 1：require_crit
-		if l.filter_require_crit and (not bool(ctx.crit)):
+		if l.filter_require_crit and (not bool(ctx.get("crit"))):
 			continue
 		# Phase 1：skill_id
-		if int(l.filter_skill_id) >= 0 and int(ctx.skill_id) != int(l.filter_skill_id):
-			continue
+		if int(l.filter_skill_id) >= 0:
+			var skill_id_v: Variant = ctx.get("skill_id")
+			var skill_id := -1
+			if skill_id_v != null:
+				skill_id = int(skill_id_v)
+			if skill_id != int(l.filter_skill_id):
+				continue
 		# Phase 1：damage_type_any / element_any
 		if int(l.filter_damage_type_mask_any) != 0:
-			var dt_bit := (1 << int(ctx.damage_type))
+			var dt_v: Variant = ctx.get("damage_type")
+			var dt := -1
+			if dt_v != null:
+				dt = int(dt_v)
+			if dt < 0:
+				continue
+			var dt_bit := (1 << dt)
 			if (int(l.filter_damage_type_mask_any) & dt_bit) == 0:
 				continue
 		if int(l.filter_element_mask_any) != 0:
-			var el_bit := (1 << int(ctx.element))
+			var el_v: Variant = ctx.get("element")
+			var el := -1
+			if el_v != null:
+				el = int(el_v)
+			if el < 0:
+				continue
+			var el_bit := (1 << el)
 			if (int(l.filter_element_mask_any) & el_bit) == 0:
 				continue
 		# Phase 1：shield absorbed / thresholds
@@ -1188,8 +1229,13 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		if float(l.filter_min_absorbed_shield) > 0.0 and absorbed < float(l.filter_min_absorbed_shield):
 			continue
 		# Phase 1：min_final_damage（仅在 resolve/apply 后的 phase 才可能有意义）
-		if float(l.filter_min_final_damage) > 0.0 and float(ctx.final_damage) < float(l.filter_min_final_damage):
-			continue
+		if float(l.filter_min_final_damage) > 0.0:
+			var fd_v: Variant = ctx.get("final_damage")
+			var fd := 0.0
+			if fd_v != null:
+				fd = float(fd_v)
+			if fd < float(l.filter_min_final_damage):
+				continue
 		# D：stat_threshold
 		if l.filter_stat != "":
 			if not ctx.has_meta("runtime"):
@@ -1246,6 +1292,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_lifesteal_from_event(l, ctx)
 			"REFLECT_DAMAGE":
 				_reflect_damage_from_event(l, ctx)
+			"CANCEL_COMMAND":
+				_cancel_command_from_event(l, ctx)
 			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
 				_apply_dot_action_from_event(l, ctx)
 			_:
@@ -1563,18 +1611,56 @@ func _reflect_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> 
 		return
 	target_stats.add_base(sid, -dmg)
 
+
+func _cancel_command_from_event(_l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作（COMMAND）：取消本次指令执行（由战斗系统读取 ctx.cancel）
+	if ctx.get("cancel") == null:
+		return
+	ctx.set("cancel", true)
+
+
+func _command_kind_bit(kind: String) -> int:
+	# COMMAND.command_kind -> bit（用于 filters.command_kind_any）
+	match kind.to_upper():
+		"ATTACK":
+			return 1 << 0
+		"CAST_SKILL":
+			return 1 << 1
+		"USE_ITEM":
+			return 1 << 2
+		"DEFEND":
+			return 1 << 3
+		"ESCAPE":
+			return 1 << 4
+		_:
+			return 0
+
 func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 	## 将 scope 映射为实体ID（最小约定）
 	## - SELF：本 BuffCore owner_entity（事件接收者）
-	## - SOURCE/ATTACKER：ctx.attacker_id
-	## - TARGET/DEFENDER：ctx.defender_id
+	## - SOURCE/ATTACKER：优先 ctx.attacker_id，否则回退 ctx.actor_id（COMMAND）
+	## - TARGET/DEFENDER：优先 ctx.defender_id，否则回退 ctx.targets[0]（COMMAND，若存在）
 	var s := scope.to_upper()
 	if s == "" or s == "SELF":
 		return owner_entity_id
 	if s == "SOURCE" or s == "ATTACKER":
-		return int(ctx.attacker_id)
+		var v: Variant = ctx.get("attacker_id")
+		if v != null:
+			return int(v)
+		var v2: Variant = ctx.get("actor_id")
+		if v2 != null:
+			return int(v2)
+		return -1
 	if s == "TARGET" or s == "DEFENDER":
-		return int(ctx.defender_id)
+		var v: Variant = ctx.get("defender_id")
+		if v != null:
+			return int(v)
+		var tv: Variant = ctx.get("targets")
+		if tv != null and typeof(tv) == TYPE_PACKED_INT32_ARRAY:
+			var t: PackedInt32Array = tv
+			if t.size() > 0:
+				return int(t[0])
+		return -1
 	return -1
 
 func _event_seed(ctx: RefCounted, inst_id: int) -> int:

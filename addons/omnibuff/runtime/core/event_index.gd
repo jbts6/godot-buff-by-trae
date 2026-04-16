@@ -65,6 +65,12 @@ class Listener:
 	var filter_stat_op: String = ""
 	var filter_stat_value: float = 0.0
 
+	# Phase 1：COMMAND filters
+	# filters.command_kind_any：bitmask；0 表示不过滤
+	var filter_command_kind_mask_any: int = 0
+	# filters.item_id：-1 表示不过滤
+	var filter_item_id: int = -1
+
 	# action.SET_STAT_FINAL：要设定的 stat（值复用 action_value）
 	var action_stat: String = ""
 
