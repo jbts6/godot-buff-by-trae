@@ -429,6 +429,20 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_executor_escape_cancel")
 		},
 		{
+			"id": "executor_multihit_triple_slash",
+			"title": "Executor / multi-hit triple slash (roll_key increments)",
+			"dataset": "rpg_tests",
+			"covers": ["test_battle_executor_multihit_multitarget.gd (multihit)"],
+			"fn": Callable(self, "_sc_executor_multihit_triple_slash")
+		},
+		{
+			"id": "executor_multitarget_all",
+			"title": "Executor / multi-target ALL (sorted targets)",
+			"dataset": "rpg_tests",
+			"covers": ["test_battle_executor_multihit_multitarget.gd (multitarget)"],
+			"fn": Callable(self, "_sc_executor_multitarget_all")
+		},
+		{
 			"id": "event_chance_apply_determinism",
 			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
 			"dataset": "rpg_tests",
@@ -930,6 +944,51 @@ func _sc_executor_escape_cancel() -> void:
 
 	var res = exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
 	_log("escape canceled=" + str(bool(res.canceled)) + " escaped=" + str(bool(res.escaped)))
+
+
+func _sc_executor_multihit_triple_slash() -> void:
+	var exec := BattleExecutor.new()
+	var attacker := _mk_actor(9321)
+	var defender := _mk_actor(9322)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	var cmd := CommandContext.new()
+	cmd.actor_id = int(attacker["id"])
+	cmd.command_kind = "CAST_SKILL"
+	cmd.targets = PackedInt32Array([int(defender["id"])])
+	cmd.skill_id = 0 # rpg_tests/skill_triple_slash（按 skill_defs.skills 索引）
+
+	var dmg_from := replay.damage_traces.size()
+	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
+	var dmg_to := replay.damage_traces.size()
+	_log("damage traces +" + str(dmg_to - dmg_from))
+	if dmg_to > dmg_from:
+		_log(replay.debug_dump_damage_range(dmg_from))
+
+
+func _sc_executor_multitarget_all() -> void:
+	var exec := BattleExecutor.new()
+	var attacker := _mk_actor(9331)
+	var a := _mk_actor(9333)
+	var b := _mk_actor(9332) # 故意乱序输入 targets
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(a["id"])
+	var runtime := _mk_runtime([attacker, a, b])
+
+	var cmd := CommandContext.new()
+	cmd.actor_id = int(attacker["id"])
+	cmd.command_kind = "CAST_SKILL"
+	cmd.targets = PackedInt32Array([int(a["id"]), int(b["id"])])
+	cmd.skill_id = 2 # rpg_tests/skill_whirlwind（按 skill_defs.skills 索引）
+
+	var dmg_from := replay.damage_traces.size()
+	exec.execute_command(1, cmd, runtime, ds, enums_rt, pipe, sources, replay)
+	var dmg_to := replay.damage_traces.size()
+	_log("damage traces +" + str(dmg_to - dmg_from))
+	if dmg_to > dmg_from:
+		_log(replay.debug_dump_damage_range(dmg_from))
 
 
 func _sc_event_chance_apply_determinism() -> void:
