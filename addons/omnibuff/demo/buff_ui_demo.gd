@@ -223,6 +223,13 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_stats_percent_layers")
 		},
 		{
+			"id": "stats_override_and_clamp",
+			"title": "Stats / override priority + clamp",
+			"dataset": "rpg_tests",
+			"covers": ["test_stat_priority_and_override.gd", "test_stat_clamp.gd"],
+			"fn": Callable(self, "_sc_stats_override_and_clamp")
+		},
+		{
 			"id": "lifecycle_expire",
 			"title": "Buff lifecycle / expire on turn end",
 			"dataset": "rpg_tests",
@@ -256,6 +263,20 @@ func _register_scenarios() -> void:
 			"dataset": "rpg_tests",
 			"covers": ["test_shield_absorb.gd", "test_damage_reduction.gd"],
 			"fn": Callable(self, "_sc_shield_and_reduction")
+		},
+		{
+			"id": "event_chance_apply_determinism",
+			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_chance_apply_buff_determinism.gd"],
+			"fn": Callable(self, "_sc_event_chance_apply_determinism")
+		},
+		{
+			"id": "dot_actions_mul_set_clear",
+			"title": "DOT actions / MUL + SET + ADD(-1) + CLEAR(tag)",
+			"dataset": "rpg_tests",
+			"covers": ["test_dot_actions_mul_add_set_clear.gd"],
+			"fn": Callable(self, "_sc_dot_actions_mul_set_clear")
 		},
 		{
 			"id": "roll_key",
@@ -312,6 +333,22 @@ func _sc_stats_percent_layers() -> void:
 
 	var expected: float = (10.0 + 10.0 + 5.0) * (1.0 + 0.05 + 0.10) * (1.0 + 0.20)
 	_log("ATK expected=" + str(expected) + " got=" + str(float(e["stats"].get_final(atk_id))))
+	_log(e["buffs"].debug_dump_instances())
+
+
+func _sc_stats_override_and_clamp() -> void:
+	var e := _mk_actor(7001)
+	var hit_id: int = int(ds.stat_id("HIT_RATE"))
+	_log("baseline HIT_RATE=" + str(float(e["stats"].get_final(hit_id))))
+
+	# override priority
+	var inst_low: int = int(e["buffs"].apply_buff(e["stats"], "buff_c_override_hit_1_p800", int(e["id"])))
+	var inst_high: int = int(e["buffs"].apply_buff(e["stats"], "buff_c_override_hit_0_p900", int(e["id"])))
+	_log("override inst_low=%s inst_high=%s HIT_RATE=%s (expect 0)" % [inst_low, inst_high, float(e["stats"].get_final(hit_id))])
+
+	# clamp
+	var inst_plus2: int = int(e["buffs"].apply_buff(e["stats"], "buff_c_add_hit_plus_2", int(e["id"])))
+	_log("after HIT_RATE+2 inst=%s HIT_RATE(clamped)=%s (expect 1)" % [inst_plus2, float(e["stats"].get_final(hit_id))])
 	_log(e["buffs"].debug_dump_instances())
 
 
@@ -408,6 +445,103 @@ func _sc_shield_and_reduction() -> void:
 	defender["buffs"].apply_buff(defender["stats"], "buff_dmg_reduce_20p", int(defender["id"]))
 	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 11, tags_mask, runtime, 0)
 	_log("after hit with dmg_reduce HP=" + str(float(defender["stats"].get_final(hp_id))))
+	_log(defender["buffs"].debug_dump_instances())
+
+
+func _sc_event_chance_apply_determinism() -> void:
+	# 复刻 tests/rpg/test_event_chance_apply_buff_determinism.gd 的核心：展示 seed/roll 与实际 apply 是否一致，并重复一次验证一致性
+	var attacker_id: int = 9101
+	var defender_id: int = 9102
+	var turn_index: int = 123
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	var r1: Dictionary = _chance_apply_run_once(attacker_id, defender_id, turn_index, tags_mask)
+	var r2: Dictionary = _chance_apply_run_once(attacker_id, defender_id, turn_index, tags_mask)
+	_log("run1: inst=%s seed=%s roll=%.6f expected=%s actual=%s" % [r1["inst_id"], r1["seed"], float(r1["roll"]), r1["expected"], r1["actual"]])
+	_log("run2: inst=%s seed=%s roll=%.6f expected=%s actual=%s" % [r2["inst_id"], r2["seed"], float(r2["roll"]), r2["expected"], r2["actual"]])
+	_log("deterministic? " + str(int(r1["seed"]) == int(r2["seed"]) and is_equal_approx(float(r1["roll"]), float(r2["roll"])) and bool(r1["actual"]) == bool(r2["actual"])))
+
+
+func _chance_apply_run_once(attacker_id: int, defender_id: int, turn_index: int, tags_mask: int) -> Dictionary:
+	var attacker := _mk_actor(attacker_id)
+	var defender := _mk_actor(defender_id)
+	var runtime := _mk_runtime([attacker, defender])
+
+	# 固定命中/暴击，避免随机性影响事件触发（只测 CHANCE_APPLY_BUFF）
+	var hit_id: int = int(ds.stat_id("HIT_RATE"))
+	var crit_id: int = int(ds.stat_id("CRIT_RATE"))
+	var eva_id: int = int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	attacker["stats"].add_base(crit_id, 0.0 - float(attacker["stats"].get_final(crit_id)))
+	defender["stats"].add_base(eva_id, 0.0 - float(defender["stats"].get_final(eva_id)))
+
+	var inst_id: int = int(attacker["buffs"].apply_buff(attacker["stats"], "buff_event_chance_apply_dot_50", attacker_id))
+	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, null, turn_index, tags_mask, runtime, 0)
+	var seed: int = int(attacker["buffs"]._event_seed(ctx, inst_id))
+	var roll: float = float(attacker["buffs"]._roll01(seed))
+	var expected: bool = roll < 0.5
+	var actual: bool = (_count_instances_by_buff_id(defender["buffs"], "buff_dot_fire_3t") > 0)
+	return {"inst_id": inst_id, "seed": seed, "roll": roll, "expected": expected, "actual": actual}
+
+
+func _advance_to_next_turn_start(ids_sorted: PackedInt32Array, runtime: Dictionary) -> void:
+	# TurnEnd 推进回合号（不结算 TURN_START DOT），再 TurnStart 结算 DOT
+	turn.on_turn_end(ids_sorted, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+	turn.on_turn_start(ids_sorted, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+
+
+func _sc_dot_actions_mul_set_clear() -> void:
+	# 合并展示 MUL / SET / ADD(-1) / CLEAR(tag=POISON)
+	var attacker := _mk_actor(8111)
+	var defender := _mk_actor(8112)
+	var runtime := _mk_runtime([attacker, defender])
+	var ids := _ids_sorted([attacker, defender])
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	# 固定命中/暴击 + 让 direct hit 不扣血：base_damage=0 且 ATK==DEF
+	var hit_id: int = int(ds.stat_id("HIT_RATE"))
+	var crit_id: int = int(ds.stat_id("CRIT_RATE"))
+	var eva_id: int = int(ds.stat_id("EVADE"))
+	var atk_id: int = int(ds.stat_id("ATK"))
+	var def_id: int = int(ds.stat_id("DEF"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	attacker["stats"].add_base(crit_id, 0.0 - float(attacker["stats"].get_final(crit_id)))
+	defender["stats"].add_base(eva_id, 0.0 - float(defender["stats"].get_final(eva_id)))
+	attacker["stats"].add_base(atk_id, 10.0 - float(attacker["stats"].get_final(atk_id)))
+	defender["stats"].add_base(def_id, 10.0 - float(defender["stats"].get_final(def_id)))
+
+	# 1) defender 挂可叠层 FIRE DOT（stacks=1, turns=3）
+	defender["buffs"].apply_buff(defender["stats"], "buff_dot_fire_stack_3t", int(attacker["id"]))
+	# 2) attacker 命中后将目标 DOT stacks *2，并刷新 turns
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_on_hit_dot_mul2", int(attacker["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, turn.turn_index, tags_mask, runtime, 0)
+	_log("after DOT_MUL trigger: defender buffs:")
+	_log(defender["buffs"].debug_dump_instances())
+
+	# tick 一次，观察 dot trace base_damage（应该翻倍）
+	var dot_from: int = int(replay.dot_traces.size())
+	_advance_to_next_turn_start(ids, runtime)
+	_log("after TurnStart tick: dot_traces+=" + str(int(replay.dot_traces.size()) - dot_from))
+	_log(replay.debug_dump_dot_range(dot_from))
+
+	# 3) SET=3
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_on_hit_dot_set3", int(attacker["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, turn.turn_index, tags_mask, runtime, 0)
+	_log("after DOT_SET trigger: defender buffs:")
+	_log(defender["buffs"].debug_dump_instances())
+
+	# 4) ADD(-1) 清除（stacks 可能到 0）
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_on_hit_dot_add_minus1", int(attacker["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, turn.turn_index, tags_mask, runtime, 0)
+	_log("after DOT_ADD(-1) trigger: defender buffs:")
+	_log(defender["buffs"].debug_dump_instances())
+
+	# 5) CLEAR(tag=POISON)：先挂 FIRE+POISON，再 clear POISON
+	defender["buffs"].apply_buff(defender["stats"], "buff_dot_fire_stack_3t", int(attacker["id"]))
+	defender["buffs"].apply_buff(defender["stats"], "buff_dot_poison_3t", int(attacker["id"]))
+	attacker["buffs"].apply_buff(attacker["stats"], "buff_on_hit_dot_clear_poison", int(attacker["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 0.0, replay, turn.turn_index, tags_mask, runtime, 0)
+	_log("after CLEAR(POISON) trigger: defender buffs:")
 	_log(defender["buffs"].debug_dump_instances())
 
 
