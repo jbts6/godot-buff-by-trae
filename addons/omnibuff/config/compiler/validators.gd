@@ -358,9 +358,22 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 				_add_issue(issues, error(file, "path=" + p + ".effects[%s].phase" % ei, id, "invalid phase=" + phase), strict)
 			# percent layers: 当 MUL/PERCENT 时允许 layer>=0；缺省视为0（兼容）
 			if op == "MUL" and phase == "PERCENT" and e.has("layer"):
-				if typeof(e["layer"]) != TYPE_INT:
+				# Godot JSON 会把数字解析成 float；允许 0.0/1.0 这种“整数 float”
+				var layer_i: int = 0
+				var layer_v: Variant = e["layer"]
+				var layer_t: int = typeof(layer_v)
+				if layer_t == TYPE_INT:
+					layer_i = int(layer_v)
+				elif layer_t == TYPE_FLOAT:
+					var lf: float = float(layer_v)
+					if not is_equal_approx(lf, float(int(lf))):
+						_add_issue(issues, error(file, "path=" + p + ".effects[%s].layer" % ei, id, "layer must be int"), strict)
+					else:
+						layer_i = int(lf)
+				else:
 					_add_issue(issues, error(file, "path=" + p + ".effects[%s].layer" % ei, id, "layer must be int"), strict)
-				elif int(e["layer"]) < 0:
+
+				if layer_i < 0:
 					_add_issue(issues, error(file, "path=" + p + ".effects[%s].layer" % ei, id, "layer must be >= 0"), strict)
 			if op == "OVERRIDE":
 				var k := stat + "|" + phase
