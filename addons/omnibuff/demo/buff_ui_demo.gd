@@ -340,6 +340,20 @@ func _register_scenarios() -> void:
 			"fn": Callable(self, "_sc_filters_fire_immunity")
 		},
 		{
+			"id": "filters_skill_id",
+			"title": "Phase1 Filters / skill_id gates triggers",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_filters_extended.gd (skill_id)"],
+			"fn": Callable(self, "_sc_filters_skill_id")
+		},
+		{
+			"id": "filters_min_absorbed_shield",
+			"title": "Phase1 Filters / min_absorbed_shield threshold",
+			"dataset": "rpg_tests",
+			"covers": ["test_event_filters_extended.gd (min_absorbed_shield)"],
+			"fn": Callable(self, "_sc_filters_min_absorbed_shield")
+		},
+		{
 			"id": "event_chance_apply_determinism",
 			"title": "Event / CHANCE_APPLY_BUFF determinism (seed+roll visible)",
 			"dataset": "rpg_tests",
@@ -608,6 +622,59 @@ func _sc_filters_fire_immunity() -> void:
 	var dt_magic := int(enums_rt.enum_int("damage_type", "MAGIC"))
 	var ctx = pipe.deal_damage(attacker["stats"], boss["stats"], attacker["buffs"], boss["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0, -1, dt_magic, el_fire)
 	_log("fire damage: final_damage=" + str(float(ctx.final_damage)) + " absorbed_shield=" + str(float(ctx.get_meta("absorbed_shield"))))
+
+
+func _sc_filters_skill_id() -> void:
+	var attacker := _mk_actor(8881)
+	var defender := _mk_actor(8882)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	var hit_id := int(ds.stat_id("HIT_RATE"))
+	var evade_id := int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	defender["stats"].add_base(evade_id, 0.0 - float(defender["stats"].get_final(evade_id)))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_filter_skill_id_apply_mark", int(defender["id"]))
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	# skill_id=1001：触发
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0, 1001)
+	_log("skill_id=1001 mark cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+	# skill_id=2002：不触发（先移除 mark）
+	attacker["buffs"].remove_by_buff_id(attacker["stats"], "buff_dummy_mark_1", "ALL")
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 2, tags_mask, runtime, 0, 2002)
+	_log("skill_id=2002 mark cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+
+func _sc_filters_min_absorbed_shield() -> void:
+	var attacker := _mk_actor(8891)
+	var defender := _mk_actor(8892)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+
+	var hit_id := int(ds.stat_id("HIT_RATE"))
+	var evade_id := int(ds.stat_id("EVADE"))
+	attacker["stats"].add_base(hit_id, 1.0 - float(attacker["stats"].get_final(hit_id)))
+	defender["stats"].add_base(evade_id, 0.0 - float(defender["stats"].get_final(evade_id)))
+
+	defender["buffs"].apply_buff(defender["stats"], "buff_filter_min_absorbed_shield_apply_mark", int(defender["id"]))
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+	var shield_id := int(ds.stat_id("SHIELD"))
+
+	# A) shield=10, dmg=10 => absorbed=10 < 20，不触发
+	defender["stats"].add_base(shield_id, 10.0 - float(defender["stats"].get_final(shield_id)))
+	var ctx1 = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 10.0, replay, 1, tags_mask, runtime, 0, 1001)
+	_log("A absorbed=" + str(float(ctx1.get_meta("absorbed_shield"))) + " mark cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
+
+	# B) shield=50, dmg=30 => absorbed=30 >= 20，触发
+	attacker["buffs"].remove_by_buff_id(attacker["stats"], "buff_dummy_mark_1", "ALL")
+	defender["stats"].add_base(shield_id, 50.0 - float(defender["stats"].get_final(shield_id)))
+	var ctx2 = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 2, tags_mask, runtime, 0, 1001)
+	_log("B absorbed=" + str(float(ctx2.get_meta("absorbed_shield"))) + " mark cnt=" + str(_count_instances_by_buff_id(attacker["buffs"], "buff_dummy_mark_1")))
 
 
 func _sc_event_chance_apply_determinism() -> void:
