@@ -55,7 +55,7 @@ static func _roll01(turn_index: int, roll_key: int, attacker_id: int, defender_i
 	# [0, 1)（除以 2^32）
 	return float(u) / 4294967296.0
 
-func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
+func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0, is_bonus_damage: bool = false) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）
 	##
 	## 性能约束：
@@ -76,6 +76,7 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 	ctx.set_meta("turn_index", turn_index)
 	ctx.set_meta("runtime", runtime)
 	ctx.set_meta("roll_key", roll_key)
+	ctx.set_meta("is_bonus_damage", is_bonus_damage)
 
 	# === precompute（命中/暴击）===
 	# 目的：让 BEFORE_DEAL / BEFORE_TAKE 等早期阶段也能使用 filters.require_hit / require_crit 等条件。

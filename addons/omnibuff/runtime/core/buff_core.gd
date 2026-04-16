@@ -1720,10 +1720,10 @@ func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> vo
 		roll_key,
 		skill_id,
 		damage_type,
-		element
+		element,
+		true
 	)
-	if dmg_ctx != null:
-		dmg_ctx.set_meta("is_bonus_damage", true)
+	# is_bonus_damage 已在 deal_damage 内部写入 meta，确保事件链执行期间 guard 生效
 
 
 func _command_kind_bit(kind: String) -> int:
