@@ -268,6 +268,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_trigger := {"event_type": true, "event_phase": true, "filters": true, "action": true, "scope": true}
 	var allowed_filters := {
 		"tag_mask_any": true,
+		"command_kind_any": true,
+		"item_id": true,
 		"damage_type_any": true,
 		"element_any": true,
 		"skill_id": true,
@@ -456,6 +458,21 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 					var s := String(x)
 					if s == "" or not _enum_has(enums, "element", s):
 						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.element_any" % ti, id, "unknown element=" + s), strict)
+
+			# Phase 1：COMMAND filters 校验
+			if filters.has("command_kind_any"):
+				var arr_ck: Array = filters.get("command_kind_any", [])
+				var allowed_ck := {"ATTACK": true, "CAST_SKILL": true, "USE_ITEM": true, "DEFEND": true, "ESCAPE": true}
+				for x in arr_ck:
+					var s := String(x).to_upper()
+					if s == "" or not allowed_ck.has(s):
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.command_kind_any" % ti, id, "unknown command_kind=" + s), strict)
+			if filters.has("item_id"):
+				var iv: Variant = filters.get("item_id")
+				if typeof(iv) != TYPE_INT and typeof(iv) != TYPE_FLOAT:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.item_id" % ti, id, "item_id must be int"), strict)
+				elif int(iv) < 0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.item_id" % ti, id, "item_id must be >= 0"), strict)
 
 			var action: Dictionary = t.get("action", {})
 			var ak := String(action.get("kind", ""))
