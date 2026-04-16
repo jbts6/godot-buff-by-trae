@@ -197,6 +197,8 @@ func _sync_hud_runtime() -> void:
 	# 为 HUD 附加 ds，便于展示 stat/buff id
 	var rt := _hud_runtime.duplicate()
 	rt["ds"] = ds
+	# 为 Listeners/DOT 等输出附加 enums_rt（用于 tag_mask 与 event_type/phase 反查）
+	rt["enums_rt"] = enums_rt
 	_hud.set_runtime(rt)
 	_hud.set_preferred_entities(_hud_attacker_id, _hud_defender_id)
 

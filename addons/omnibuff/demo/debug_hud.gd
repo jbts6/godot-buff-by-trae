@@ -10,6 +10,7 @@ extends Window
 @onready var stats_box: RichTextLabel = %StatsBox
 @onready var buffs_box: RichTextLabel = %BuffsBox
 @onready var dots_box: RichTextLabel = %DotsBox
+@onready var listeners_box: RichTextLabel = %ListenersBox
 @onready var btn_copy_dump: Button = %BtnCopyDump
 @onready var btn_close: Button = %BtnClose
 
@@ -37,6 +38,7 @@ func clear() -> void:
 	stats_box.text = ""
 	buffs_box.text = ""
 	dots_box.text = ""
+	listeners_box.text = ""
 
 
 func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
@@ -85,6 +87,7 @@ func _refresh_views() -> void:
 	stats_box.text = _format_stats()
 	buffs_box.text = _format_buffs()
 	dots_box.text = _format_dots()
+	listeners_box.text = _format_listeners()
 
 
 func _format_stats() -> String:
@@ -202,6 +205,135 @@ func _format_dots() -> String:
 		])
 	return "\n".join(lines)
 
+func _enum_name_from_int(enums_rt: Variant, enum_name: String, code: int) -> String:
+	# OmniEnumsRuntime 当前只有 enum_int，没有反查；HUD 用 O(N) 扫描做调试输出。
+	if enums_rt == null:
+		return str(code)
+	if not (enums_rt is OmniEnumsRuntime):
+		return str(code)
+	var table: Dictionary = enums_rt.enum_tables.get(enum_name, {})
+	for k in table.keys():
+		if int(table.get(k, -99999)) == code:
+			return String(k)
+	return str(code)
+
+
+func _format_listeners() -> String:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return ""
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	var ds = _runtime.get("ds", null) # optional
+	var buffs = buffs_by_entity.get(_selected_eid, null)
+	if buffs == null:
+		return "[Listeners] none"
+
+	var out: Array[String] = []
+	var last_ids := PackedInt32Array()
+	if buffs.has_method("get_triggered_inst_ids_last_emit"):
+		last_ids = buffs.get_triggered_inst_ids_last_emit()
+	out.append("[LastTriggered] inst_ids=" + str(last_ids))
+
+	var ei = buffs.event_index
+	if ei == null:
+		out.append("")
+		out.append("[Listeners] none")
+		return "\n".join(out)
+
+	# enums_rt 优先从 HUD runtime 注入（由 demo 填充）；缺失则降级输出 int key/mask
+	var enums_rt: Variant = _runtime.get("enums_rt", null)
+
+	var phase_count: int = 16
+	phase_count = int(OmniEventIndex.PHASE_COUNT)
+
+	out.append("")
+	out.append("[Listeners] entity_id=%s" % [_selected_eid])
+
+	for key in range(ei.listeners.size()):
+		var lids: PackedInt32Array = ei.listeners[key]
+		if lids.is_empty():
+			continue
+		var et_i: int = int(key / phase_count)
+		var ph_i: int = int(key % phase_count)
+		var et_name := _enum_name_from_int(enums_rt, "event_type", et_i)
+		var ph_name := _enum_name_from_int(enums_rt, "event_phase", ph_i)
+		out.append("")
+		out.append("== %s / %s (key=%s) ==" % [et_name, ph_name, key])
+		for lid in lids:
+			var l = ei.listener_data[int(lid)]
+			out.append(_format_one_listener(buffs, ds, enums_rt, l))
+
+	return "\n".join(out)
+
+
+func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Variant) -> String:
+	if l == null:
+		return "- <null listener>"
+	var inst_id: int = int(l.inst_id)
+	var active: bool = bool(l.active)
+	var scope: String = String(l.scope)
+
+	# inst_id -> buff_id
+	var buff_id_str := "?"
+	if ds != null and ds.has_method("buff_id"):
+		var inst = buffs.instances_by_id.get(inst_id, null)
+		if inst != null:
+			var bdid: int = int(inst.buff_def_id)
+			if bdid >= 0 and bdid < ds.buff_defs.size():
+				buff_id_str = String((ds.buff_defs[bdid] as Dictionary).get("id", buff_id_str))
+
+	# filters
+	var filter_parts: Array[String] = []
+	var mask: int = int(l.filter_tag_mask)
+	if mask != 0:
+		if enums_rt != null and enums_rt.has_method("tags_from_mask"):
+			filter_parts.append("tag_any=" + str(enums_rt.tags_from_mask(mask)))
+		else:
+			filter_parts.append("tag_mask=0x%X" % [mask])
+	if bool(l.filter_require_hit):
+		filter_parts.append("require_hit=true")
+	if String(l.filter_stat) != "":
+		filter_parts.append("stat_threshold(%s.%s %s %s)" % [
+			String(l.filter_stat_scope),
+			String(l.filter_stat),
+			String(l.filter_stat_op),
+			str(float(l.filter_stat_value)),
+		])
+	var filters_str := "none"
+	if not filter_parts.is_empty():
+		filters_str = ", ".join(filter_parts)
+
+	# action
+	var ak := String(l.action_kind)
+	var action_str := ak
+	match ak:
+		"ADD_BASE_DAMAGE":
+			action_str = "ADD_BASE_DAMAGE(%s)" % [str(float(l.action_value))]
+		"APPLY_BUFF":
+			action_str = "APPLY_BUFF(%s, add_stacks=%s)" % [String(l.action_buff_id), int(l.action_add_stacks)]
+		"CHANCE_APPLY_BUFF":
+			action_str = "CHANCE_APPLY_BUFF(%s, add_stacks=%s, chance=%s)" % [String(l.action_buff_id), int(l.action_add_stacks), str(float(l.action_chance))]
+		"SET_STAT_FINAL":
+			action_str = "SET_STAT_FINAL(%s=%s)" % [String(l.action_stat), str(float(l.action_value))]
+		"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS":
+			action_str = "%s(dot=%s, value=%s, tag_mask_any=%s)" % [
+				ak,
+				String(l.action_dot_buff_id),
+				str(float(l.action_value)),
+				str(int(l.action_dot_tag_mask_any)),
+			]
+		"DOT_CLEAR":
+			action_str = "DOT_CLEAR(dot=%s, tag_mask_any=%s)" % [String(l.action_dot_buff_id), str(int(l.action_dot_tag_mask_any))]
+		_:
+			pass
+
+	return "- inst=%s buff=%s active=%s scope=%s filters=%s action=%s" % [
+		inst_id,
+		buff_id_str,
+		active,
+		scope,
+		filters_str,
+		action_str,
+	]
 
 func _make_dump() -> String:
 	var parts: Array[String] = []
@@ -211,6 +343,8 @@ func _make_dump() -> String:
 	parts.append(_format_buffs())
 	parts.append("")
 	parts.append(_format_dots())
+	parts.append("")
+	parts.append(_format_listeners())
 	return "\n".join(parts).strip_edges()
 
 
