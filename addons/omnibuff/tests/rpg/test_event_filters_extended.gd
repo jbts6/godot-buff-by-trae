@@ -13,6 +13,17 @@ const ReplayScript := preload("res://addons/omnibuff/runtime/core/replay.gd")
 const TestDataset := preload("res://addons/omnibuff/tests/helpers/test_dataset.gd")
 const TestBattle := preload("res://addons/omnibuff/tests/helpers/test_battle.gd")
 
+func _count_instances_by_buff_id(buffs: RefCounted, ds: OmniCompiledDataset, buff_id_str: String) -> int:
+	var cnt: int = 0
+	for inst_id in buffs.inst_ids:
+		var inst = buffs.instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
+		if String(def.get("id", "")) == buff_id_str:
+			cnt += 1
+	return cnt
+
 
 func _set_stat_final(entity: Dictionary, ds: OmniCompiledDataset, stat_name: String, v: float) -> void:
 	var sid := int(ds.stat_id(stat_name))
@@ -236,7 +247,7 @@ func test_skill_id_filter() -> void:
 	# 反例：skill_id=2002 不触发（重置 attacker buffs）
 	attacker.buffs.remove_by_buff_id(attacker.stats, "buff_dummy_mark_1", "ALL")
 	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 2, tags_mask, runtime, 0, 2002)
-	assert_eq(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1"), 0, "skill_id mismatch should not apply mark buff")
+	assert_eq(_count_instances_by_buff_id(attacker.buffs, ds, "buff_dummy_mark_1"), 0, "skill_id mismatch should not apply mark buff")
 
 
 func test_min_absorbed_shield_filter() -> void:
@@ -265,9 +276,9 @@ func test_min_absorbed_shield_filter() -> void:
 	# A) shield=10, damage=10 => absorbed=10 < 20 -> 不触发
 	_set_stat_final(defender, ds, "SHIELD", 10.0)
 	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 1, tags_mask, runtime, 0, 1001)
-	assert_eq(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1"), 0, "absorbed=10 should not trigger min_absorbed_shield=20")
+	assert_eq(_count_instances_by_buff_id(attacker.buffs, ds, "buff_dummy_mark_1"), 0, "absorbed=10 should not trigger min_absorbed_shield=20")
 
 	# B) shield=50, damage=30 => absorbed=30 >= 20 -> 触发
 	_set_stat_final(defender, ds, "SHIELD", 50.0)
 	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 30.0, replay, 2, tags_mask, runtime, 0, 1001)
-	assert_true(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1") >= 1, "absorbed>=20 should trigger min_absorbed_shield=20")
+	assert_true(_count_instances_by_buff_id(attacker.buffs, ds, "buff_dummy_mark_1") >= 1, "absorbed>=20 should trigger min_absorbed_shield=20")
