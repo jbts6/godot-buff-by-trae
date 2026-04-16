@@ -68,6 +68,16 @@ class Listener:
 	# action.SET_STAT_FINAL：要设定的 stat（值复用 action_value）
 	var action_stat: String = ""
 
+	# Phase 1 actions payload
+	# - LIFESTEAL / REFLECT_DAMAGE：ratio（0..1）
+	var action_ratio: float = 0.0
+	# - DISPEL：mode/tag/source/buff_type/include_implicit
+	var action_dispel_mode: String = ""
+	var action_dispel_tag: String = ""
+	var action_dispel_buff_type: String = ""
+	var action_dispel_source_scope: String = "" # "SOURCE"/"TARGET"
+	var action_include_implicit: bool = false
+
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
 
