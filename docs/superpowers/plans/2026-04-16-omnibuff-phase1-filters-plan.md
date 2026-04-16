@@ -49,6 +49,10 @@ func test_require_crit_filter() -> void:
 2) `require_shield_absorbed`
 3) `min_final_damage`
 4) `damage_type_any` + `element_any`
+5) **Boss 火焰免疫（element=FIRE → final_damage=0）**
+   - defender 预置 SHIELD=0
+   - defender 挂 `buff_boss_fire_immunity`（BEFORE_TAKE：filters.element_any=["FIRE"] → SET_STAT_FINAL(SHIELD=超大值)）
+   - 调用 `deal_damage(..., element=FIRE)` 后断言：`ctx.final_damage==0` 且 HP 不减少
 
 > 这些测试初始应失败（因为 runtime 还不支持新 filter 字段）。
 
@@ -247,6 +251,7 @@ git -C godot-buff commit -m \"feat(debug): display phase1 filters in listeners t
 - [ ] **Step 1: 新增 1~2 个 scenario**
 - 暴击才触发（require_crit）
 - 护盾吸收才触发（require_shield_absorbed）
+- Boss 火焰免疫（element=FIRE 时 final_damage=0；通过 BEFORE_TAKE 设置超大 SHIELD 实现）
 
 - [ ] **Step 2: Commit**
 
@@ -262,4 +267,3 @@ git -C godot-buff commit -m \"feat(demo): add phase1 filter scenarios\"
 - [ ] 运行新增测试文件：全部 PASS
 - [ ] 随机抽 2 个旧 rpg tests：仍 PASS（不受默认字段影响）
 - [ ] Demo 场景可在 HUD 的 Listeners 中直观看到 filters，并能解释触发/未触发
-

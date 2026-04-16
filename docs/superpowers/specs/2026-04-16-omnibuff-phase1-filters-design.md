@@ -130,6 +130,15 @@ Phase 1 需要最小补齐：
 在 `buff_ui_demo` 增加 1~2 个 scenario：
 - “暴击才触发的 on-hit”
 - “护盾吸收才触发的反应”
+- “Boss 火焰免疫”：当 `element=FIRE` 时，本次伤害应被完全吸收（`final_damage=0`）
+
+**Boss 火焰免疫推荐实现（不引入新 action.kind）：**
+- 给 Boss（defender）挂一个永久 buff：`buff_boss_fire_immunity`
+- 在该 buff 的 `triggers` 中注册：
+  - `event_type=DAMAGE`, `event_phase=BEFORE_TAKE`, `scope=SELF`
+  - `filters.element_any=["FIRE"]`
+  - `action.kind=SET_STAT_FINAL`, `action.stat="SHIELD"`, `action.value=<very_large>`
+- 由于护盾吸收发生在 APPLY 阶段，该 BEFORE_TAKE 的 `SET_STAT_FINAL(SHIELD=超大值)` 会确保 **火焰伤害被护盾完全吸收**，从而 `ctx.final_damage==0` 且 HP 不减少。
 
 ---
 
@@ -139,4 +148,3 @@ Phase 1 需要最小补齐：
 - [ ] emit_event 在不遍历全 buff 的前提下完成所有过滤判断
 - [ ] 单测覆盖新增 filters 的正反例（命中/不命中）
 - [ ] HUD 的 Listeners 输出中可看到新增 filters 的摘要（至少 require_crit / shield / min_final_damage）
-
