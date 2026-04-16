@@ -9,6 +9,7 @@ extends Window
 @onready var entity_select: OptionButton = %EntitySelect
 @onready var stats_box: RichTextLabel = %StatsBox
 @onready var buffs_box: RichTextLabel = %BuffsBox
+@onready var dots_box: RichTextLabel = %DotsBox
 @onready var btn_copy_dump: Button = %BtnCopyDump
 @onready var btn_close: Button = %BtnClose
 
@@ -35,6 +36,7 @@ func clear() -> void:
 	entity_select.clear()
 	stats_box.text = ""
 	buffs_box.text = ""
+	dots_box.text = ""
 
 
 func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
@@ -82,6 +84,7 @@ func _refresh_entity_list() -> void:
 func _refresh_views() -> void:
 	stats_box.text = _format_stats()
 	buffs_box.text = _format_buffs()
+	dots_box.text = _format_dots()
 
 
 func _format_stats() -> String:
@@ -136,14 +139,66 @@ func _format_buffs() -> String:
 				var def: Dictionary = ds.buff_defs[bdid]
 				buff_id_str = String(def.get("id", buff_id_str))
 				tags = def.get("tags", [])
+		# 注意：DOT 的 remaining_turns/stacks 以 DotInstance 为准；这里显示的是 BuffInst.remaining_turns（对 DOT 不权威）
+		var turns_str := str(int(inst.remaining_turns))
+		if ds != null and ds.has_method("buff_id"):
+			var bdid: int = int(inst.buff_def_id)
+			if bdid >= 0 and bdid < ds.buff_defs.size():
+				var def2: Dictionary = ds.buff_defs[bdid]
+				var dot_def: Dictionary = def2.get("dot", {})
+				if not dot_def.is_empty():
+					turns_str = "N/A(DOT)"
+
 		lines.append("- %s type=%s src=%s stacks=%s turns=%s active=%s tags=%s" % [
 			buff_id_str,
 			buff_type,
 			int(inst.source_entity_id),
 			int(inst.stacks),
-			int(inst.remaining_turns),
+			turns_str,
 			bool(inst.active),
 			str(tags)
+		])
+	return "\n".join(lines)
+
+func _format_dots() -> String:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return ""
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	var ds = _runtime.get("ds", null) # optional
+	var buffs = buffs_by_entity.get(_selected_eid, null)
+	if buffs == null:
+		return ""
+
+	var dots_any: Variant = buffs.dots_by_target.get(_selected_eid, null)
+	if dots_any == null:
+		return "[Dots] none"
+	var dots: Array = dots_any
+	if dots.is_empty():
+		return "[Dots] none"
+
+	var lines: Array[String] = []
+	lines.append("[Dots] count=%s (DotInstance is authoritative for DOT turns/stacks)" % [dots.size()])
+	# 稳定输出：dot_inst_id 升序
+	dots.sort_custom(func(a, b): return int(a.dot_inst_id) < int(b.dot_inst_id))
+	for x in dots:
+		var d = x
+		if d == null:
+			continue
+		var buff_id_str := "?"
+		if ds != null and ds.has_method("buff_id"):
+			var bdid: int = int(d.buff_def_id)
+			if bdid >= 0 and bdid < ds.buff_defs.size():
+				var def: Dictionary = ds.buff_defs[bdid]
+				buff_id_str = String(def.get("id", buff_id_str))
+		lines.append("- %s dot_id=%s src=%s stacks=%s turns=%s tick=%s tags_mask=%s owner_inst=%s" % [
+			buff_id_str,
+			int(d.dot_inst_id),
+			int(d.source_entity_id),
+			int(d.stacks),
+			int(d.remaining_turns),
+			String(d.tick_phase),
+			int(d.tags_mask),
+			int(d.owner_buff_inst_id),
 		])
 	return "\n".join(lines)
 
@@ -154,6 +209,8 @@ func _make_dump() -> String:
 	parts.append(_format_stats())
 	parts.append("")
 	parts.append(_format_buffs())
+	parts.append("")
+	parts.append(_format_dots())
 	return "\n".join(parts).strip_edges()
 
 

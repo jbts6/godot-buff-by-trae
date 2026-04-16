@@ -146,7 +146,10 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - filters：`tag_mask_any`（最小实现）
 
 ### 6.4 DOT
-- 按来源独立实例（每次施加创建新 DotInstance）
+- DOT 运行时由 **DotInstance** 管理（独立于 BuffInst）
+  - `DotInstance.remaining_turns` 才是 DOT 的权威回合数（到期递减发生在 DOT tick 中）
+  - `BuffInst.remaining_turns` 仅对 **非 DOT 的 TURNS buff** 生效（DOT buff 实例本身不会按此递减）
+- 按来源独立实例（每个来源最多一个 DotInstance；重复施加会叠层/刷新，取决于 stack/refresh_policy）
 - 默认 TURN_START 结算
 - 每跳读取来源 StatCache（证明没遍历来源 buff）
 - Replay 记录 DotTrace
