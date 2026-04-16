@@ -37,6 +37,10 @@ var ds: RefCounted
 var pipe: RefCounted
 var turn: RefCounted
 
+# RichTextLabel 的 append_text 不一定会同步到 `text` 属性（UI能看到但读到空串）。
+# 因此我们维护一个“可复制”的纯文本缓冲区。
+var _log_buffer: String = ""
+
 var _dataset_id: String = ""
 
 var _all_scenarios: Array = []
@@ -49,7 +53,10 @@ func _ready() -> void:
 	btn_run_selected.pressed.connect(_run_selected)
 	btn_run_all.pressed.connect(_run_all)
 	btn_copy_log.pressed.connect(_copy_log_to_clipboard)
-	btn_clear_log.pressed.connect(func(): log_box.clear())
+	btn_clear_log.pressed.connect(func():
+		_log_buffer = ""
+		log_box.clear()
+	)
 
 	dataset_select.clear()
 	dataset_select.add_item("base_demo")
@@ -68,13 +75,14 @@ func _ready() -> void:
 
 
 func _log(msg: String) -> void:
+	_log_buffer += msg + "\n"
 	log_box.append_text(msg + "\n")
 	log_box.scroll_to_line(log_box.get_line_count())
 
 
 func _copy_log_to_clipboard() -> void:
-	DisplayServer.clipboard_set(log_box.text)
-	lbl_status.text = "已复制日志到剪贴板（%s 字符）" % [log_box.text.length()]
+	DisplayServer.clipboard_set(_log_buffer)
+	lbl_status.text = "已复制日志到剪贴板（%s 字符）" % [_log_buffer.length()]
 
 
 func _reset_state() -> void:
