@@ -7,6 +7,8 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1")
 
 [node name="Margin" type="MarginContainer" parent="." unique_id=271884497]
@@ -69,11 +71,8 @@ text = "清空日志"
 [node name="Main" type="HSplitContainer" parent="Margin/VBox" unique_id=1553051645]
 layout_mode = 2
 size_flags_vertical = 3
-split_offsets = PackedInt32Array(0)
-split_offset = 0
 
 [node name="Left" type="VBoxContainer" parent="Margin/VBox/Main" unique_id=1948536520]
-propagate_maximum_size = false
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -89,6 +88,7 @@ size_flags_vertical = 3
 [node name="LogBox" type="RichTextLabel" parent="Margin/VBox/Main" unique_id=803866688]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 focus_mode = 2
 selection_enabled = true
