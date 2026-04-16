@@ -191,6 +191,12 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 	var old_inst_id := int(inst_id_by_ownership.get(key, -1))
 
 	if old_inst_id < 0:
+		# DOT（按来源实例）的规则：max_stack 表示“目标总上限（跨来源共享）”
+		# 若总上限已满，则不为“新来源”创建 0-stack 的 buff 实例。
+		if mode == "ADD_STACK" and (not dot_def.is_empty()) and ownership_mode == "BY_SOURCE_INSTANCE":
+			var total_before: int = _dot_total_stacks(target_entity_id, bdid, dot_tick_phase)
+			if total_before >= max_stack:
+				return -1
 		result_inst_id = _create_new_instance(stats, bdid, source_entity_id, key)
 		inst_id_by_ownership[key] = result_inst_id
 		if not dot_def.is_empty():
@@ -226,7 +232,15 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		var refresh_policy := String(stack.get("refresh_policy", ""))
 		if refresh_policy == "":
 			refresh_policy = "RESET_TO_MAX"
-		old_inst.stacks = min(old_inst.stacks + 1, max_stack)
+		# stacks：对 DOT（按来源实例）而言，max_stack 表示“目标总上限（跨来源共享）”
+		# - 若总上限未满：本来源 stacks +1
+		# - 若总上限已满：本来源 stacks 不变（但仍刷新时长）
+		if not dot_def.is_empty() and ownership_mode == "BY_SOURCE_INSTANCE":
+			var total_before: int = _dot_total_stacks(target_entity_id, bdid, dot_tick_phase)
+			if total_before < max_stack:
+				old_inst.stacks = min(old_inst.stacks + 1, max_stack)
+		else:
+			old_inst.stacks = min(old_inst.stacks + 1, max_stack)
 		if refresh_policy == "RESET_TO_MAX":
 			old_inst.remaining_turns = duration_turns
 		# 让 modifier 随 stacks 生效（线性：value * stacks）
@@ -263,6 +277,23 @@ func _find_dot_instance(target_entity_id: int, buff_def_id: int, source_entity_i
 		return d
 	return null
 
+func _dot_total_stacks(target_entity_id: int, buff_def_id: int, tick_phase: String) -> int:
+	# 内部：统计同一 target 上，同一 DOT（buff_def_id + tick_phase）跨来源的总 stacks
+	if not dots_by_target.has(target_entity_id):
+		return 0
+	var dots: Array = dots_by_target[target_entity_id]
+	var total: int = 0
+	for x in dots:
+		var d: DotInstance = x
+		if d == null:
+			continue
+		if int(d.buff_def_id) != buff_def_id:
+			continue
+		if String(d.tick_phase) != tick_phase:
+			continue
+		total += int(d.stacks)
+	return total
+
 func _upsert_dot_for_apply(target_entity_id: int, buff_def_id: int, source_entity_id: int, owner_buff_inst_id: int, dot_def: Dictionary, stack_mode: String, max_stack: int, duration_turns: int, buff_tags: Array) -> void:
 	# E1：施加/刷新 DOT：
 	# - 复用 key = (buff_def_id, source_entity_id, tick_phase)
@@ -275,9 +306,17 @@ func _upsert_dot_for_apply(target_entity_id: int, buff_def_id: int, source_entit
 		return
 	var tick_phase := String(dot_def.get("tick_phase", "TURN_END"))
 
+	# 规则：对 DOT（按来源实例）而言，max_stack 表示“目标总上限（跨来源共享）”
+	# remaining = max_stack - total_stacks(target, buff_def_id, tick_phase)
+	var total_before: int = _dot_total_stacks(target_entity_id, buff_def_id, tick_phase)
+	var remaining_global: int = max(0, max_stack - total_before)
+
 	var d := _find_dot_instance(target_entity_id, buff_def_id, source_entity_id, tick_phase)
 	var reused := (d != null)
 	if d == null:
+		# 新来源：若总上限已满，则不创建 0-stack 实例
+		if stack_mode == "ADD_STACK" and remaining_global <= 0:
+			return
 		d = DotInstance.new()
 		d.dot_inst_id = next_dot_inst_id
 		next_dot_inst_id += 1
@@ -303,7 +342,12 @@ func _upsert_dot_for_apply(target_entity_id: int, buff_def_id: int, source_entit
 	# stacks 更新（仅复用时需要根据 stack_mode 变化；新建保持 1）
 	if reused:
 		if stack_mode == "ADD_STACK":
-			d.stacks = min(int(d.stacks) + 1, max_stack)
+			# 同来源实例叠层：先看全局 remaining，再决定本次是否 +1
+			if remaining_global > 0:
+				d.stacks = int(d.stacks) + 1
+			# 最终保证目标总上限不被突破（避免数据不一致）
+			# 这里不尝试回收其它来源的 stacks（先来先占）
+			# 若 remaining_global==0，则仅刷新 remaining_turns，不增加 stacks
 		else:
 			d.stacks = 1
 

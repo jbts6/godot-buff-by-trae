@@ -240,6 +240,17 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_dot_fire_cap4_3t",
+	  "name": "测试：灼烧DOT（总上限4/3回合/回合开始结算）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF", "DOT", "FIRE"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 4, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "dot": { "tick_phase": "TURN_START", "element": "FIRE", "base_ratio": 0.3, "read_source_stat": "ATK" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_dot_poison_3t",
 	  "name": "测试：中毒DOT（3回合/回合开始结算）",
 	  "buff_type": "EXPLICIT",
