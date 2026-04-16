@@ -8,7 +8,7 @@ extends RefCounted
 ## - key = event_type_int * PHASE_COUNT + phase_int
 ## - listeners[key] 存 listener_id 列表
 
-const PHASE_COUNT := 16
+const PHASE_COUNT := 32
 
 ## 监听列表池：索引为 key，值为 listener_id 的紧凑列表
 var listeners: Array[PackedInt32Array] = []
