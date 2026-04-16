@@ -681,7 +681,7 @@
 	  "id": "buff_boss_fire_immunity",
 	  "name": "Phase1测试：Boss 火焰免疫（element=FIRE 时 final_damage=0）",
 	  "buff_type": "EXPLICIT",
-	  "tags": ["BUFF", "BOSS"],
+	  "tags": ["BUFF"],
 	  "duration": { "type": "PERMANENT" },
 	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
 	  "effects": [],
