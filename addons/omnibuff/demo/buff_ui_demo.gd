@@ -377,6 +377,8 @@ func _sc_dataset_authority() -> void:
 func _sc_stats_percent_layers() -> void:
 	var e := _mk_actor(9801)
 	_hud_attacker_id = int(e["id"])
+	# Debug HUD 依赖 runtime 注入 entity 列表；单体场景也要构建 runtime
+	_mk_runtime([e])
 	var atk_id: int = int(ds.stat_id("ATK"))
 	_dump_actor_basic("baseline", e, ["ATK"])
 
@@ -394,6 +396,7 @@ func _sc_stats_percent_layers() -> void:
 func _sc_stats_override_and_clamp() -> void:
 	var e := _mk_actor(7001)
 	_hud_attacker_id = int(e["id"])
+	_mk_runtime([e])
 	var hit_id: int = int(ds.stat_id("HIT_RATE"))
 	_log("baseline HIT_RATE=" + str(float(e["stats"].get_final(hit_id))))
 
@@ -427,6 +430,7 @@ func _sc_lifecycle_expire() -> void:
 func _sc_lifecycle_stacking() -> void:
 	var e := _mk_actor(7102)
 	_hud_attacker_id = int(e["id"])
+	_mk_runtime([e])
 	var atk_id: int = int(ds.stat_id("ATK"))
 	_log("baseline ATK=" + str(float(e["stats"].get_final(atk_id))))
 
@@ -450,6 +454,7 @@ func _sc_lifecycle_stacking() -> void:
 func _sc_while_condition() -> void:
 	var e := _mk_actor(7505)
 	_hud_attacker_id = int(e["id"])
+	_mk_runtime([e])
 	var hp_id: int = int(ds.stat_id("HP"))
 	var atk_id: int = int(ds.stat_id("ATK"))
 
