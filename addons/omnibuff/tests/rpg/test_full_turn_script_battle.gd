@@ -46,6 +46,18 @@ func _count_instances_by_buff_id(buffs: OmniBuffCore, ds: OmniCompiledDataset, b
 	return cnt
 
 
+func _find_instance_by_buff_id_and_source(buffs: OmniBuffCore, ds: OmniCompiledDataset, buff_id_str: String, source_entity_id: int) -> Variant:
+	var bdid := int(ds.buff_id(buff_id_str))
+	assert_true(bdid >= 0, "unknown buff_id=%s" % [buff_id_str])
+	for inst_id in buffs.inst_ids:
+		var inst = buffs.instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if int(inst.buff_def_id) == bdid and int(inst.source_entity_id) == source_entity_id:
+			return inst
+	return null
+
+
 func _assert_dot_traces(replay: RefCounted, from_idx: int, expected_count: int, attacker_id: int, defender_id: int) -> void:
 	assert_true(replay != null)
 	# 注意：GDScript 没有 `has_property`；这里直接假定 replay 为 OmniReplay 实例（由 ReplayScript.new() 创建）。
@@ -111,7 +123,10 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 			runtime
 		)
 
-	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 3, "defender should have 3 DOT buff instances after 3 hits")
+	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 1, "same source should merge into 1 DOT instance")
+	var inst := _find_instance_by_buff_id_and_source(defender.buffs, ds, "buff_dot_fire_3t", attacker_id)
+	assert_not_null(inst)
+	assert_eq(int(inst.stacks), 3, "3 hits => DOT stacks=3")
 
 	# TurnEnd：推进到 Turn3（仍不应 tick DOT）
 	before_end = replay.dot_traces.size()
@@ -162,13 +177,19 @@ func test_full_turn_script_battle_dot_turn_start_dispel_and_immunity() -> void:
 			tags_mask,
 			runtime
 		)
-	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 3)
+	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 1)
+	inst = _find_instance_by_buff_id_and_source(defender.buffs, ds, "buff_dot_fire_3t", attacker_id)
+	assert_not_null(inst)
+	assert_eq(int(inst.stacks), 3)
 
 	# 免疫对 DEBUFF 的驱散
 	defender.buffs.target_dispel_immunity_mask |= int(enums_rt.tag_mask(["DEBUFF"]))
 	removed = defender.buffs.dispel_by_tag(defender.stats, "DEBUFF", false)
 	assert_eq(removed, 0, "dispel should fail due to target_dispel_immunity_mask")
-	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 3, "DOT should remain when dispel is immune")
+	assert_eq(_count_instances_by_buff_id(defender.buffs, ds, "buff_dot_fire_3t"), 1, "DOT should remain when dispel is immune")
+	inst = _find_instance_by_buff_id_and_source(defender.buffs, ds, "buff_dot_fire_3t", attacker_id)
+	assert_not_null(inst)
+	assert_eq(int(inst.stacks), 3)
 
 	# TurnEnd：推进到 Turn5（仍不应 tick DOT）
 	before_end = replay.dot_traces.size()

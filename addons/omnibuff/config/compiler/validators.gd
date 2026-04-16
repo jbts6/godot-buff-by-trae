@@ -272,6 +272,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"value": true,
 		# SET_STAT_FINAL 需要 stat（例如 SHIELD=0）
 		"stat": true,
+		# APPLY_BUFF/CHANCE_APPLY_BUFF 可选：额外叠层（默认 1）
+		"add_stacks": true,
 		"buff_id": true,
 		"apply_buff_id": true,
 		"chance": true,
@@ -438,6 +440,26 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 								break
 						if not exists:
 							_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "action references missing buff_id=" + target_buff_id), strict)
+			# add_stacks：仅 APPLY_BUFF/CHANCE_APPLY_BUFF 可用；必须为 int 且 >=1
+			if action.has("add_stacks"):
+				if not (ak == "APPLY_BUFF" or ak == "CHANCE_APPLY_BUFF"):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.add_stacks" % ti, id, "add_stacks only allowed for APPLY_BUFF/CHANCE_APPLY_BUFF"), strict)
+				else:
+					var add_i: int = 1
+					var add_v: Variant = action.get("add_stacks")
+					var add_t: int = typeof(add_v)
+					if add_t == TYPE_INT:
+						add_i = int(add_v)
+					elif add_t == TYPE_FLOAT:
+						var af: float = float(add_v)
+						if not is_equal_approx(af, float(int(af))):
+							_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.add_stacks" % ti, id, "add_stacks must be int"), strict)
+						else:
+							add_i = int(af)
+					else:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.add_stacks" % ti, id, "add_stacks must be int"), strict)
+					if add_i < 1:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.add_stacks" % ti, id, "add_stacks must be >= 1"), strict)
 
 			# 规则：chance（若存在）范围必须 0..1
 			if action.has("chance"):

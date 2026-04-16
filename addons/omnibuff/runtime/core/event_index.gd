@@ -34,6 +34,8 @@ class Listener:
 	var action_dot_tag_mask_any: int = 0
 	## CHANCE_APPLY_BUFF：触发概率（0..1）
 	var action_chance: float = 1.0
+	## APPLY_BUFF/CHANCE_APPLY_BUFF：额外叠层（默认 1）
+	var action_add_stacks: int = 1
 	## 作用目标范围（最小约定）：
 	## - "SELF"：本 BuffCore 的 owner_entity（事件接收者）
 	## - "SOURCE"/"ATTACKER"：ctx.attacker_id

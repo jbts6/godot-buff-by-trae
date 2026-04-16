@@ -442,6 +442,9 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 			l.action_buff_id = String(action.get("buff_id", ""))
 		elif action.has("apply_buff_id"):
 			l.action_buff_id = String(action.get("apply_buff_id", ""))
+		# 可选：额外叠层（默认 1）
+		if action.has("add_stacks"):
+			l.action_add_stacks = int(action.get("add_stacks", 1))
 		l.action_chance = float(action.get("chance", 1.0))
 		# DOT_* payload
 		if action.has("dot_buff_id"):
@@ -1145,7 +1148,12 @@ func _apply_buff_from_event(l: OmniEventIndex.Listener, ctx: RefCounted, use_cha
 
 	# 约定：事件施加的来源实体为 ctx.attacker_id（最贴近“施法者/攻击者”）
 	var source_eid := int(ctx.attacker_id)
-	target_buff.apply_buff(target_stats, l.action_buff_id, source_eid)
+	# 可选：额外叠层（默认 1）。语义：同一来源+同一buff 的 apply，会合并并增加 stacks。
+	var add_stacks: int = int(l.action_add_stacks)
+	if add_stacks < 1:
+		add_stacks = 1
+	for _i in range(add_stacks):
+		target_buff.apply_buff(target_stats, l.action_buff_id, source_eid)
 
 func _apply_dot_action_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
 	## 事件动作：对目标身上的 DOT 实例做 stacks 操作（E2）

@@ -234,7 +234,7 @@
 	  "buff_type": "EXPLICIT",
 	  "tags": ["DEBUFF", "DOT", "FIRE"],
 	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_START" },
-	  "stack": { "mode": "MULTI_INSTANCE", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 99, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "BY_SOURCE_INSTANCE" },
 	  "dot": { "tick_phase": "TURN_START", "element": "FIRE", "base_ratio": 0.3, "read_source_stat": "ATK" },
 	  "effects": [],
 	  "triggers": []
@@ -276,6 +276,24 @@
 		  "scope": "TARGET",
 		  "filters": { "tag_mask_any": ["BUFF"] },
 		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_on_hit_apply_dot_add2",
+	  "name": "测试：AFTER_DEAL 给目标挂灼烧（每次 +2 stacks）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "tag_mask_any": ["BUFF"] },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dot_fire_3t", "add_stacks": 2 }
 		}
 	  ]
 	},
