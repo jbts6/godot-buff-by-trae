@@ -270,6 +270,8 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_action := {
 		"kind": true,
 		"value": true,
+		# SET_STAT_FINAL 需要 stat（例如 SHIELD=0）
+		"stat": true,
 		"buff_id": true,
 		"apply_buff_id": true,
 		"chance": true,
@@ -278,7 +280,9 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	}
 	var allowed_dot := {"tick_phase": true, "element": true, "base_ratio": true, "read_source_stat": true}
 	var allowed_dispel := {"dispellable": true, "immune_tags_any": true, "scope": true}
-	var allowed_condition := {"type": true, "set_id": true, "count": true, "tag": true, "stat": true, "value": true}
+	# 条件系统（A4 v1）：当前运行时实现用 condition_type/op/stat/value（STAT_THRESHOLD）
+	# 允许同时兼容更泛化的字段名 type（未来扩展）与 condition_type（现有数据）
+	var allowed_condition := {"type": true, "condition_type": true, "set_id": true, "count": true, "tag": true, "stat": true, "op": true, "value": true}
 
 	var arr: Array = obj.get("buffs", [])
 	var seen := {}
