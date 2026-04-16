@@ -264,7 +264,7 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	# 子结构允许字段（用于“未知字段”治理）
 	var allowed_duration := {"type": true, "turns": true, "tick_phase": true, "policy": true}
 	var allowed_stack := {"mode": true, "max_stack": true, "refresh_policy": true, "ownership_mode": true}
-	var allowed_effect := {"kind": true, "stat": true, "op": true, "phase": true, "priority": true, "value": true, "expr": true, "tags": true, "clamp_min": true, "clamp_max": true}
+	var allowed_effect := {"kind": true, "stat": true, "op": true, "phase": true, "priority": true, "value": true, "layer": true, "expr": true, "tags": true, "clamp_min": true, "clamp_max": true}
 	var allowed_trigger := {"event_type": true, "event_phase": true, "filters": true, "action": true, "scope": true}
 	var allowed_filters := {"tag_mask_any": true, "damage_type_any": true, "skill_id": true, "require_hit": true, "stat_threshold": true}
 	var allowed_action := {
@@ -356,6 +356,12 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 			var phase := String(e.get("phase", ""))
 			if phase == "" or not _enum_has(enums, "apply_phase", phase):
 				_add_issue(issues, error(file, "path=" + p + ".effects[%s].phase" % ei, id, "invalid phase=" + phase), strict)
+			# percent layers: 当 MUL/PERCENT 时允许 layer>=0；缺省视为0（兼容）
+			if op == "MUL" and phase == "PERCENT" and e.has("layer"):
+				if typeof(e["layer"]) != TYPE_INT:
+					_add_issue(issues, error(file, "path=" + p + ".effects[%s].layer" % ei, id, "layer must be int"), strict)
+				elif int(e["layer"]) < 0:
+					_add_issue(issues, error(file, "path=" + p + ".effects[%s].layer" % ei, id, "layer must be >= 0"), strict)
 			if op == "OVERRIDE":
 				var k := stat + "|" + phase
 				override_seen[k] = int(override_seen.get(k, 0)) + 1
