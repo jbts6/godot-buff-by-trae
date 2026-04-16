@@ -24,4 +24,3 @@ static func make_runtime(entities: Array) -> Dictionary:
 		stats_by[int(e.eid)] = e.stats
 		buff_by[int(e.eid)] = e.buffs
 	return {"stats_by_entity": stats_by, "buff_by_entity": buff_by}
-
