@@ -151,6 +151,13 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - 每跳读取来源 StatCache（证明没遍历来源 buff）
 - Replay 记录 DotTrace
 
+### 6.5 Demo（场景）
+
+- 控制台 demo：`res://addons/omnibuff/demo/demo_scene.tscn`（输出到 Godot 的 Output）
+- UI demo（推荐）：`res://addons/omnibuff/demo/buff_ui_demo.tscn`
+  - 支持切换数据集：`base_demo` / `rpg_tests`
+  - 以 Scenario 形式覆盖 `tests/rpg` 的主要能力点
+
 ---
 
 ## 7. 自动化测试（GUT）
