@@ -70,6 +70,9 @@ class Listener:
 	var filter_command_kind_mask_any: int = 0
 	# filters.item_id：-1 表示不过滤
 	var filter_item_id: int = -1
+	# Phase 2：bonus damage guard
+	# filters.require_not_bonus_damage：当 ctx.meta.is_bonus_damage=true 时不触发
+	var filter_require_not_bonus_damage: bool = false
 
 	# action.SET_STAT_FINAL：要设定的 stat（值复用 action_value）
 	var action_stat: String = ""
@@ -83,6 +86,12 @@ class Listener:
 	var action_dispel_buff_type: String = ""
 	var action_dispel_source_scope: String = "" # "SOURCE"/"TARGET"
 	var action_include_implicit: bool = false
+
+	# Phase 2：BONUS_DAMAGE payload
+	# - tags_mask_any：写入 bonus damage 的 tags（bitmask）
+	var action_bonus_tags_mask_any: int = 0
+	# - scope：决定 bonus damage 的目标（默认 TARGET）
+	var action_bonus_scope: String = "TARGET"
 
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
