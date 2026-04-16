@@ -496,6 +496,32 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 		l.filter_tag_mask = filter_mask
 		# D：额外 filters
 		l.filter_require_hit = bool(filters.get("require_hit", false))
+		l.filter_require_crit = bool(filters.get("require_crit", false))
+		# skill_id：-1 表示不过滤
+		if filters.has("skill_id"):
+			l.filter_skill_id = int(filters.get("skill_id", -1))
+		# damage_type_any / element_any：映射为 bitmask
+		if filters.has("damage_type_any"):
+			var arr_dt: Array = filters.get("damage_type_any", [])
+			var m_dt := 0
+			for s in arr_dt:
+				var code := int(enums_rt.enum_int("damage_type", String(s)))
+				if code >= 0:
+					m_dt |= (1 << code)
+			l.filter_damage_type_mask_any = m_dt
+		if filters.has("element_any"):
+			var arr_el: Array = filters.get("element_any", [])
+			var m_el := 0
+			for s in arr_el:
+				var code := int(enums_rt.enum_int("element", String(s)))
+				if code >= 0:
+					m_el |= (1 << code)
+			l.filter_element_mask_any = m_el
+		l.filter_require_shield_absorbed = bool(filters.get("require_shield_absorbed", false))
+		if filters.has("min_absorbed_shield"):
+			l.filter_min_absorbed_shield = float(filters.get("min_absorbed_shield", 0.0))
+		if filters.has("min_final_damage"):
+			l.filter_min_final_damage = float(filters.get("min_final_damage", 0.0))
 		var st: Variant = filters.get("stat_threshold", null)
 		if typeof(st) == TYPE_DICTIONARY:
 			var std: Dictionary = st
