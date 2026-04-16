@@ -27,6 +27,20 @@ func _find_inst(buffs: OmniBuffCore, ds: OmniCompiledDataset, buff_id_str: Strin
 	return null
 
 
+func _find_dot(buffs: OmniBuffCore, ds: OmniCompiledDataset, target_eid: int, buff_id_str: String, source_eid: int) -> Variant:
+	var bdid := int(ds.buff_id(buff_id_str))
+	assert_true(bdid >= 0, "unknown buff_id=%s" % [buff_id_str])
+	var dots_any: Variant = buffs.dots_by_target.get(target_eid, [])
+	var dots: Array = dots_any
+	for x in dots:
+		var d: OmniBuffCore.DotInstance = x
+		if d == null:
+			continue
+		if int(d.buff_def_id) == bdid and int(d.source_entity_id) == source_eid:
+			return d
+	return null
+
+
 func test_dot_max_stack_is_shared_across_sources_and_refreshes_on_full() -> void:
 	var loaded := TestDataset.load_rpg_tests(true)
 	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
@@ -62,15 +76,17 @@ func test_dot_max_stack_is_shared_across_sources_and_refreshes_on_full() -> void
 	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	turn.on_turn_start(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 
-	inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
-	assert_not_null(inst_b)
-	assert_true(int(inst_b.remaining_turns) <= 2, "after advancing a turn, remaining_turns should decrease")
+	# 注意：DOT 的到期递减由 DotInstance 管理（BuffInst.remaining_turns 不会递减）
+	var dot_b = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_not_null(dot_b)
+	assert_true(int(dot_b.remaining_turns) <= 2, "after advancing a turn, dot.remaining_turns should decrease")
 
 	# 满层再 apply（B）：stacks 不变，但 remaining_turns 刷新回 3（RESET_TO_MAX）
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
-	inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
-	assert_eq(int(inst_b.stacks), 2)
-	assert_eq(int(inst_b.remaining_turns), 3, "full-stack apply should still refresh duration")
+	dot_b = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_not_null(dot_b)
+	assert_eq(int(dot_b.stacks), 2)
+	assert_eq(int(dot_b.remaining_turns), 3, "full-stack apply should still refresh duration")
 
 
 func test_full_stack_new_source_does_not_create_instance_but_refreshes_existing_sources() -> void:
@@ -102,19 +118,21 @@ func test_full_stack_new_source_does_not_create_instance_but_refreshes_existing_
 	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 	turn.on_turn_start(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 
-	var inst_a = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
-	var inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
-	assert_not_null(inst_a)
-	assert_not_null(inst_b)
-	assert_true(int(inst_a.remaining_turns) <= 2)
-	assert_true(int(inst_b.remaining_turns) <= 2)
+	var dot_a = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	var dot_b = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_not_null(dot_a)
+	assert_not_null(dot_b)
+	assert_true(int(dot_a.remaining_turns) <= 2)
+	assert_true(int(dot_b.remaining_turns) <= 2)
 
 	# 新来源 C 施加：不应创建新实例（仍 2 个），但应刷新 A/B 的 remaining_turns 回 3
 	var ret := int(tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_c.stats.entity_id)))
 	assert_eq(ret, -1, "no remaining_global => should not create 0-stack instance for new source")
 	assert_eq(tgt.buffs.inst_ids.size(), 2)
 
-	inst_a = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
-	inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
-	assert_eq(int(inst_a.remaining_turns), 3, "new source should refresh existing sources")
-	assert_eq(int(inst_b.remaining_turns), 3, "new source should refresh existing sources")
+	dot_a = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	dot_b = _find_dot(tgt.buffs, ds, int(tgt.stats.entity_id), "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_not_null(dot_a)
+	assert_not_null(dot_b)
+	assert_eq(int(dot_a.remaining_turns), 3, "new source should refresh existing sources")
+	assert_eq(int(dot_b.remaining_turns), 3, "new source should refresh existing sources")
