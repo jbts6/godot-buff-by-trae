@@ -196,6 +196,7 @@ scope 的存在目的：
 为了避免 `DamageContext` 强耦合过多字段，运行时通过 meta 传递“可选信息”：
 - `ctx.set_meta("turn_index", turn_index)`：用于确定性随机 / 追帧
 - `ctx.set_meta("runtime", runtime_dict)`：用于事件动作跨实体定位
+- `ctx.set_meta("roll_key", roll_key)`：用于命中/暴击等概率事件的**确定性回放**（多段/多目标/追加触发时必须唯一）
 
 以及在流程中可能额外写入：
 - `ctx.meta["dmg_reduce_ratio"]`：若启用 `DMG_REDUCE`，记录本次减伤比例
@@ -234,6 +235,7 @@ Replay 的目标是“记录与导出”，**不参与逻辑驱动**：
 1) `damage_traces: Array[OmniReplay.DamageTrace]`  
 由 `OmniDamagePipeline.deal_damage()` 在一次伤害结束后写入：
 - `turn, attacker_id, defender_id`
+- `roll_key`：本次结算的 RNG key（用于解释/验证 hit/crit 的确定性回放）
 - `hit, crit`
 - `base_damage, final_damage`
 - `tags_mask`
@@ -259,4 +261,3 @@ Replay 提供便捷 debug 文本输出（不影响逻辑）：
 - `debug_dump_dot_range(from_index)`
 
 > 这些输出是“观测值”，任何战斗逻辑不应依赖其内容（否则将破坏可复盘/可替换性）。
-
