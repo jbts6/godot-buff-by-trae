@@ -694,6 +694,42 @@
 		  "action": { "kind": "SET_SHIELD_TO_FINAL_DAMAGE" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_filter_skill_id_apply_mark",
+	  "name": "Phase1测试：skill_id=1001 才给攻击者挂标记",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SOURCE",
+		  "filters": { "tag_mask_any": ["BUFF"], "skill_id": 1001 },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_filter_min_absorbed_shield_apply_mark",
+	  "name": "Phase1测试：absorbed_shield>=20 才给攻击者挂标记",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SOURCE",
+		  "filters": { "tag_mask_any": ["BUFF"], "min_absorbed_shield": 20.0 },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
+		}
+	  ]
 	}
   ]
 }
