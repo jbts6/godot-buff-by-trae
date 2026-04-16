@@ -196,6 +196,12 @@ func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id
 		if mode == "ADD_STACK" and (not dot_def.is_empty()) and ownership_mode == "BY_SOURCE_INSTANCE":
 			var total_before: int = _dot_total_stacks(target_entity_id, bdid, dot_tick_phase)
 			if total_before >= max_stack:
+				# 新增语义：新来源无法创建实例，但仍刷新“其他来源”的 remaining_turns（本 buff 的 refresh_policy 控制）
+				var refresh_policy := String(stack.get("refresh_policy", ""))
+				if refresh_policy == "":
+					refresh_policy = "RESET_TO_MAX"
+				if refresh_policy == "RESET_TO_MAX":
+					_refresh_dot_all_sources(target_entity_id, bdid, dot_tick_phase, duration_turns)
 				return -1
 		result_inst_id = _create_new_instance(stats, bdid, source_entity_id, key)
 		inst_id_by_ownership[key] = result_inst_id
@@ -293,6 +299,28 @@ func _dot_total_stacks(target_entity_id: int, buff_def_id: int, tick_phase: Stri
 			continue
 		total += int(d.stacks)
 	return total
+
+func _refresh_dot_all_sources(target_entity_id: int, buff_def_id: int, tick_phase: String, duration_turns: int) -> void:
+	# 内部：刷新该 target 上该 DOT（buff_def_id+tick_phase）所有来源实例的 remaining_turns
+	# 语义：即使“新来源无法获得 stacks（remaining_global==0）”，也可以触发对现有来源的刷新（用于某些技能设计）。
+	if not dots_by_target.has(target_entity_id):
+		return
+	var dots: Array = dots_by_target[target_entity_id]
+	for x in dots:
+		var d: DotInstance = x
+		if d == null:
+			continue
+		if int(d.buff_def_id) != buff_def_id:
+			continue
+		if String(d.tick_phase) != tick_phase:
+			continue
+		d.remaining_turns = duration_turns
+		# 同步刷新对应的 buff 实例 remaining_turns（若存在）
+		var key := _ownership_key(buff_def_id, "BY_SOURCE_INSTANCE", int(d.source_entity_id))
+		var inst_id := int(inst_id_by_ownership.get(key, -1))
+		var inst: BuffInst = instances_by_id.get(inst_id, null)
+		if inst != null:
+			inst.remaining_turns = duration_turns
 
 func _upsert_dot_for_apply(target_entity_id: int, buff_def_id: int, source_entity_id: int, owner_buff_inst_id: int, dot_def: Dictionary, stack_mode: String, max_stack: int, duration_turns: int, buff_tags: Array) -> void:
 	# E1：施加/刷新 DOT：

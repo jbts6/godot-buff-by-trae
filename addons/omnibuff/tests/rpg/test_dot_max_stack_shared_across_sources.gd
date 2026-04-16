@@ -71,3 +71,48 @@ func test_dot_max_stack_is_shared_across_sources_and_refreshes_on_full() -> void
 	assert_eq(int(inst_b.stacks), 2)
 	assert_eq(int(inst_b.remaining_turns), 3, "full-stack apply should still refresh duration")
 
+
+func test_full_stack_new_source_does_not_create_instance_but_refreshes_existing_sources() -> void:
+	## 设定：总上限=4 已满；新来源 C 再次施加时：
+	## - 不创建 0-stack 实例
+	## - 但会刷新“已有来源”的 remaining_turns（按 refresh_policy=RESET_TO_MAX）
+	var loaded := TestDataset.load_rpg_tests(true)
+	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
+	var ds: OmniCompiledDataset = loaded.ds
+
+	var src_a := TestBattle.make_entity(8201, ds, enums_rt)
+	var src_b := TestBattle.make_entity(8202, ds, enums_rt)
+	var src_c := TestBattle.make_entity(8203, ds, enums_rt)
+	var tgt := TestBattle.make_entity(8204, ds, enums_rt)
+
+	# 填满：A=2, B=2，总=4
+	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_eq(tgt.buffs.inst_ids.size(), 2)
+
+	# 推进一回合让 remaining_turns 下降（从 3 到 2）
+	var turn := TurnComponent.new()
+	var pipe := DamagePipeline.new()
+	var replay := Replay.new()
+	var runtime := TestBattle.make_runtime([src_a, src_b, src_c, tgt])
+	var ids := PackedInt32Array([8201, 8202, 8203, 8204]); ids.sort()
+	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+
+	var inst_a = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	var inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_not_null(inst_a)
+	assert_not_null(inst_b)
+	assert_true(int(inst_a.remaining_turns) <= 2)
+	assert_true(int(inst_b.remaining_turns) <= 2)
+
+	# 新来源 C 施加：不应创建新实例（仍 2 个），但应刷新 A/B 的 remaining_turns 回 3
+	var ret := int(tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_c.stats.entity_id)))
+	assert_eq(ret, -1, "no remaining_global => should not create 0-stack instance for new source")
+	assert_eq(tgt.buffs.inst_ids.size(), 2)
+
+	inst_a = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
+	inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
+	assert_eq(int(inst_a.remaining_turns), 3, "new source should refresh existing sources")
+	assert_eq(int(inst_b.remaining_turns), 3, "new source should refresh existing sources")
