@@ -20,6 +20,10 @@ config/icon="res://icon.svg"
 OmniBuffBootstrap="res://addons/omnibuff/omnibuff_bootstrap.gd"
 OmniBuff="*uid://bl8yrdx6miv75"
 
+[display]
+
+window/stretch/mode="viewport"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omni_set_bonuses/plugin.cfg", "res://addons/omnibuff/plugin.cfg")

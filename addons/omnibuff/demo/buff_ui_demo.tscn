@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://36gpljkvblbs"]
+[gd_scene format=3 uid="uid://36gpljkvblbs"]
 
 [ext_resource type="Script" uid="uid://f1n6ccldvfz3" path="res://addons/omnibuff/demo/buff_ui_demo.gd" id="1"]
 
