@@ -52,7 +52,16 @@ func execute_command(
 		return res
 
 	# 给 BuffCore actions 提供 runtime 入口
-	ctx.set_meta("runtime", runtime)
+	var runtime2 := {
+		"stats_by_entity": stats_by_entity,
+		"buff_by_entity": buff_by_entity,
+		"pipeline": pipeline,
+		"ds": ds,
+		"enums_rt": enums_rt,
+		"turn_index": turn_index,
+		"replay": replay
+	}
+	ctx.set_meta("runtime", runtime2)
 
 	# === COMMAND/CMD_BEFORE ===
 	actor_buffs.emit_event("COMMAND", "CMD_BEFORE", ctx)
