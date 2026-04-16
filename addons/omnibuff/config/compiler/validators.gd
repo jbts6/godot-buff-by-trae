@@ -287,6 +287,9 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"tags_mask_any": true,
 		"scope": true,
 		"ratio": true,
+		"min_damage": true,
+		"max_damage": true,
+		"round_mode": true,
 		"mode": true,
 		"tag": true,
 		"source": true,
@@ -570,12 +573,29 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 
 			# Phase 2：BONUS_DAMAGE
 			if ak == "BONUS_DAMAGE":
-				if not action.has("value"):
-					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id,
-						"missing value for BONUS_DAMAGE (hint: {\"kind\":\"BONUS_DAMAGE\",\"value\":3,\"tags_mask_any\":[\"BONUS_DAMAGE\"]})"
+				var has_value := action.has("value")
+				var has_ratio := action.has("ratio")
+				if not has_value and not has_ratio:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id,
+						"BONUS_DAMAGE requires value or ratio (hint: {\"kind\":\"BONUS_DAMAGE\",\"value\":3} or {\"kind\":\"BONUS_DAMAGE\",\"ratio\":0.3})"
 					), strict)
-				elif float(action.get("value", 0.0)) <= 0.0:
+				if has_value and has_ratio:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "BONUS_DAMAGE must not set both value and ratio"), strict)
+				if has_value and float(action.get("value", 0.0)) <= 0.0:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be > 0 for BONUS_DAMAGE"), strict)
+				if has_ratio:
+					var rr := float(action.get("ratio", 0.0))
+					if rr <= 0.0 or rr > 10.0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.ratio" % ti, id, "ratio must be (0,10]"), strict)
+				if action.has("round_mode"):
+					var rm := String(action.get("round_mode", "")).to_upper()
+					var ok_rm := (rm == "" or rm == "NONE" or rm == "FLOOR" or rm == "ROUND" or rm == "CEIL")
+					if not ok_rm:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.round_mode" % ti, id, "round_mode must be NONE/FLOOR/ROUND/CEIL"), strict)
+				if action.has("min_damage") and float(action.get("min_damage", 0.0)) < 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.min_damage" % ti, id, "min_damage must be >= 0"), strict)
+				if action.has("max_damage") and float(action.get("max_damage", 0.0)) < 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.max_damage" % ti, id, "max_damage must be >= 0"), strict)
 				if action.has("scope"):
 					var sc := String(action.get("scope", "")).to_upper()
 					if sc != "SELF" and sc != "SOURCE" and sc != "TARGET" and sc != "":
