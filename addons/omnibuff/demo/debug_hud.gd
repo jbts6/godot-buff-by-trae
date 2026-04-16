@@ -378,6 +378,8 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 				String(l.action_dispel_buff_type),
 				str(bool(l.action_include_implicit)),
 			]
+		"CANCEL_COMMAND":
+			action_str = "CANCEL_COMMAND(ctx.cancel=true)"
 		"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS":
 			action_str = "%s(dot=%s, value=%s, tag_mask_any=%s)" % [
 				ak,

@@ -17,6 +17,7 @@ const StatsComponent = preload("res://addons/omnibuff/runtime/components/stats_c
 const BuffCore = preload("res://addons/omnibuff/runtime/core/buff_core.gd")
 const DamagePipeline = preload("res://addons/omnibuff/runtime/core/damage_pipeline.gd")
 const Replay = preload("res://addons/omnibuff/runtime/core/replay.gd")
+const CommandContext = preload("res://addons/omnibuff/runtime/core/command_context.gd")
 const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_component.gd")
 const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
 
@@ -387,6 +388,27 @@ func _register_scenarios() -> void:
 			"dataset": "rpg_tests",
 			"covers": ["test_event_actions_phase1.gd (reflect)"],
 			"fn": Callable(self, "_sc_action_reflect")
+		},
+		{
+			"id": "command_cancel_escape",
+			"title": "Phase1 Command / CANCEL escape (CMD_BEFORE)",
+			"dataset": "rpg_tests",
+			"covers": ["test_command_events_phase1.gd (cancel escape)"],
+			"fn": Callable(self, "_sc_command_cancel_escape")
+		},
+		{
+			"id": "command_basic_attack_tag",
+			"title": "Phase1 Command / BASIC_ATTACK tag match",
+			"dataset": "rpg_tests",
+			"covers": ["test_command_events_phase1.gd (basic attack tag)"],
+			"fn": Callable(self, "_sc_command_basic_attack_tag")
+		},
+		{
+			"id": "command_use_item",
+			"title": "Phase1 Command / USE_ITEM item_id filter",
+			"dataset": "rpg_tests",
+			"covers": ["test_command_events_phase1.gd (use item)"],
+			"fn": Callable(self, "_sc_command_use_item")
 		},
 		{
 			"id": "event_chance_apply_determinism",
@@ -795,6 +817,60 @@ func _sc_action_reflect() -> void:
 	var hp0 := float(attacker["stats"].get_final(hp_id))
 	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 40.0, replay, 1, tags_mask, runtime, 0)
 	_log("damage.final=" + str(float(ctx.final_damage)) + " attacker.HP " + str(hp0) + " -> " + str(float(attacker["stats"].get_final(hp_id))))
+
+
+func _sc_command_cancel_escape() -> void:
+	var actor := _mk_actor(9051)
+	_hud_attacker_id = int(actor["id"])
+	_hud_defender_id = -1
+	var runtime := _mk_runtime([actor])
+
+	actor["buffs"].apply_buff(actor["stats"], "buff_cmd_cancel_escape", int(actor["id"]))
+
+	var ctx := CommandContext.new()
+	ctx.actor_id = int(actor["id"])
+	ctx.command_kind = "ESCAPE"
+	ctx.set_meta("runtime", runtime)
+
+	actor["buffs"].emit_event("COMMAND", "CMD_BEFORE", ctx)
+	_log("escape canceled? " + str(bool(ctx.cancel)))
+
+
+func _sc_command_basic_attack_tag() -> void:
+	var actor := _mk_actor(9061)
+	_hud_attacker_id = int(actor["id"])
+	_hud_defender_id = -1
+	var runtime := _mk_runtime([actor])
+
+	actor["buffs"].apply_buff(actor["stats"], "buff_cmd_basic_attack_mark", int(actor["id"]))
+
+	var ctx := CommandContext.new()
+	ctx.actor_id = int(actor["id"])
+	ctx.command_kind = "ATTACK"
+	ctx.skill_id = 1001
+	ctx.tags_mask = int(enums_rt.tag_mask(["BASIC_ATTACK"]))
+	ctx.set_meta("runtime", runtime)
+
+	actor["buffs"].emit_event("COMMAND", "CMD_AFTER", ctx)
+	_log("mark cnt=" + str(_count_instances_by_buff_id(actor["buffs"], "buff_dummy_mark_1")))
+
+
+func _sc_command_use_item() -> void:
+	var actor := _mk_actor(9071)
+	_hud_attacker_id = int(actor["id"])
+	_hud_defender_id = -1
+	var runtime := _mk_runtime([actor])
+
+	actor["buffs"].apply_buff(actor["stats"], "buff_cmd_use_item_mark", int(actor["id"]))
+
+	var ctx := CommandContext.new()
+	ctx.actor_id = int(actor["id"])
+	ctx.command_kind = "USE_ITEM"
+	ctx.item_id = 2001
+	ctx.set_meta("runtime", runtime)
+
+	actor["buffs"].emit_event("COMMAND", "CMD_AFTER", ctx)
+	_log("item 2001 mark cnt=" + str(_count_instances_by_buff_id(actor["buffs"], "buff_dummy_mark_1")))
 
 
 func _sc_event_chance_apply_determinism() -> void:
