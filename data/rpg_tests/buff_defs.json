@@ -874,6 +874,36 @@
 		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_basic_attack_add_base_5",
+	  "name": "Executor测试：普攻基础伤害 +5（BEFORE_DEAL）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "BEFORE_DEAL",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BASIC_ATTACK"], "require_hit": true },
+		  "action": { "kind": "ADD_BASE_DAMAGE", "value": 5.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_defend_1t",
+	  "name": "Executor测试：防御（1回合减伤 50%）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 1, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "DMG_REDUCE", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 0.50 }
+	  ],
+	  "triggers": []
 	}
   ]
 }
