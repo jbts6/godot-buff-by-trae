@@ -27,6 +27,10 @@ class OmniModifierRef:
 	var op: String = ""
 	## modifier phase（如 "FLAT"/"PERCENT"）
 	var phase: String = ""
+	## percent layers：当 op=MUL 且 phase=PERCENT 时生效；用于 (base+flat)*Π(1+pct_layer)
+	## - 默认 0（兼容旧数据）
+	## - 值越大越靠后乘（运行时按 layer 升序执行）
+	var layer: int = 0
 	## modifier priority（用于 OVERRIDE 等冲突裁决；数值越大越靠后/越优先）
 	var priority: int = 0
 	## modifier 原始值（与配置 value 一致；例如 20.0 / 0.05）
@@ -504,6 +508,7 @@ func _rebuild_instance_modifiers(stats: OmniStatsComponent, inst_id: int) -> voi
 		mr.stat_id = stat_id
 		mr.op = op
 		mr.phase = phase
+		mr.layer = int(e.get("layer", 0))
 		mr.priority = int(e.get("priority", 0))
 		mr.value = v
 		if op == "ADD" and phase == "FLAT":
