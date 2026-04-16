@@ -225,6 +225,20 @@ func _enum_name_from_int(enums_rt: Variant, enum_name: String, code: int) -> Str
 			return String(k)
 	return str(code)
 
+func _enum_names_from_mask(enums_rt: Variant, enum_name: String, mask: int) -> Array[String]:
+	var out: Array[String] = []
+	if mask == 0:
+		return out
+	if enums_rt == null or not (enums_rt is OmniEnumsRuntime):
+		return out
+	var table: Dictionary = enums_rt.enum_tables.get(enum_name, {})
+	for k in table.keys():
+		var code := int(table.get(k, -99999))
+		if code >= 0 and ((mask & (1 << code)) != 0):
+			out.append(String(k))
+	out.sort()
+	return out
+
 
 func _format_listeners() -> String:
 	if _runtime.is_empty() or _selected_eid < 0:
@@ -299,6 +313,30 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 			filter_parts.append("tag_mask=0x%X" % [mask])
 	if bool(l.filter_require_hit):
 		filter_parts.append("require_hit=true")
+	if bool(l.filter_require_crit):
+		filter_parts.append("require_crit=true")
+	if int(l.filter_skill_id) >= 0:
+		filter_parts.append("skill_id=" + str(int(l.filter_skill_id)))
+	var dt_mask: int = int(l.filter_damage_type_mask_any)
+	if dt_mask != 0:
+		var names := _enum_names_from_mask(enums_rt, "damage_type", dt_mask)
+		if names.is_empty():
+			filter_parts.append("damage_type_mask=0x%X" % [dt_mask])
+		else:
+			filter_parts.append("damage_type_any=" + str(names))
+	var el_mask: int = int(l.filter_element_mask_any)
+	if el_mask != 0:
+		var names2 := _enum_names_from_mask(enums_rt, "element", el_mask)
+		if names2.is_empty():
+			filter_parts.append("element_mask=0x%X" % [el_mask])
+		else:
+			filter_parts.append("element_any=" + str(names2))
+	if bool(l.filter_require_shield_absorbed):
+		filter_parts.append("shield_absorbed=true")
+	if float(l.filter_min_absorbed_shield) > 0.0:
+		filter_parts.append("min_absorbed>=" + str(float(l.filter_min_absorbed_shield)))
+	if float(l.filter_min_final_damage) > 0.0:
+		filter_parts.append("min_final>=" + str(float(l.filter_min_final_damage)))
 	if String(l.filter_stat) != "":
 		filter_parts.append("stat_threshold(%s.%s %s %s)" % [
 			String(l.filter_stat_scope),
