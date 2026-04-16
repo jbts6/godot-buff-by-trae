@@ -281,6 +281,12 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 	var allowed_action := {
 		"kind": true,
 		"value": true,
+		"ratio": true,
+		"mode": true,
+		"tag": true,
+		"source": true,
+		"buff_type": true,
+		"include_implicit": true,
 		# SET_STAT_FINAL 需要 stat（例如 SHIELD=0）
 		"stat": true,
 		# APPLY_BUFF/CHANCE_APPLY_BUFF 可选：额外叠层（默认 1）
@@ -498,6 +504,43 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 					_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.value" % ti, id,
 						"missing value for SET_STAT_FINAL (defaults to 0; hint: {\"kind\":\"SET_STAT_FINAL\",\"stat\":\"SHIELD\",\"value\":0})"
 					), strict)
+
+			# Phase 1：Action 扩展字段要求矩阵（最小集 + hint）
+			if ak == "HEAL" or ak == "ADD_SHIELD":
+				if not action.has("value"):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id,
+						"missing value for action.kind=" + ak + " (hint: {\"kind\":\"" + ak + "\",\"value\":30})"
+					), strict)
+				elif float(action.get("value", 0.0)) <= 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be > 0 for action.kind=" + ak), strict)
+
+			if ak == "LIFESTEAL" or ak == "REFLECT_DAMAGE":
+				if not action.has("ratio"):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.ratio" % ti, id,
+						"missing ratio for action.kind=" + ak + " (hint: {\"kind\":\"" + ak + "\",\"ratio\":0.2})"
+					), strict)
+				else:
+					var r := float(action.get("ratio", -1.0))
+					if r < 0.0 or r > 1.0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.ratio" % ti, id, "ratio must be in [0,1] for action.kind=" + ak), strict)
+
+			if ak == "DISPEL":
+				var mode := String(action.get("mode", "")).to_upper()
+				if mode == "":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.mode" % ti, id,
+						"missing mode for DISPEL (hint: {\"kind\":\"DISPEL\",\"mode\":\"BY_TAG\",\"tag\":\"DEBUFF\"})"
+					), strict)
+				elif mode == "BY_TAG":
+					if String(action.get("tag", "")) == "":
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.tag" % ti, id, "DISPEL BY_TAG requires tag"), strict)
+				elif mode == "BY_SOURCE":
+					if String(action.get("source", "")) == "":
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.source" % ti, id, "DISPEL BY_SOURCE requires source (SOURCE/TARGET)"), strict)
+				elif mode == "BY_TYPE":
+					if String(action.get("buff_type", "")) == "":
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.buff_type" % ti, id, "DISPEL BY_TYPE requires buff_type (e.g. EXPLICIT)"), strict)
+				else:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.mode" % ti, id, "unknown DISPEL mode=" + mode), strict)
 
 			if ak.begins_with("DOT_"):
 				var has_dot_id := action.has("dot_buff_id")
