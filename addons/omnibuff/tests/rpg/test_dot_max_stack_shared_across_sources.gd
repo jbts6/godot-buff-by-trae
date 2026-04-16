@@ -60,10 +60,11 @@ func test_dot_max_stack_is_shared_across_sources_and_refreshes_on_full() -> void
 	var runtime := TestBattle.make_runtime([src_a, src_b, tgt])
 	var ids := PackedInt32Array([8101, 8102, 8103]); ids.sort()
 	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+	turn.on_turn_start(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 
 	inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
 	assert_not_null(inst_b)
-	assert_true(int(inst_b.remaining_turns) <= 2, "after turn end, remaining_turns should decrease")
+	assert_true(int(inst_b.remaining_turns) <= 2, "after advancing a turn, remaining_turns should decrease")
 
 	# 满层再 apply（B）：stacks 不变，但 remaining_turns 刷新回 3（RESET_TO_MAX）
 	tgt.buffs.apply_buff(tgt.stats, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))
@@ -99,6 +100,7 @@ func test_full_stack_new_source_does_not_create_instance_but_refreshes_existing_
 	var runtime := TestBattle.make_runtime([src_a, src_b, src_c, tgt])
 	var ids := PackedInt32Array([8201, 8202, 8203, 8204]); ids.sort()
 	turn.on_turn_end(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
+	turn.on_turn_start(ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)
 
 	var inst_a = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_a.stats.entity_id))
 	var inst_b = _find_inst(tgt.buffs, ds, "buff_dot_fire_cap4_3t", int(src_b.stats.entity_id))

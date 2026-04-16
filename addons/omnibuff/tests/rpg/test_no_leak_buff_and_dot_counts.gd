@@ -79,7 +79,11 @@ func test_no_leak_buff_and_dot_counts_after_dispel_in_loop() -> void:
 				runtime
 			)
 
-		assert_eq(int(defender.buffs.inst_ids.size()), 3, "loop=%s: defender should have 3 buff instances after 3 hits" % [k])
+		# 新语义：同一来源合并为 1 个实例，stacks=3
+		assert_eq(int(defender.buffs.inst_ids.size()), 1, "loop=%s: defender should have 1 dot buff instance after 3 hits" % [k])
+		var inst = defender.buffs.instances_by_id.get(int(defender.buffs.inst_ids[0]), null)
+		assert_not_null(inst)
+		assert_eq(int(inst.stacks), 3, "loop=%s: stacks should be 3 after 3 hits" % [k])
 
 		# 2) 推进回合并 tick（TURN_START 语义）
 		turn.on_turn_end(entity_ids, runtime.buff_by_entity, runtime.stats_by_entity, pipe, ds, replay)

@@ -147,9 +147,16 @@ func test_aoe_multitarget_multihit_per_target_hit_crit_and_dot() -> void:
 		assert_false(t_b.crit)
 
 	# DOT 仅对命中目标挂上：
-	# - buff 实例：A 3 个（每段命中一次），B 0 个
-	assert_eq(target_a.buffs.inst_ids.size(), 3, "target A should receive 3 dot-buff instances from 3 hits")
+	# - buff 实例：同一来源合并为 1 个，stacks=3；B 0 个
+	assert_eq(target_a.buffs.inst_ids.size(), 1, "target A should receive 1 dot-buff instance (merge-by-source)")
 	assert_eq(target_b.buffs.inst_ids.size(), 0, "target B should receive no dot-buff instances on miss")
+	var dot_def_id := int(ds.buff_id("buff_dot_fire_3t"))
+	assert_true(dot_def_id >= 0)
+	var inst = target_a.buffs.instances_by_id.get(int(target_a.buffs.inst_ids[0]), null)
+	assert_not_null(inst)
+	assert_eq(int(inst.buff_def_id), dot_def_id)
+	assert_eq(int(inst.source_entity_id), attacker_id)
+	assert_eq(int(inst.stacks), 3, "3 hits => stacks=3")
 
 	# - DOT 池：按 (buff_def_id, source_entity_id, tick_phase) 复用，A 应只有 1 个 DOT 实例
 	var dots_a: Array = target_a.buffs.dots_by_target.get(target_a_id, [])
