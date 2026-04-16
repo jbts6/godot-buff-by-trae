@@ -48,6 +48,9 @@ func clear() -> void:
 func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
 	_preferred_attacker = attacker_id
 	_preferred_defender = defender_id
+	# 若 runtime 已加载，则立即刷新 entity 列表并默认选中 preferred_attacker
+	if not _runtime.is_empty():
+		_refresh_entity_list()
 
 
 func set_runtime(runtime: Dictionary) -> void:
