@@ -569,6 +569,14 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 				l.action_bonus_tags_mask_any = int(enums_rt.tag_mask(arr2))
 			if action.has("scope"):
 				l.action_bonus_scope = String(action.get("scope", "TARGET"))
+			if action.has("ratio"):
+				l.action_bonus_ratio = float(action.get("ratio", 0.0))
+			if action.has("min_damage"):
+				l.action_bonus_min_damage = float(action.get("min_damage", 0.0))
+			if action.has("max_damage"):
+				l.action_bonus_max_damage = float(action.get("max_damage", 0.0))
+			if action.has("round_mode"):
+				l.action_bonus_round_mode = String(action.get("round_mode", ""))
 		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
 		if action.has("buff_id"):
 			l.action_buff_id = String(action.get("buff_id", ""))
@@ -1674,8 +1682,35 @@ func _bonus_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> vo
 		return
 
 	var bd := float(l.action_value)
+	# ratio 模式：按本次最终伤害比例追加
+	if float(l.action_bonus_ratio) > 0.0:
+		var fd_v: Variant = ctx.get("final_damage")
+		var fd := 0.0
+		if fd_v != null:
+			fd = float(fd_v)
+		bd = fd * float(l.action_bonus_ratio)
+		# roll_key：ratio 模式单独偏移，避免与固定 value 冲突
+		if ctx.has_meta("roll_key"):
+			roll_key = int(ctx.get_meta("roll_key")) + 20000
+		else:
+			roll_key = 20000
 	if bd <= 0.0:
 		return
+
+	# min/max clamp（0 表示不启用）
+	if float(l.action_bonus_min_damage) > 0.0 and bd < float(l.action_bonus_min_damage):
+		return
+	if float(l.action_bonus_max_damage) > 0.0:
+		bd = minf(bd, float(l.action_bonus_max_damage))
+
+	# round_mode（空/ NONE 表示不处理）
+	var rm := String(l.action_bonus_round_mode).to_upper()
+	if rm == "FLOOR":
+		bd = floorf(bd)
+	elif rm == "ROUND":
+		bd = roundf(bd)
+	elif rm == "CEIL":
+		bd = ceilf(bd)
 
 	# roll_key：尽量与原 hit 分离，保证 deterministic 且不干扰原 roll（固定偏移）
 	var roll_key := 10000
