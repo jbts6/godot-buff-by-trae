@@ -39,6 +39,11 @@ func test_bonus_damage_ratio_should_use_final_damage() -> void:
 
 	var t0 = replay.damage_traces[before + 0]
 	var t1 = replay.damage_traces[before + 1]
-	var expected := float(t0.final_damage) * 0.5
-	assert_true(abs(float(t1.base_damage) - expected) < 0.0001)
-
+	var bonus_bit := int(enums_rt.tag_mask(["BONUS_DAMAGE"]))
+	var base_trace = t0
+	var bonus_trace = t1
+	if (int(t0.tags_mask) & bonus_bit) != 0:
+		bonus_trace = t0
+		base_trace = t1
+	var expected := float(base_trace.final_damage) * 0.5
+	assert_true(abs(float(bonus_trace.base_damage) - expected) < 0.0001)
