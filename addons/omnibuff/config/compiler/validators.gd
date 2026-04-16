@@ -287,6 +287,7 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"tags_mask_any": true,
 		"scope": true,
 		"ratio": true,
+		"expr": true,
 		"min_damage": true,
 		"max_damage": true,
 		"round_mode": true,
@@ -575,18 +576,26 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 			if ak == "BONUS_DAMAGE":
 				var has_value := action.has("value")
 				var has_ratio := action.has("ratio")
-				if not has_value and not has_ratio:
+				var has_expr := action.has("expr")
+				var count := int(has_value) + int(has_ratio) + int(has_expr)
+				if count == 0:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id,
-						"BONUS_DAMAGE requires value or ratio (hint: {\"kind\":\"BONUS_DAMAGE\",\"value\":3} or {\"kind\":\"BONUS_DAMAGE\",\"ratio\":0.3})"
+						"BONUS_DAMAGE requires exactly one of value/ratio/expr"
 					), strict)
-				if has_value and has_ratio:
-					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "BONUS_DAMAGE must not set both value and ratio"), strict)
+				if count > 1:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action" % ti, id, "BONUS_DAMAGE must not set more than one of value/ratio/expr"), strict)
 				if has_value and float(action.get("value", 0.0)) <= 0.0:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be > 0 for BONUS_DAMAGE"), strict)
 				if has_ratio:
 					var rr := float(action.get("ratio", 0.0))
 					if rr <= 0.0 or rr > 10.0:
 						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.ratio" % ti, id, "ratio must be (0,10]"), strict)
+				if has_expr:
+					var ex := String(action.get("expr", ""))
+					if ex.strip_edges() == "":
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.expr" % ti, id, "expr must be non-empty"), strict)
+					elif ex.length() > 256:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.expr" % ti, id, "expr too long (max 256)"), strict)
 				if action.has("round_mode"):
 					var rm := String(action.get("round_mode", "")).to_upper()
 					var ok_rm := (rm == "" or rm == "NONE" or rm == "FLOOR" or rm == "ROUND" or rm == "CEIL")

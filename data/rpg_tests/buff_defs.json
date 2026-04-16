@@ -940,6 +940,24 @@
 		  "action": { "kind": "BONUS_DAMAGE", "ratio": 0.5, "tags_mask_any": ["BONUS_DAMAGE"], "scope": "TARGET" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_bonus_damage_expr_50p_nonrecursive",
+	  "name": "BonusDamage测试：expr(final_damage*0.5)（不递归）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_DEAL",
+		  "scope": "TARGET",
+		  "filters": { "require_hit": true, "require_not_bonus_damage": true },
+		  "action": { "kind": "BONUS_DAMAGE", "expr": "final_damage*0.5", "tags_mask_any": ["BONUS_DAMAGE"], "scope": "TARGET" }
+		}
+	  ]
 	}
   ]
 }
