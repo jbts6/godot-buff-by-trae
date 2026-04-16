@@ -202,3 +202,72 @@ func test_boss_fire_immunity_element_fire_final_damage_zero() -> void:
 	var shield_id := int(ds.stat_id("SHIELD"))
 	if shield_id >= 0:
 		assert_true(is_equal_approx(float(boss.stats.get_final(shield_id)), 0.0), "fire immunity should not leave remaining shield")
+
+
+func test_skill_id_filter() -> void:
+	var loaded := TestDataset.load_rpg_tests(true)
+	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
+	var ds: OmniCompiledDataset = loaded.ds
+
+	var pipe := OmniDamagePipeline.new()
+	var replay: OmniReplay = ReplayScript.new()
+
+	var attacker_id := 8851
+	var defender_id := 8852
+	var attacker := TestBattle.make_entity(attacker_id, ds, enums_rt)
+	var defender := TestBattle.make_entity(defender_id, ds, enums_rt)
+	var runtime := TestBattle.make_runtime([attacker, defender])
+
+	_set_stat_final(attacker, ds, "HIT_RATE", 1.0)
+	_set_stat_final(defender, ds, "EVADE", 0.0)
+	_set_stat_final(attacker, ds, "CRIT_RATE", 0.0)
+	_set_stat_final(attacker, ds, "ATK", 0.0)
+	_set_stat_final(defender, ds, "DEF", 0.0)
+	_set_stat_final(defender, ds, "SHIELD", 0.0)
+
+	# defender：仅当 filters.skill_id==1001 时，AFTER_TAKE 给 attacker 挂 mark
+	defender.buffs.apply_buff(defender.stats, "buff_filter_skill_id_apply_mark", defender_id)
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	# 正例：skill_id=1001 触发
+	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 1, tags_mask, runtime, 0, 1001)
+	assert_true(attacker.buffs.inst_ids.size() >= 1, "skill_id=1001 should apply mark buff")
+
+	# 反例：skill_id=2002 不触发（重置 attacker buffs）
+	attacker.buffs.remove_by_buff_id(attacker.stats, "buff_dummy_mark_1", "ALL")
+	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 2, tags_mask, runtime, 0, 2002)
+	assert_eq(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1"), 0, "skill_id mismatch should not apply mark buff")
+
+
+func test_min_absorbed_shield_filter() -> void:
+	var loaded := TestDataset.load_rpg_tests(true)
+	var enums_rt: OmniEnumsRuntime = loaded.enums_rt
+	var ds: OmniCompiledDataset = loaded.ds
+
+	var pipe := OmniDamagePipeline.new()
+	var replay: OmniReplay = ReplayScript.new()
+
+	var attacker_id := 8861
+	var defender_id := 8862
+	var attacker := TestBattle.make_entity(attacker_id, ds, enums_rt)
+	var defender := TestBattle.make_entity(defender_id, ds, enums_rt)
+	var runtime := TestBattle.make_runtime([attacker, defender])
+
+	_set_stat_final(attacker, ds, "HIT_RATE", 1.0)
+	_set_stat_final(defender, ds, "EVADE", 0.0)
+	_set_stat_final(attacker, ds, "CRIT_RATE", 0.0)
+	_set_stat_final(attacker, ds, "ATK", 0.0)
+	_set_stat_final(defender, ds, "DEF", 0.0)
+
+	defender.buffs.apply_buff(defender.stats, "buff_filter_min_absorbed_shield_apply_mark", defender_id)
+	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
+
+	# A) shield=10, damage=10 => absorbed=10 < 20 -> 不触发
+	_set_stat_final(defender, ds, "SHIELD", 10.0)
+	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 10.0, replay, 1, tags_mask, runtime, 0, 1001)
+	assert_eq(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1"), 0, "absorbed=10 should not trigger min_absorbed_shield=20")
+
+	# B) shield=50, damage=30 => absorbed=30 >= 20 -> 触发
+	_set_stat_final(defender, ds, "SHIELD", 50.0)
+	pipe.deal_damage(attacker.stats, defender.stats, attacker.buffs, defender.buffs, ds, 30.0, replay, 2, tags_mask, runtime, 0, 1001)
+	assert_true(_count_instances_by_buff_id(attacker.buffs, "buff_dummy_mark_1") >= 1, "absorbed>=20 should trigger min_absorbed_shield=20")
