@@ -11,6 +11,7 @@ extends Window
 @onready var buffs_box: RichTextLabel = %BuffsBox
 @onready var dots_box: RichTextLabel = %DotsBox
 @onready var listeners_box: RichTextLabel = %ListenersBox
+@onready var stat_mods_box: RichTextLabel = %StatModsBox
 @onready var btn_copy_dump: Button = %BtnCopyDump
 @onready var btn_close: Button = %BtnClose
 
@@ -39,6 +40,7 @@ func clear() -> void:
 	buffs_box.text = ""
 	dots_box.text = ""
 	listeners_box.text = ""
+	stat_mods_box.text = ""
 
 
 func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
@@ -88,6 +90,7 @@ func _refresh_views() -> void:
 	buffs_box.text = _format_buffs()
 	dots_box.text = _format_dots()
 	listeners_box.text = _format_listeners()
+	stat_mods_box.text = _format_stat_mods()
 
 
 func _format_stats() -> String:
@@ -335,6 +338,78 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 		action_str,
 	]
 
+
+func _buff_id_from_inst_id(buffs: Variant, ds: Variant, inst_id: int) -> String:
+	if buffs == null or ds == null or (not ds.has_method("buff_id")):
+		return "?"
+	var inst = buffs.instances_by_id.get(inst_id, null)
+	if inst == null:
+		return "?"
+	var bdid: int = int(inst.buff_def_id)
+	if bdid < 0 or bdid >= ds.buff_defs.size():
+		return "?"
+	return String((ds.buff_defs[bdid] as Dictionary).get("id", "?"))
+
+
+func _format_stat_mods() -> String:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return ""
+	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	var ds = _runtime.get("ds", null) # required for stat_id/name
+	var stats = stats_by_entity.get(_selected_eid, null)
+	var buffs = buffs_by_entity.get(_selected_eid, null)
+	if stats == null or ds == null:
+		return "[StatMods] none"
+	if not (ds.has_method("stat_id") and stats.has_method("get_final")):
+		return "[StatMods] none"
+
+	var core = stats.core
+	if core == null:
+		return "[StatMods] none"
+
+	var names := ["ATK", "DEF", "HP", "SHIELD", "HIT_RATE", "EVADE", "CRIT_RATE", "CRIT_DMG", "DMG_REDUCE"]
+	var out: Array[String] = []
+	out.append("[StatMods] entity_id=%s" % [_selected_eid])
+
+	for n in names:
+		var sid: int = int(ds.stat_id(String(n)))
+		if sid < 0:
+			continue
+		var base_v := float(core.base_values[sid])
+		var final_v := float(stats.get_final(sid))
+		var dirty_v := int(core.dirty[sid])
+		out.append("")
+		out.append("== %s (id=%s) ==" % [String(n), sid])
+		out.append("base=%s final=%s dirty=%s" % [base_v, final_v, dirty_v])
+
+		var mods: Array = core.modifiers_by_stat[sid]
+		if mods.is_empty():
+			out.append("- (no modifiers)")
+			continue
+
+		# 稳定排序：按 source_inst_id 升序
+		mods.sort_custom(func(a, b):
+			if a == null or b == null:
+				return false
+			return int(a.source_inst_id) < int(b.source_inst_id)
+		)
+
+		for m in mods:
+			if m == null or typeof(m) != TYPE_OBJECT:
+				continue
+			var op := String(m.op)
+			var ph := String(m.phase)
+			var val := float(m.value)
+			var layer := int(m.layer)
+			var pri := int(m.priority)
+			var src_inst := int(m.source_inst_id)
+			var buff_id_str := _buff_id_from_inst_id(buffs, ds, src_inst)
+			out.append("- %s/%s %s layer=%s pri=%s inst=%s buff=%s" % [
+				op, ph, val, layer, pri, src_inst, buff_id_str
+			])
+	return "\n".join(out)
+
 func _make_dump() -> String:
 	var parts: Array[String] = []
 	parts.append("[OmniBuffDebugHUD]")
@@ -345,6 +420,8 @@ func _make_dump() -> String:
 	parts.append(_format_dots())
 	parts.append("")
 	parts.append(_format_listeners())
+	parts.append("")
+	parts.append(_format_stat_mods())
 	return "\n".join(parts).strip_edges()
 
 
