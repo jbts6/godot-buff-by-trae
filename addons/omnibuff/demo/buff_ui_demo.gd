@@ -18,6 +18,7 @@ const BuffCore = preload("res://addons/omnibuff/runtime/core/buff_core.gd")
 const DamagePipeline = preload("res://addons/omnibuff/runtime/core/damage_pipeline.gd")
 const Replay = preload("res://addons/omnibuff/runtime/core/replay.gd")
 const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_component.gd")
+const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
 
 @onready var lbl_status: Label = %StatusLabel
 @onready var log_box: RichTextLabel = %LogBox
@@ -28,6 +29,7 @@ const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_com
 @onready var btn_load: Button = %BtnLoad
 @onready var btn_run_selected: Button = %BtnRunSelected
 @onready var btn_run_all: Button = %BtnRunAll
+@onready var btn_toggle_hud: Button = %BtnToggleHud
 @onready var btn_copy_log: Button = %BtnCopyLog
 @onready var btn_clear_log: Button = %BtnClearLog
 
@@ -46,12 +48,18 @@ var _dataset_id: String = ""
 var _all_scenarios: Array = []
 var _visible_scenarios: Array = []
 
+var _hud: Window = null
+var _hud_runtime: Dictionary = {}
+var _hud_attacker_id: int = -1
+var _hud_defender_id: int = -1
+
 
 func _ready() -> void:
 	btn_reset.pressed.connect(_reset_state)
 	btn_load.pressed.connect(func(): _load_dataset_by_id(_dataset_id))
 	btn_run_selected.pressed.connect(_run_selected)
 	btn_run_all.pressed.connect(_run_all)
+	btn_toggle_hud.pressed.connect(_toggle_hud)
 	btn_copy_log.pressed.connect(_copy_log_to_clipboard)
 	btn_clear_log.pressed.connect(func():
 		_log_buffer = ""
@@ -153,6 +161,9 @@ func _run_all() -> void:
 
 func _run_scenario(s: Dictionary) -> void:
 	_reset_state()
+	_hud_runtime = {}
+	_hud_attacker_id = -1
+	_hud_defender_id = -1
 	var dataset_id: String = String(s.get("dataset", ""))
 	if not _ensure_loaded_for(dataset_id):
 		return
@@ -165,6 +176,29 @@ func _run_scenario(s: Dictionary) -> void:
 	var dot_from: int = int(replay.dot_traces.size())
 	(s.get("fn") as Callable).call()
 	_dump_replay_delta(dmg_from, dot_from)
+	_sync_hud_runtime()
+
+
+func _toggle_hud() -> void:
+	if _hud == null:
+		_hud = DebugHudScene.instantiate()
+		add_child(_hud)
+		_hud.hide()
+	if _hud.visible:
+		_hud.hide()
+	else:
+		_hud.show()
+	_sync_hud_runtime()
+
+
+func _sync_hud_runtime() -> void:
+	if _hud == null:
+		return
+	# 为 HUD 附加 ds，便于展示 stat/buff id
+	var rt := _hud_runtime.duplicate()
+	rt["ds"] = ds
+	_hud.set_runtime(rt)
+	_hud.set_preferred_entities(_hud_attacker_id, _hud_defender_id)
 
 
 func _dump_replay_delta(dmg_from: int, dot_from: int) -> void:
@@ -189,7 +223,10 @@ func _mk_runtime(actors: Array) -> Dictionary:
 		var ad: Dictionary = a
 		stats_by_entity[int(ad["id"])] = ad["stats"]
 		buff_by_entity[int(ad["id"])] = ad["buffs"]
-	return {"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity}
+	var rt := {"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity}
+	# 约定：最后一次构建的 runtime 作为 Debug HUD 的数据源
+	_hud_runtime = rt
+	return rt
 
 
 func _ids_sorted(actors: Array) -> PackedInt32Array:
@@ -337,6 +374,7 @@ func _sc_dataset_authority() -> void:
 
 func _sc_stats_percent_layers() -> void:
 	var e := _mk_actor(9801)
+	_hud_attacker_id = int(e["id"])
 	var atk_id: int = int(ds.stat_id("ATK"))
 	_dump_actor_basic("baseline", e, ["ATK"])
 
@@ -353,6 +391,7 @@ func _sc_stats_percent_layers() -> void:
 
 func _sc_stats_override_and_clamp() -> void:
 	var e := _mk_actor(7001)
+	_hud_attacker_id = int(e["id"])
 	var hit_id: int = int(ds.stat_id("HIT_RATE"))
 	_log("baseline HIT_RATE=" + str(float(e["stats"].get_final(hit_id))))
 
@@ -369,6 +408,7 @@ func _sc_stats_override_and_clamp() -> void:
 
 func _sc_lifecycle_expire() -> void:
 	var e := _mk_actor(7201)
+	_hud_attacker_id = int(e["id"])
 	var runtime := _mk_runtime([e])
 	var ids := _ids_sorted([e])
 	var atk_id: int = int(ds.stat_id("ATK"))
@@ -384,6 +424,7 @@ func _sc_lifecycle_expire() -> void:
 
 func _sc_lifecycle_stacking() -> void:
 	var e := _mk_actor(7102)
+	_hud_attacker_id = int(e["id"])
 	var atk_id: int = int(ds.stat_id("ATK"))
 	_log("baseline ATK=" + str(float(e["stats"].get_final(atk_id))))
 
@@ -406,6 +447,7 @@ func _sc_lifecycle_stacking() -> void:
 
 func _sc_while_condition() -> void:
 	var e := _mk_actor(7505)
+	_hud_attacker_id = int(e["id"])
 	var hp_id: int = int(ds.stat_id("HP"))
 	var atk_id: int = int(ds.stat_id("ATK"))
 
@@ -423,6 +465,8 @@ func _sc_while_condition() -> void:
 func _sc_remove_a5() -> void:
 	var attacker := _mk_actor(7503)
 	var defender := _mk_actor(7504)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
@@ -446,6 +490,8 @@ func _sc_remove_a5() -> void:
 func _sc_shield_and_reduction() -> void:
 	var attacker := _mk_actor(7601)
 	var defender := _mk_actor(7602)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 	var hp_id: int = int(ds.stat_id("HP"))
@@ -480,6 +526,8 @@ func _sc_event_chance_apply_determinism() -> void:
 func _chance_apply_run_once(attacker_id: int, defender_id: int, turn_index: int, tags_mask: int) -> Dictionary:
 	var attacker := _mk_actor(attacker_id)
 	var defender := _mk_actor(defender_id)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 
 	# 固定命中/暴击，避免随机性影响事件触发（只测 CHANCE_APPLY_BUFF）
@@ -509,6 +557,8 @@ func _sc_dot_actions_mul_set_clear() -> void:
 	# 合并展示 MUL / SET / ADD(-1) / CLEAR(tag=POISON)
 	var attacker := _mk_actor(8111)
 	var defender := _mk_actor(8112)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var ids := _ids_sorted([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
@@ -563,6 +613,8 @@ func _sc_dot_actions_mul_set_clear() -> void:
 func _sc_roll_key() -> void:
 	var attacker := _mk_actor(9701)
 	var defender := _mk_actor(9702)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
@@ -586,6 +638,8 @@ func _sc_roll_key() -> void:
 func _sc_multihit_each_hit_dot() -> void:
 	var attacker := _mk_actor(9301)
 	var defender := _mk_actor(9302)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
@@ -610,6 +664,8 @@ func _sc_aoe_multitarget_multihit() -> void:
 	var attacker := _mk_actor(9601)
 	var def_a := _mk_actor(9602)
 	var def_b := _mk_actor(9603)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(def_a["id"])
 	var runtime := _mk_runtime([attacker, def_a, def_b])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
@@ -652,6 +708,8 @@ func _sc_full_turn_script_battle() -> void:
 	# 复刻 tests/rpg/test_full_turn_script_battle.gd 的语义（TURN_START DOT + dispel + immunity）
 	var attacker := _mk_actor(9001)
 	var defender := _mk_actor(9002)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
 	var runtime := _mk_runtime([attacker, defender])
 	var ids := _ids_sorted([attacker, defender])
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))

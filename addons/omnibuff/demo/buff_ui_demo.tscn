@@ -58,6 +58,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "运行全部"
 
+[node name="BtnToggleHud" type="Button" parent="Margin/VBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Debug HUD"
+
 [node name="BtnCopyLog" type="Button" parent="Margin/VBox/Buttons" unique_id=1827364926]
 unique_name_in_owner = true
 layout_mode = 2

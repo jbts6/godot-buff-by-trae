@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3 uid="uid://2qx8t3knlo6p"]
+
+[ext_resource type="Script" uid="uid://ih1vadmzv173" path="res://addons/omnibuff/demo/debug_hud.gd" id="1"]
+
+[node name="OmniBuffDebugHud" type="Window"]
+title = "Debug HUD"
+size = Vector2i(900, 600)
+visible = false
+script = ExtResource("1")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopBar" type="HBoxContainer" parent="VBox"]
+
+[node name="EntitySelect" type="OptionButton" parent="VBox/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+
+[node name="BtnCopyDump" type="Button" parent="VBox/TopBar"]
+unique_name_in_owner = true
+text = "复制 dump"
+
+[node name="BtnClose" type="Button" parent="VBox/TopBar"]
+unique_name_in_owner = true
+text = "关闭"
+
+[node name="Tabs" type="TabContainer" parent="VBox"]
+size_flags_vertical = 3
+
+[node name="Stats" type="ScrollContainer" parent="VBox/Tabs"]
+layout_mode = 2
+
+[node name="StatsBox" type="RichTextLabel" parent="VBox/Tabs/Stats"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+fit_content = true
+bbcode_enabled = false
+selection_enabled = true
+
+[node name="Buffs" type="ScrollContainer" parent="VBox/Tabs"]
+layout_mode = 2
+
+[node name="BuffsBox" type="RichTextLabel" parent="VBox/Tabs/Buffs"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+fit_content = true
+bbcode_enabled = false
+selection_enabled = true
+
