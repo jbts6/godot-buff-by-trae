@@ -45,6 +45,10 @@ text = "运行选中"
 unique_name_in_owner = true
 text = "运行全部"
 
+[node name="BtnCopyLog" type="Button" parent="Margin/VBox/Buttons"]
+unique_name_in_owner = true
+text = "复制日志"
+
 [node name="BtnClearLog" type="Button" parent="Margin/VBox/Buttons"]
 unique_name_in_owner = true
 text = "清空日志"

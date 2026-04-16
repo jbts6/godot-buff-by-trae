@@ -28,6 +28,7 @@ const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_com
 @onready var btn_load: Button = %BtnLoad
 @onready var btn_run_selected: Button = %BtnRunSelected
 @onready var btn_run_all: Button = %BtnRunAll
+@onready var btn_copy_log: Button = %BtnCopyLog
 @onready var btn_clear_log: Button = %BtnClearLog
 
 var replay: RefCounted
@@ -47,6 +48,7 @@ func _ready() -> void:
 	btn_load.pressed.connect(func(): _load_dataset_by_id(_dataset_id))
 	btn_run_selected.pressed.connect(_run_selected)
 	btn_run_all.pressed.connect(_run_all)
+	btn_copy_log.pressed.connect(_copy_log_to_clipboard)
 	btn_clear_log.pressed.connect(func(): log_box.clear())
 
 	dataset_select.clear()
@@ -68,6 +70,11 @@ func _ready() -> void:
 func _log(msg: String) -> void:
 	log_box.append_text(msg + "\n")
 	log_box.scroll_to_line(log_box.get_line_count())
+
+
+func _copy_log_to_clipboard() -> void:
+	DisplayServer.clipboard_set(log_box.text)
+	lbl_status.text = "已复制日志到剪贴板（%s 字符）" % [log_box.text.length()]
 
 
 func _reset_state() -> void:
