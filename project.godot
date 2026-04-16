@@ -22,7 +22,7 @@ OmniBuff="*uid://bl8yrdx6miv75"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omnibuff/plugin.cfg")
+enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omni_set_bonuses/plugin.cfg", "res://addons/omnibuff/plugin.cfg")
 
 [physics]
 

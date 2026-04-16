@@ -70,4 +70,3 @@ func _apply_items(equipped_items: Array) -> void:
 	var atk_id: int = int(ds.stat_id("ATK"))
 	var v: float = float(stats.get_final(atk_id))
 	atk_label.text = "ATK = %.3f" % v
-
