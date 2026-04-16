@@ -218,6 +218,8 @@ addons/omnibuff/
   demo/
     demo_scene.tscn
     demo_runner.gd
+    buff_ui_demo.tscn
+    buff_ui_demo.gd
   tests/
     base/
     helpers/
