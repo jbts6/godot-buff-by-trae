@@ -33,6 +33,8 @@ class DamageTrace:
 	extends RefCounted
 	## 回合号
 	var turn: int
+	## RNG key：用于命中/暴击等概率事件的确定性回放（多段/多目标时必须唯一）
+	var roll_key: int = 0
 	## 攻击方/防守方实体
 	var attacker_id: int
 	var defender_id: int
@@ -99,6 +101,7 @@ func trace_damage(turn: int, ctx: RefCounted, triggered_inst_ids: PackedInt32Arr
 	## ctx 约定字段：attacker_id/defender_id/hit/crit/base_damage/final_damage/tags_mask
 	var t := DamageTrace.new()
 	t.turn = turn
+	t.roll_key = int(ctx.get_meta("roll_key", 0))
 	t.attacker_id = int(ctx.attacker_id)
 	t.defender_id = int(ctx.defender_id)
 	t.hit = bool(ctx.hit)
