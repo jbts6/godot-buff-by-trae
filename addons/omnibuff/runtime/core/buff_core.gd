@@ -1149,6 +1149,32 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 		# D：require_hit
 		if l.filter_require_hit and (not bool(ctx.hit)):
 			continue
+		# Phase 1：require_crit
+		if l.filter_require_crit and (not bool(ctx.crit)):
+			continue
+		# Phase 1：skill_id
+		if int(l.filter_skill_id) >= 0 and int(ctx.skill_id) != int(l.filter_skill_id):
+			continue
+		# Phase 1：damage_type_any / element_any
+		if int(l.filter_damage_type_mask_any) != 0:
+			var dt_bit := (1 << int(ctx.damage_type))
+			if (int(l.filter_damage_type_mask_any) & dt_bit) == 0:
+				continue
+		if int(l.filter_element_mask_any) != 0:
+			var el_bit := (1 << int(ctx.element))
+			if (int(l.filter_element_mask_any) & el_bit) == 0:
+				continue
+		# Phase 1：shield absorbed / thresholds
+		var absorbed := 0.0
+		if ctx.has_meta("absorbed_shield"):
+			absorbed = float(ctx.get_meta("absorbed_shield"))
+		if l.filter_require_shield_absorbed and absorbed <= 0.0:
+			continue
+		if float(l.filter_min_absorbed_shield) > 0.0 and absorbed < float(l.filter_min_absorbed_shield):
+			continue
+		# Phase 1：min_final_damage（仅在 resolve/apply 后的 phase 才可能有意义）
+		if float(l.filter_min_final_damage) > 0.0 and float(ctx.final_damage) < float(l.filter_min_final_damage):
+			continue
 		# D：stat_threshold
 		if l.filter_stat != "":
 			if not ctx.has_meta("runtime"):
