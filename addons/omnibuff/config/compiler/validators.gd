@@ -622,7 +622,20 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 # -----------------------------------------------------------------------------
 
 static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionary, buff_defs_obj: Dictionary, strict: bool, issues: Array[Issue]) -> void:
-	var allowed_skill := {"id": true, "name": true, "damage_type": true, "element": true, "base_damage": true, "tags": true, "on_cast": true, "on_hit": true}
+	var allowed_skill := {
+		"id": true,
+		"name": true,
+		"damage_type": true,
+		"element": true,
+		"base_damage": true,
+		"tags": true,
+		"on_cast": true,
+		"on_hit": true,
+		# BattleExecutor Phase 2：multi-hit / multi-target
+		"hit_count": true,
+		"hit_base_damage": true,
+		"targeting": true
+	}
 	var allowed_on_cast := {"kind": true, "target": true, "buff_id": true}
 	var allowed_on_hit := {"kind": true, "chance": true, "target": true, "buff_id": true}
 
@@ -652,6 +665,23 @@ static func _validate_skill_defs(file: String, obj: Dictionary, enums: Dictionar
 		var el := String(s.get("element", ""))
 		if el != "" and not _enum_has(enums, "element", el):
 			_add_issue(issues, error(file, "path=" + p + ".element", id, "invalid element=" + el), strict)
+
+		# Phase 2：multi-hit / multi-target 参数合法性
+		if s.has("hit_count"):
+			var hc := int(s.get("hit_count", 1))
+			if hc < 1 or hc > 32:
+				_add_issue(issues, error(file, "path=" + p + ".hit_count", id, "hit_count must be 1..32"), strict)
+		if s.has("hit_base_damage"):
+			var hbd: Array = s.get("hit_base_damage", [])
+			if hbd.is_empty():
+				_add_issue(issues, error(file, "path=" + p + ".hit_base_damage", id, "hit_base_damage must be non-empty when provided"), strict)
+			for j in range(hbd.size()):
+				if typeof(hbd[j]) != TYPE_INT and typeof(hbd[j]) != TYPE_FLOAT:
+					_add_issue(issues, error(file, "path=" + p + ".hit_base_damage[%s]" % j, id, "hit_base_damage entries must be numbers"), strict)
+		if s.has("targeting"):
+			var tgt := String(s.get("targeting", "")).to_upper()
+			if tgt != "FIRST" and tgt != "ALL":
+				_add_issue(issues, error(file, "path=" + p + ".targeting", id, "targeting must be FIRST or ALL"), strict)
 
 		# on_cast apply_buff 引用存在
 		var on_cast: Array = s.get("on_cast", [])
