@@ -9,6 +9,16 @@
 	  "base_damage": 0.0,
 	  "on_cast": [],
 	  "on_hit": []
+	},
+	{
+	  "id": "skill_basic_attack_1",
+	  "name": "普攻：斩击",
+	  "damage_type": "PHYSICAL",
+	  "element": "NONE",
+	  "tags": ["BUFF", "BASIC_ATTACK"],
+	  "base_damage": 0.0,
+	  "on_cast": [],
+	  "on_hit": []
 	}
   ]
 }

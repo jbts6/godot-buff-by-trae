@@ -820,6 +820,60 @@
 		  "action": { "kind": "REFLECT_DAMAGE", "ratio": 0.3 }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_cmd_cancel_escape",
+	  "name": "Phase1指令：禁止逃跑（CMD_BEFORE cancel）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "COMMAND",
+		  "event_phase": "CMD_BEFORE",
+		  "scope": "SELF",
+		  "filters": { "command_kind_any": ["ESCAPE"] },
+		  "action": { "kind": "CANCEL_COMMAND" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_cmd_basic_attack_mark",
+	  "name": "Phase1指令：普攻命中标记（CMD_AFTER）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "COMMAND",
+		  "event_phase": "CMD_AFTER",
+		  "scope": "SELF",
+		  "filters": { "tag_mask_any": ["BASIC_ATTACK"] },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_cmd_use_item_mark",
+	  "name": "Phase1指令：使用道具(2001)标记（CMD_AFTER）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "COMMAND",
+		  "event_phase": "CMD_AFTER",
+		  "scope": "SELF",
+		  "filters": { "item_id": 2001 },
+		  "action": { "kind": "APPLY_BUFF", "buff_id": "buff_dummy_mark_1" }
+		}
+	  ]
 	}
   ]
 }
