@@ -1219,6 +1219,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_apply_buff_from_event(l, ctx, true)
 			"SET_STAT_FINAL":
 				_set_stat_final_from_event(l, ctx)
+			"SET_SHIELD_TO_FINAL_DAMAGE":
+				_set_shield_to_final_damage_from_event(l, ctx)
 			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
 				_apply_dot_action_from_event(l, ctx)
 			_:
@@ -1391,6 +1393,30 @@ func _set_stat_final_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> 
 	if sid < 0:
 		return
 	var desired := float(l.action_value)
+	var cur := float(target_stats.get_final(sid))
+	target_stats.add_base(sid, desired - cur)
+
+
+func _set_shield_to_final_damage_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作（Phase 1）：在 APPLY 阶段将 SHIELD 设置为本次 ctx.final_damage，用于“免疫=完全吸收”
+	# - 不引入超大数值残留
+	# - 依赖：ctx.final_damage 已在 RESOLVE 阶段计算完成
+	if not ctx.has_meta("runtime"):
+		return
+	var runtime: Dictionary = ctx.get_meta("runtime")
+	if runtime.is_empty():
+		return
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var target_stats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	if target_stats == null:
+		return
+	var sid := ds.stat_id("SHIELD")
+	if sid < 0:
+		return
+	var desired := float(ctx.final_damage)
 	var cur := float(target_stats.get_final(sid))
 	target_stats.add_base(sid, desired - cur)
 

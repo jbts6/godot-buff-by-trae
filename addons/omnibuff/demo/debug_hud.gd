@@ -360,6 +360,8 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 			action_str = "CHANCE_APPLY_BUFF(%s, add_stacks=%s, chance=%s)" % [String(l.action_buff_id), int(l.action_add_stacks), str(float(l.action_chance))]
 		"SET_STAT_FINAL":
 			action_str = "SET_STAT_FINAL(%s=%s)" % [String(l.action_stat), str(float(l.action_value))]
+		"SET_SHIELD_TO_FINAL_DAMAGE":
+			action_str = "SET_SHIELD_TO_FINAL_DAMAGE(SHIELD=ctx.final_damage)"
 		"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS":
 			action_str = "%s(dot=%s, value=%s, tag_mask_any=%s)" % [
 				ak,

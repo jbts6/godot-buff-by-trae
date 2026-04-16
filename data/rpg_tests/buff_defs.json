@@ -670,10 +670,10 @@
 	  "triggers": [
 		{
 		  "event_type": "DAMAGE",
-		  "event_phase": "BEFORE_TAKE",
+		  "event_phase": "APPLY",
 		  "scope": "SELF",
 		  "filters": { "tag_mask_any": ["BUFF"], "damage_type_any": ["MAGIC"], "element_any": ["FIRE"] },
-		  "action": { "kind": "SET_STAT_FINAL", "stat": "SHIELD", "value": 999999.0 }
+		  "action": { "kind": "SET_SHIELD_TO_FINAL_DAMAGE" }
 		}
 	  ]
 	},
@@ -688,10 +688,10 @@
 	  "triggers": [
 		{
 		  "event_type": "DAMAGE",
-		  "event_phase": "BEFORE_TAKE",
+		  "event_phase": "APPLY",
 		  "scope": "SELF",
 		  "filters": { "tag_mask_any": ["BUFF"], "element_any": ["FIRE"] },
-		  "action": { "kind": "SET_STAT_FINAL", "stat": "SHIELD", "value": 999999.0 }
+		  "action": { "kind": "SET_SHIELD_TO_FINAL_DAMAGE" }
 		}
 	  ]
 	}
