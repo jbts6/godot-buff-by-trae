@@ -1,6 +1,8 @@
 class_name OmniBuffCore
 extends RefCounted
 
+const ExprContextScript := preload("res://addons/omnibuff/runtime/core/expr_context.gd")
+
 ## Buff核心（最小可用版）
 ##
 ## 设计原则（本项目硬约束）：
@@ -1938,7 +1940,7 @@ func _eval_bonus_damage_expr(
 			_:
 				arr[i] = 0.0
 
-	var ctx_obj := OmniExprContext.new()
+	var ctx_obj: RefCounted = ExprContextScript.new()
 	var out: Variant = expr.execute(arr, ctx_obj, true)
 	if expr.has_execute_failed():
 		push_error("[BONUS_DAMAGE] expr execute failed: " + expr.get_error_text() + " expr=" + l.action_bonus_expr)
