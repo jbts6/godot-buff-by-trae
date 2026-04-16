@@ -740,8 +740,11 @@ func _sc_action_add_shield() -> void:
 	var shield_id: int = int(ds.stat_id("SHIELD"))
 
 	defender["buffs"].apply_buff(defender["stats"], "buff_action_add_shield_50", int(defender["id"]))
-	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 1, tags_mask, runtime, 0)
-	_log("after hit SHIELD=" + str(float(defender["stats"].get_final(shield_id))) + " absorbed=" + str(float(replay.damage_traces.back().get("absorbed_shield", 0.0))))
+	var ctx = pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 30.0, replay, 1, tags_mask, runtime, 0)
+	var absorbed := 0.0
+	if ctx.has_meta("absorbed_shield"):
+		absorbed = float(ctx.get_meta("absorbed_shield"))
+	_log("after hit SHIELD=" + str(float(defender["stats"].get_final(shield_id))) + " absorbed=" + str(absorbed))
 
 
 func _sc_action_dispel_debuff() -> void:
