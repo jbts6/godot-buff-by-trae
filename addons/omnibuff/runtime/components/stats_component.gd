@@ -22,3 +22,6 @@ func get_final(stat_id: int) -> float:
 
 func add_base(stat_id: int, dv: float) -> void:
 	core.add_base(stat_id, dv)
+
+func get_breakdown(stat_id: int) -> Dictionary:
+	return core.get_breakdown(stat_id)

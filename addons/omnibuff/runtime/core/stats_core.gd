@@ -162,3 +162,12 @@ func get_final(stat_id: int) -> float:
 		recompute(stat_id)
 		dirty[stat_id] = 0
 	return final_values[stat_id]
+
+
+func get_breakdown(stat_id: int) -> Dictionary:
+	# 属性面板：base/bonus/final（Phase 2）
+	var final_v := get_final(stat_id)
+	var base_v := float(base_values[stat_id])
+	if computed_base.size() > 0:
+		base_v += float(computed_base[stat_id])
+	return {"base": base_v, "bonus": final_v - base_v, "final": final_v}
