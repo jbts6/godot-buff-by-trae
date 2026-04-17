@@ -15,6 +15,98 @@
 
 ---
 
+## 0. Public API / Stable API（给插件使用方）
+
+本节面向“把 OmniBuff 当插件接入到自己项目”的开发者，优先回答：
+- 我应该从哪里引用类？
+- 哪些 API 是稳定推荐的（升级不容易炸）？
+- BONUS_DAMAGE / 不递归 guard 应该怎么配？
+
+### 0.1 Autoload：`OmniBuff`（命名空间入口）
+
+启用插件后会有 Autoload：`OmniBuff`（见 `res://addons/omnibuff/runtime/omnibuff_singleton.gd`）。
+
+它暴露的是 **Script 资源（preload 的类）**，使用方式：
+
+```gdscript
+var pipe := OmniBuff.DamagePipeline.new()
+var replay := OmniBuff.Replay.new()
+var buffs := OmniBuff.BuffCore.new(ds, enums_rt)
+var exec := OmniBuff.BattleExecutor.new()
+```
+
+> 强烈建议：业务代码尽量通过 `OmniBuff.Xxx` / `preload("res://...")` 引用脚本，
+> 不要直接依赖 `class_name` 标识符（例如 `OmniExprContext`），以避免脚本解析时机导致的编译问题。
+
+目前对外暴露的常用入口（节选）：
+- Runtime Core：`BuffCore` / `DamagePipeline` / `Replay` / `BattleExecutor` / `CommandContext` / `ExprContext`
+- Runtime Components：`StatsComponent` / `TurnComponent`
+- Config/Compiler：`ManifestLoader` / `DatasetCompiler` / `EnumsRuntime` / `Validate`
+
+### 0.2 Stable API：`DamagePipeline.deal_damage_v1(...)`
+
+`deal_damage(...)` 内部签名可能继续演进（例如新增可选参数），如果你更在意升级兼容性，推荐使用：
+
+- `OmniDamagePipeline.deal_damage_v1(...)`（旧签名兼容层，不包含 `is_bonus_damage`）
+
+示例（仍使用位置参数，但签名稳定）：
+
+```gdscript
+var ctx := pipe.deal_damage_v1(
+	attacker_stats,
+	defender_stats,
+	attacker_buffs,
+	defender_buffs,
+	ds,
+	10.0,
+	replay,
+	1,   # turn_index
+	0,   # tags_mask
+	runtime,
+	0,   # roll_key
+	-1,  # skill_id
+	0,   # damage_type
+	0    # element
+)
+```
+
+### 0.3 BONUS_DAMAGE（value / ratio / expr）与“不递归”guard
+
+BONUS_DAMAGE 是一个 **DAMAGE 事件动作**，典型触发点：
+- `event_type=DAMAGE`
+- `event_phase=AFTER_DEAL`
+
+并需要配置不递归 guard（否则追加伤害会触发追加伤害）：
+
+```jsonc
+{
+  "filters": { "require_not_bonus_damage": true },
+  "action": { "kind": "BONUS_DAMAGE", "value": 3.0, "tags_mask_any": ["BONUS_DAMAGE"] }
+}
+```
+
+三种数值来源 **互斥三选一**（validators 会校验）：
+
+1) 固定值：
+```jsonc
+{ "kind": "BONUS_DAMAGE", "value": 3.0 }
+```
+
+2) 按最终伤害比例：
+```jsonc
+{ "kind": "BONUS_DAMAGE", "ratio": 0.5 }
+```
+
+3) 表达式：
+```jsonc
+{ "kind": "BONUS_DAMAGE", "expr": "final_damage*0.5" }
+```
+
+> BONUS_DAMAGE 的 trace 顺序可能与“base hit”不同（因为它是嵌套结算）。
+> 若你需要在回放/断言里识别 bonus hit，建议用 `tags_mask` 的 `BONUS_DAMAGE` bit 来区分，而不要依赖数组顺序。
+
+---
+
 ## 1. Dataset 加载链路（manifest → enums → sources → validate → compile）
 
 ### 1.1 入口：`OmniManifestLoader.load_dataset_full()`
