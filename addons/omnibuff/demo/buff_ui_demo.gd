@@ -18,6 +18,7 @@ const BuffCore = preload("res://addons/omnibuff/runtime/core/buff_core.gd")
 const DamagePipeline = preload("res://addons/omnibuff/runtime/core/damage_pipeline.gd")
 const Replay = preload("res://addons/omnibuff/runtime/core/replay.gd")
 const CommandContext = preload("res://addons/omnibuff/runtime/core/command_context.gd")
+const LifeContext = preload("res://addons/omnibuff/runtime/core/life_context.gd")
 const BattleExecutor = preload("res://addons/omnibuff/runtime/core/battle_executor.gd")
 const TurnComponent = preload("res://addons/omnibuff/runtime/components/turn_component.gd")
 const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
@@ -462,6 +463,27 @@ func _register_scenarios() -> void:
 			"dataset": "rpg_tests",
 			"covers": ["test_bonus_damage_expr_nonrecursive.gd"],
 			"fn": Callable(self, "_sc_bonus_damage_expr_nonrecursive")
+		},
+		{
+			"id": "phase1_wrapup_stacks_add_remove",
+			"title": "Phase1 Wrap-up / stacks ADD(-1) + SET(0) removes debuff",
+			"dataset": "rpg_tests",
+			"covers": ["test_phase1_wrapup_stacks_and_life_events.gd (stacks)"],
+			"fn": Callable(self, "_sc_phase1_wrapup_stacks_add_remove")
+		},
+		{
+			"id": "phase1_wrapup_life_death_kill_heal",
+			"title": "Phase1 Wrap-up / LIFE DEATH heals killer (+50)",
+			"dataset": "rpg_tests",
+			"covers": ["test_phase1_wrapup_stacks_and_life_events.gd (death heal)"],
+			"fn": Callable(self, "_sc_phase1_wrapup_life_death_kill_heal")
+		},
+		{
+			"id": "phase1_wrapup_life_revive_clean_debuff",
+			"title": "Phase1 Wrap-up / LIFE REVIVE cleans DEBUFF",
+			"dataset": "rpg_tests",
+			"covers": ["test_phase1_wrapup_stacks_and_life_events.gd (revive clean)"],
+			"fn": Callable(self, "_sc_phase1_wrapup_life_revive_clean_debuff")
 		},
 		{
 			"id": "event_chance_apply_determinism",
@@ -1125,6 +1147,78 @@ func _sc_bonus_damage_expr_nonrecursive() -> void:
 	_log("")
 	if r != null and dmg_to > dmg_from:
 		_log(r.debug_dump_damage_range(dmg_from))
+
+
+func _sc_phase1_wrapup_stacks_add_remove() -> void:
+	var attacker := _mk_actor(9401)
+	var defender := _mk_actor(9402)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(defender["id"])
+	var runtime := _mk_runtime([attacker, defender])
+	var tags_mask := int(enums_rt.tag_mask(["BUFF"]))
+
+	# 预置 3 层 debuff
+	for i in range(3):
+		defender["buffs"].apply_buff(defender["stats"], "buff_dummy_debuff_stackable_3", int(defender["id"]))
+	_log("stackable debuff stacks(before) = " + str(_count_stacks_by_buff_id(defender["buffs"], "buff_dummy_debuff_stackable_3")))
+
+	# ADD_STACKS -1
+	defender["buffs"].apply_buff(defender["stats"], "buff_wrapup_add_stacks_minus1", int(defender["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 1.0, replay, 1, tags_mask, runtime)
+	_log("stackable debuff stacks(after add -1) = " + str(_count_stacks_by_buff_id(defender["buffs"], "buff_dummy_debuff_stackable_3")))
+
+	# SET_STACKS 0（移除）
+	defender["buffs"].apply_buff(defender["stats"], "buff_wrapup_set_stacks_zero", int(defender["id"]))
+	pipe.deal_damage(attacker["stats"], defender["stats"], attacker["buffs"], defender["buffs"], ds, 1.0, replay, 2, tags_mask, runtime)
+	_log("stackable debuff stacks(after set 0) = " + str(_count_stacks_by_buff_id(defender["buffs"], "buff_dummy_debuff_stackable_3")))
+	_log("")
+
+
+func _sc_phase1_wrapup_life_death_kill_heal() -> void:
+	var attacker := _mk_actor(9411)
+	var victim := _mk_actor(9412)
+	_hud_attacker_id = int(attacker["id"])
+	_hud_defender_id = int(victim["id"])
+	var runtime := _mk_runtime([attacker, victim])
+
+	var hp_id := int(ds.stat_id("HP"))
+	var before_hp := float(attacker["stats"].get_final(hp_id))
+	attacker["stats"].add_base(hp_id, 100.0 - before_hp)
+	before_hp = float(attacker["stats"].get_final(hp_id))
+
+	victim["buffs"].apply_buff(victim["stats"], "buff_wrapup_on_death_heal_killer_50", int(victim["id"]))
+
+	var death := LifeContext.new()
+	death.actor_id = int(victim["id"])
+	death.source_id = int(attacker["id"])
+	death.tags_mask = int(enums_rt.tag_mask(["BUFF"]))
+	death.set_meta("runtime", runtime)
+	victim["buffs"].emit_event("LIFE", "DEATH", death)
+
+	var after_hp := float(attacker["stats"].get_final(hp_id))
+	_log("killer hp: before=" + str(before_hp) + " after=" + str(after_hp) + " (expect +50)")
+	_log("")
+
+
+func _sc_phase1_wrapup_life_revive_clean_debuff() -> void:
+	var actor := _mk_actor(9421)
+	_hud_attacker_id = int(actor["id"])
+	_hud_defender_id = int(actor["id"])
+	var runtime := _mk_runtime([actor])
+
+	actor["buffs"].apply_buff(actor["stats"], "buff_dummy_debuff_mark_1", int(actor["id"]))
+	actor["buffs"].apply_buff(actor["stats"], "buff_wrapup_on_revive_clean_debuff", int(actor["id"]))
+	_log("debuff instances(before revive) = " + str(_count_instances_by_buff_id(actor["buffs"], "buff_dummy_debuff_mark_1")))
+
+	var revive := LifeContext.new()
+	revive.actor_id = int(actor["id"])
+	revive.source_id = -1
+	revive.tags_mask = int(enums_rt.tag_mask(["BUFF"]))
+	revive.set_meta("runtime", runtime)
+	actor["buffs"].emit_event("LIFE", "REVIVE", revive)
+
+	_log("debuff instances(after revive) = " + str(_count_instances_by_buff_id(actor["buffs"], "buff_dummy_debuff_mark_1")))
+	_log("")
 
 
 func _sc_event_chance_apply_determinism() -> void:
