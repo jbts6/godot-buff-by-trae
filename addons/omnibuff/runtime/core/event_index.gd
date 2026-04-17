@@ -70,6 +70,10 @@ class Listener:
 	var filter_command_kind_mask_any: int = 0
 	# filters.item_id：-1 表示不过滤
 	var filter_item_id: int = -1
+
+	# Phase 1 wrap-up：LIFE filters（仅对 event_type=LIFE 有意义；-1 表示不过滤）
+	var filter_actor_id: int = -1
+	var filter_source_id: int = -1
 	# Phase 2：bonus damage guard
 	# filters.require_not_bonus_damage：当 ctx.meta.is_bonus_damage=true 时不触发
 	var filter_require_not_bonus_damage: bool = false
@@ -103,6 +107,17 @@ class Listener:
 	var action_bonus_expr: String = ""
 	var action_bonus_expr_inputs: PackedStringArray = PackedStringArray()
 	var action_bonus_expr_obj: Expression = null
+
+	# Phase 1 wrap-up：Stack actions payload
+	# - ADD_STACKS / SET_STACKS：目标 buff_id
+	var action_stack_buff_id: String = ""
+	# - ADD_STACKS：delta（允许负数）
+	var action_stack_delta: int = 0
+	# - SET_STACKS：value（>=0）
+	var action_stack_value: int = 0
+	# - ADD_STACKS：可选 clamp（0 表示“使用默认”）
+	var action_stack_min: int = 0
+	var action_stack_max: int = 0
 
 ## listener_id -> Listener 数据（按注册顺序增长）
 var listener_data: Array[Listener] = []
