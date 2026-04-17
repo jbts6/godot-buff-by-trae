@@ -25,6 +25,7 @@ const DebugHudScene = preload("res://addons/omnibuff/demo/debug_hud.tscn")
 
 @onready var lbl_status: Label = %StatusLabel
 @onready var log_box: RichTextLabel = %LogBox
+@onready var error_list: ItemList = %ErrorList
 
 @onready var btn_reset: Button = %BtnReset
 @onready var dataset_select: OptionButton = %DatasetSelect
@@ -57,6 +58,16 @@ var _hud_runtime: Dictionary = {}
 var _hud_attacker_id: int = -1
 var _hud_defender_id: int = -1
 
+var _error_count: int = 0
+
+const ERROR_MATCHERS := [
+	{"mode": "contains", "text": "Error"},
+	{"mode": "contains", "text": "Invalid"},
+	{"mode": "prefix", "text": "E 0:"},
+	{"mode": "prefix", "text": "E "},
+	{"mode": "contains", "text": "[ERROR]"},
+]
+
 
 func _ready() -> void:
 	btn_reset.pressed.connect(_reset_state)
@@ -67,7 +78,16 @@ func _ready() -> void:
 	btn_copy_log.pressed.connect(_copy_log_to_clipboard)
 	btn_clear_log.pressed.connect(func():
 		_log_buffer = ""
+		_clear_errors()
 		log_box.clear()
+	)
+
+	error_list.visible = false
+	error_list.item_selected.connect(func(idx: int):
+		if idx < 0 or idx >= error_list.item_count:
+			return
+		var line_index := int(error_list.get_item_metadata(idx))
+		log_box.scroll_to_line(line_index)
 	)
 
 	dataset_select.clear()
@@ -86,9 +106,52 @@ func _ready() -> void:
 	_reset_state()
 
 
+func _bb_escape(s: String) -> String:
+	# RichTextLabel bbcode 最小转义（避免日志中的 '[' 被当成 bbcode）
+	return s.replace("[", "\\[")
+
+
+func _is_error_line(msg: String) -> bool:
+	for m in ERROR_MATCHERS:
+		var d := m as Dictionary
+		var mode := String(d.get("mode", ""))
+		var text := String(d.get("text", ""))
+		if text == "":
+			continue
+		if mode == "contains":
+			if msg.findn(text) >= 0:
+				return true
+		elif mode == "prefix":
+			if msg.begins_with(text):
+				return true
+	return false
+
+
+func _clear_errors() -> void:
+	_error_count = 0
+	error_list.clear()
+	error_list.visible = false
+
+
+func _push_error(msg: String, line_index: int) -> void:
+	var s := msg
+	if s.length() > 200:
+		s = s.substr(0, 200) + "..."
+	var idx := error_list.add_item(s)
+	error_list.set_item_metadata(idx, line_index)
+	_error_count += 1
+	error_list.visible = true
+
+
 func _log(msg: String) -> void:
+	var line_index := log_box.get_line_count()
 	_log_buffer += msg + "\n"
-	log_box.append_text(msg + "\n")
+	var safe := _bb_escape(msg)
+	if _is_error_line(msg):
+		log_box.append_bbcode("[color=#ff4d4d]" + safe + "[/color]\n")
+		_push_error(msg, line_index)
+	else:
+		log_box.append_bbcode(safe + "\n")
 	log_box.scroll_to_line(log_box.get_line_count())
 
 
@@ -150,6 +213,7 @@ func _refresh_scenario_list() -> void:
 
 
 func _run_selected() -> void:
+	_clear_errors()
 	var selected := scenario_list.get_selected_items()
 	if selected.is_empty():
 		_log("[UI Demo] no scenario selected")
@@ -158,11 +222,22 @@ func _run_selected() -> void:
 	if idx < 0 or idx >= _visible_scenarios.size():
 		return
 	_run_scenario(_visible_scenarios[idx])
+	if error_list.item_count > 0:
+		error_list.select(0)
+		var line_index := int(error_list.get_item_metadata(0))
+		log_box.scroll_to_line(line_index)
+		lbl_status.text = "发现 %s 条错误，已定位第一条" % [error_list.item_count]
 
 
 func _run_all() -> void:
+	_clear_errors()
 	for s in _visible_scenarios:
 		_run_scenario(s)
+	if error_list.item_count > 0:
+		error_list.select(0)
+		var line_index := int(error_list.get_item_metadata(0))
+		log_box.scroll_to_line(line_index)
+		lbl_status.text = "发现 %s 条错误，已定位第一条" % [error_list.item_count]
 
 
 func _run_scenario(s: Dictionary) -> void:
