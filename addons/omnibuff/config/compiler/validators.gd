@@ -227,9 +227,18 @@ static func _validate_enums(file: String, enums_obj: Dictionary, strict: bool, i
 # -----------------------------------------------------------------------------
 
 static func _validate_stat_defs(file: String, obj: Dictionary, enums: Dictionary, strict: bool, issues: Array[Issue]) -> void:
-	var allowed := {"id": true, "default": true, "min": true, "max": true, "clamp": true}
+	var allowed := {"id": true, "default": true, "min": true, "max": true, "clamp": true, "derived": true, "curve": true}
+	var allowed_derived := {"type": true, "from": true, "ratio": true, "expr": true, "inputs": true, "round": true}
+	var allowed_curve := {"type": true, "k": true, "a": true, "b": true, "c": true, "d": true, "apply_at": true}
 	var arr: Array = obj.get("stats", [])
 	var seen := {}
+	# 用于引用校验：允许 inputs 引用“后定义”的 stat
+	var stat_ids := {}
+	for ss in arr:
+		var d0: Dictionary = ss
+		var sid0 := String(d0.get("id", ""))
+		if sid0 != "":
+			stat_ids[sid0] = true
 	for i in range(arr.size()):
 		var s: Dictionary = arr[i]
 		var id := String(s.get("id", ""))
@@ -251,6 +260,60 @@ static func _validate_stat_defs(file: String, obj: Dictionary, enums: Dictionary
 			_add_issue(issues, error(file, "path=" + p, id, "min > max"), strict)
 		if v_def < v_min or v_def > v_max:
 			_add_issue(issues, error(file, "path=" + p, id, "default out of range"), strict)
+
+		# Phase 2：derived / curve
+		if s.has("derived"):
+			var d: Dictionary = s.get("derived", {})
+			if typeof(d) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".derived", id, d, allowed_derived, strict, issues)
+			var dt := String(d.get("type", "")).to_upper()
+			if dt != "LINEAR" and dt != "EXPR":
+				_add_issue(issues, error(file, "path=" + p + ".derived.type", id, "derived.type must be LINEAR/EXPR"), strict)
+			if dt == "LINEAR":
+				var from := String(d.get("from", ""))
+				if from == "":
+					_add_issue(issues, error(file, "path=" + p + ".derived.from", id, "LINEAR requires from"), strict)
+				elif not stat_ids.has(from):
+					_add_issue(issues, error(file, "path=" + p + ".derived.from", id, "unknown stat ref=" + from), strict)
+				var ratio_v: Variant = d.get("ratio", null)
+				if ratio_v == null:
+					_add_issue(issues, error(file, "path=" + p + ".derived.ratio", id, "LINEAR requires ratio"), strict)
+				elif typeof(ratio_v) != TYPE_INT and typeof(ratio_v) != TYPE_FLOAT:
+					_add_issue(issues, error(file, "path=" + p + ".derived.ratio", id, "ratio must be number"), strict)
+			if dt == "EXPR":
+				var ex := String(d.get("expr", "")).strip_edges()
+				if ex == "" or ex.length() > 256:
+					_add_issue(issues, error(file, "path=" + p + ".derived.expr", id, "expr must be non-empty and <=256"), strict)
+				var inputs: Array = d.get("inputs", [])
+				if inputs.is_empty():
+					_add_issue(issues, error(file, "path=" + p + ".derived.inputs", id, "EXPR requires non-empty inputs[]"), strict)
+				else:
+					for ii in range(inputs.size()):
+						var nm := String(inputs[ii])
+						if nm == "" or not stat_ids.has(nm):
+							_add_issue(issues, error(file, "path=" + p + ".derived.inputs[%s]" % ii, id, "unknown stat ref=" + nm), strict)
+				if d.has("round"):
+					var rm := String(d.get("round", "")).to_upper()
+					var ok_rm := (rm == "" or rm == "NONE" or rm == "FLOOR" or rm == "ROUND" or rm == "CEIL")
+					if not ok_rm:
+						_add_issue(issues, error(file, "path=" + p + ".derived.round", id, "round must be NONE/FLOOR/ROUND/CEIL"), strict)
+
+		if s.has("curve"):
+			var c: Dictionary = s.get("curve", {})
+			if typeof(c) == TYPE_DICTIONARY:
+				_unknown_fields(file, p + ".curve", id, c, allowed_curve, strict, issues)
+			var ct := String(c.get("type", "")).to_upper()
+			var ok_ct := (ct == "" or ct == "NONE" or ct == "DR_SOFTCAP" or ct == "EXP" or ct == "LOG")
+			if not ok_ct:
+				_add_issue(issues, error(file, "path=" + p + ".curve.type", id, "curve.type must be NONE/DR_SOFTCAP/EXP/LOG"), strict)
+			if ct == "DR_SOFTCAP":
+				var k := float(c.get("k", 0.0))
+				if k <= 0.0:
+					_add_issue(issues, error(file, "path=" + p + ".curve.k", id, "DR_SOFTCAP requires k>0"), strict)
+			if c.has("apply_at"):
+				var aa := String(c.get("apply_at", "")).to_upper()
+				if aa != "" and aa != "POST_FINAL":
+					_add_issue(issues, error(file, "path=" + p + ".curve.apply_at", id, "apply_at must be POST_FINAL"), strict)
 
 # -----------------------------------------------------------------------------
 # 规则 6~11：buff_defs 校验（引用不存在、枚举非法、tag非法、范围非法、监听过宽、OVERRIDE冲突）
