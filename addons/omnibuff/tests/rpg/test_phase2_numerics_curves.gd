@@ -19,7 +19,7 @@ func test_phase2_curve_dr_softcap_expected_value() -> void:
 	# f(100)=100/(100+100)=0.5
 	e["stats"].add_base(sid, 100.0)
 	var v := float(e["stats"].get_final(sid))
-	assert_true(is_equal_approx(v, 0.5, 0.0001), "expect 0.5, got=%s" % [v])
+	assert_true(abs(v - 0.5) <= 0.0001, "expect 0.5, got=%s" % [v])
 
 
 func test_phase2_curve_dr_softcap_is_monotonic() -> void:
@@ -36,4 +36,3 @@ func test_phase2_curve_dr_softcap_is_monotonic() -> void:
 	e["stats"].add_base(sid, 10.0)
 	var v2 := float(e["stats"].get_final(sid))
 	assert_true(v2 >= v1, "DR curve should be monotonic non-decreasing")
-
