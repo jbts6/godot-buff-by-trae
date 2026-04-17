@@ -266,6 +266,18 @@ func _count_instances_by_buff_id(buffs: RefCounted, buff_id_str: String) -> int:
 	return cnt
 
 
+func _count_stacks_by_buff_id(buffs: RefCounted, buff_id_str: String) -> int:
+	var total: int = 0
+	for inst_id in buffs.inst_ids:
+		var inst = buffs.instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
+		if String(def.get("id", "")) == buff_id_str:
+			total += int(inst.stacks)
+	return total
+
+
 func _register_scenarios() -> void:
 	_all_scenarios = [
 		{
