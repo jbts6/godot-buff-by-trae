@@ -46,6 +46,17 @@ res://addons/omnibuff/
 
 ---
 
+## 2.1 Public API / Stable API（TL;DR）
+
+- **不要依赖 `class_name` 标识符**（例如 `OmniExprContext`），业务代码里建议用 `OmniBuff.Xxx` / preload 引用脚本，避免脚本解析时机导致编译问题。
+- 伤害结算如果你更在意“插件升级兼容性”，建议优先使用：`DamagePipeline.deal_damage_v1(...)`（旧签名兼容层）。
+- BONUS_DAMAGE（追加伤害）需要不递归 guard：`filters.require_not_bonus_damage=true`，并建议用 tag `BONUS_DAMAGE` 识别 bonus hit（不要依赖 trace 顺序）。
+
+详细说明见：
+- `res://addons/omnibuff/docs/api.md`
+
+---
+
 ## 3. 最小运行示例：加载数据集 → 上 Buff → 结算一次伤害
 
 > 说明：本插件是“数据驱动”的：先加载 manifest/enums/defs，编译为只读 `CompiledDataset`，运行时只依赖编译产物。
@@ -81,7 +92,7 @@ func run_one_hit() -> void:
 	var tags_mask: int = int(enums_rt.tag_mask(["BUFF"]))
 
 	# 6) 结算一次伤害
-	var ctx = pipe.deal_damage(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
+	var ctx = pipe.deal_damage_v1(attacker, defender, buff_attacker, buff_defender, ds, 20.0, replay, 1, tags_mask, runtime)
 	print("final=", ctx.final_damage, " defender_hp=", defender.get_final(ds.stat_id("HP")))
 ```
 
