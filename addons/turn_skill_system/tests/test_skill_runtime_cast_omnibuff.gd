@@ -25,10 +25,10 @@ func test_cast_uses_omnibuff_damage_pipeline() -> void:
 	var enums_rt = loaded.enums_rt
 	var ds = loaded.ds
 
-	var a_stats := OmniBuff.StatsComponent.new(3001, ds)
-	var d_stats := OmniBuff.StatsComponent.new(3002, ds)
-	var a_buffs := OmniBuff.BuffCore.new(ds, enums_rt)
-	var d_buffs := OmniBuff.BuffCore.new(ds, enums_rt)
+	var a_stats := OmniStatsComponent.new(3001, ds)
+	var d_stats := OmniStatsComponent.new(3002, ds)
+	var a_buffs := OmniBuffCore.new(ds, enums_rt)
+	var d_buffs := OmniBuffCore.new(ds, enums_rt)
 
 	var caster := UnitWithOmni.new(3001, "ally", Vector2i(2, 1), a_stats, a_buffs)
 	var defender := UnitWithOmni.new(3002, "enemy", Vector2i(0, 1), d_stats, d_buffs)

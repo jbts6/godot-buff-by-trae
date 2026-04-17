@@ -17,8 +17,8 @@ func setup(dataset, enums_runtime, runtime: Dictionary) -> void:
 	ds = dataset
 	enums_rt = enums_runtime
 	runtime_dict = runtime
-	pipe = OmniBuff.DamagePipeline.new()
-	replay = OmniBuff.Replay.new()
+	pipe = OmniDamagePipeline.new()
+	replay = OmniReplay.new()
 
 
 func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Dictionary:

@@ -278,6 +278,7 @@ static func _fail(simulation: bool, skill_id: String, caster, errors: Array, eve
 		"rng_seed": rng_seed,
 		"errors": errors,
 		"issues": issues,
+		"predicted_deltas": [],
 	}
 
 
