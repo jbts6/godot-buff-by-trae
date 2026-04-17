@@ -270,6 +270,9 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"tag_mask_any": true,
 		"command_kind_any": true,
 		"item_id": true,
+		# Phase 1 wrap-up：LIFE filters（仅 LIFE 事件有效）
+		"actor_id": true,
+		"source_id": true,
 		"require_not_bonus_damage": true,
 		"damage_type_any": true,
 		"element_any": true,
@@ -288,6 +291,10 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		"scope": true,
 		"ratio": true,
 		"expr": true,
+		# Phase 1 wrap-up：stack actions
+		"delta": true,
+		"min_stack": true,
+		"max_stack": true,
 		"min_damage": true,
 		"max_damage": true,
 		"round_mode": true,
@@ -480,6 +487,25 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.item_id" % ti, id, "item_id must be int"), strict)
 				elif int(iv) < 0:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.item_id" % ti, id, "item_id must be >= 0"), strict)
+			# Phase 1 wrap-up：LIFE filters（仅 LIFE 事件允许）
+			if filters.has("actor_id"):
+				if et != "LIFE":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.actor_id" % ti, id, "actor_id filter only allowed for event_type=LIFE"), strict)
+				else:
+					var av: Variant = filters.get("actor_id")
+					if typeof(av) != TYPE_INT and typeof(av) != TYPE_FLOAT:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.actor_id" % ti, id, "actor_id must be int"), strict)
+					elif int(av) < 0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.actor_id" % ti, id, "actor_id must be >= 0"), strict)
+			if filters.has("source_id"):
+				if et != "LIFE":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.source_id" % ti, id, "source_id filter only allowed for event_type=LIFE"), strict)
+				else:
+					var sv: Variant = filters.get("source_id")
+					if typeof(sv) != TYPE_INT and typeof(sv) != TYPE_FLOAT:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.source_id" % ti, id, "source_id must be int"), strict)
+					elif int(sv) < 0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].filters.source_id" % ti, id, "source_id must be >= 0"), strict)
 
 			# Phase 2：bonus damage guard
 			if filters.has("require_not_bonus_damage"):
@@ -571,6 +597,38 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.buff_type" % ti, id, "DISPEL BY_TYPE requires buff_type (e.g. EXPLICIT)"), strict)
 				else:
 					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.mode" % ti, id, "unknown DISPEL mode=" + mode), strict)
+
+			# Phase 1 wrap-up：Stack actions
+			if ak == "ADD_STACKS":
+				var bid := String(action.get("buff_id", ""))
+				if bid == "":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.buff_id" % ti, id, "ADD_STACKS requires buff_id"), strict)
+				var dv: Variant = action.get("delta", null)
+				if dv == null:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.delta" % ti, id, "ADD_STACKS requires delta (can be negative)"), strict)
+				elif typeof(dv) != TYPE_INT and typeof(dv) != TYPE_FLOAT:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.delta" % ti, id, "delta must be int"), strict)
+				else:
+					var di := int(dv)
+					if di == 0:
+						_add_issue(issues, warning(file, "path=" + p + ".triggers[%s].action.delta" % ti, id, "delta is 0 (no-op)"), strict)
+				if action.has("min_stack") and int(action.get("min_stack", 0)) < 0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.min_stack" % ti, id, "min_stack must be >= 0"), strict)
+				if action.has("max_stack") and int(action.get("max_stack", 0)) < 0:
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.max_stack" % ti, id, "max_stack must be >= 0"), strict)
+
+			if ak == "SET_STACKS":
+				var bid2 := String(action.get("buff_id", ""))
+				if bid2 == "":
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.buff_id" % ti, id, "SET_STACKS requires buff_id"), strict)
+				if not action.has("value"):
+					_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "SET_STACKS requires value (>=0)"), strict)
+				else:
+					var vv: Variant = action.get("value")
+					if typeof(vv) != TYPE_INT and typeof(vv) != TYPE_FLOAT:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be int for SET_STACKS"), strict)
+					elif int(vv) < 0:
+						_add_issue(issues, error(file, "path=" + p + ".triggers[%s].action.value" % ti, id, "value must be >= 0 for SET_STACKS"), strict)
 
 			# Phase 2：BONUS_DAMAGE
 			if ak == "BONUS_DAMAGE":

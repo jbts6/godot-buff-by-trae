@@ -958,6 +958,98 @@
 		  "action": { "kind": "BONUS_DAMAGE", "expr": "final_damage*0.5", "tags_mask_any": ["BONUS_DAMAGE"], "scope": "TARGET" }
 		}
 	  ]
+	},
+	{
+	  "id": "buff_dummy_debuff_stackable_3",
+	  "name": "Phase1Wrapup测试：DEBUFF 可叠层（用于 stacks actions）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "ADD_STACK", "max_stack": 99, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_dummy_debuff_mark_1",
+	  "name": "Phase1Wrapup测试：DEBUFF 标记（用于 revive dispel）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["DEBUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": []
+	},
+	{
+	  "id": "buff_wrapup_add_stacks_minus1",
+	  "name": "Phase1Wrapup测试：命中后对自身某 debuff 减 1 层",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SELF",
+		  "filters": { "require_hit": true },
+		  "action": { "kind": "ADD_STACKS", "buff_id": "buff_dummy_debuff_stackable_3", "delta": -1, "min_stack": 0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_wrapup_set_stacks_zero",
+	  "name": "Phase1Wrapup测试：命中后对自身某 debuff 设为 0 层（移除）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "DAMAGE",
+		  "event_phase": "AFTER_TAKE",
+		  "scope": "SELF",
+		  "filters": { "require_hit": true },
+		  "action": { "kind": "SET_STACKS", "buff_id": "buff_dummy_debuff_stackable_3", "value": 0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_wrapup_on_death_heal_killer_50",
+	  "name": "Phase1Wrapup测试：死亡时给 killer 回复 50 HP",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "LIFE",
+		  "event_phase": "DEATH",
+		  "scope": "SOURCE",
+		  "filters": {},
+		  "action": { "kind": "HEAL", "value": 50.0 }
+		}
+	  ]
+	},
+	{
+	  "id": "buff_wrapup_on_revive_clean_debuff",
+	  "name": "Phase1Wrapup测试：复活时清除 DEBUFF",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "PERMANENT" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "NONE", "ownership_mode": "GLOBAL" },
+	  "effects": [],
+	  "triggers": [
+		{
+		  "event_type": "LIFE",
+		  "event_phase": "REVIVE",
+		  "scope": "SELF",
+		  "filters": {},
+		  "action": { "kind": "DISPEL", "mode": "BY_TAG", "tag": "DEBUFF" }
+		}
+	  ]
 	}
   ]
 }
