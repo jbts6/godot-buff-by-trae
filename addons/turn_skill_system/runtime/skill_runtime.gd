@@ -14,10 +14,10 @@ const AUTOLOAD_NAME := "TurnSkillRuntime"
 
 ## --- Public API (固定，不可改名) ---
 
-static func cast(skill_id: String, caster, primary_cell: Variant = null, extra: Dictionary = {}) -> Dictionary:
+static func cast(skill_id: String, caster, primary_cell = null, extra: Dictionary = {}) -> Dictionary:
 	return _cast_internal(false, skill_id, caster, primary_cell, extra)
 
-static func simulate_cast(skill_id: String, caster, primary_cell: Variant = null, extra: Dictionary = {}) -> Dictionary:
+static func simulate_cast(skill_id: String, caster, primary_cell = null, extra: Dictionary = {}) -> Dictionary:
 	return _cast_internal(true, skill_id, caster, primary_cell, extra)
 
 static func cast_to_unit(skill_id: String, caster, primary_target, extra: Dictionary = {}) -> Dictionary:
@@ -34,7 +34,7 @@ static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra
 
 ## --- Internal ---
 
-static func _cast_internal(simulation: bool, skill_id: String, caster, primary_cell: Variant, extra: Dictionary) -> Dictionary:
+static func _cast_internal(simulation: bool, skill_id: String, caster, primary_cell, extra: Dictionary) -> Dictionary:
 	var rt := _get_runtime(extra)
 	if rt.has("error"):
 		return _fail(simulation, skill_id, caster, [String(rt.get("error", "runtime_error"))])
@@ -50,7 +50,7 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 		"simulation": simulation,
 	})
 
-	var sr := rt["db"].get_skill(skill_id, true)
+	var sr: Dictionary = rt["db"].get_skill(skill_id, true)
 	if not bool(sr.get("ok", false)):
 		return _fail(simulation, skill_id, caster, sr.get("errors", []), event_bus.end_capture(), rng_seed, sr.get("issues", []))
 	var skill: Dictionary = sr.get("skill", {})
@@ -59,7 +59,7 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 		return _fail(simulation, skill_id, caster, ["skill_type_not_active"], event_bus.end_capture(), rng_seed)
 
 	# 目标选择
-	var targets := rt["targeting"].resolve(skill, caster, primary_cell, rt["grid"], extra)
+	var targets: Array = rt["targeting"].resolve(skill, caster, primary_cell, rt["grid"], extra)
 	if targets.is_empty():
 		return _fail(simulation, skill_id, caster, ["no_valid_targets"], event_bus.end_capture(), rng_seed)
 
@@ -83,7 +83,7 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 	var primary_target = targets[0].get("unit", null)
 	for e in skill.get("on_cast", []):
 		var ctx := _make_ctx(skill, skill_id, caster, primary_target, rt, extra, rng_seed)
-		var er := rt["effects"].apply_effect(e, ctx, simulation)
+		var er: Dictionary = rt["effects"].apply_effect(e, ctx, simulation)
 		_collect_effect_result(er, out_effects, predicted_deltas, resolved_formulas, simulation, ctx)
 
 	# 命中参数（兼容 rpg_tests/skill_defs.json）
@@ -120,19 +120,19 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 
 			if implicit_damage:
 				var dmg_effect := {"kind": "damage", "params": {"amount": hit_damage}}
-				var er0 := rt["effects"].apply_effect(dmg_effect, ctx_hit, simulation)
+				var er0: Dictionary = rt["effects"].apply_effect(dmg_effect, ctx_hit, simulation)
 				_collect_effect_result(er0, out_effects, predicted_deltas, resolved_formulas, simulation, ctx_hit)
 
 			for e_hit in on_hit_effects:
-				var e2 := e_hit
+				var e2 = e_hit
 				# 若 damage effect 未提供 amount/amount_expr，则用当前段 hit_damage
 				if typeof(e2) == TYPE_DICTIONARY and String(e2.get("kind", "")) == "damage":
 					var p: Dictionary = e2.get("params", {})
 					if not p.has("amount") and not p.has("amount_expr"):
-						var copy := e2.duplicate(true)
+						var copy: Dictionary = e2.duplicate(true) as Dictionary
 						copy["params"]["amount"] = hit_damage
 						e2 = copy
-				var er := rt["effects"].apply_effect(e2, ctx_hit, simulation)
+				var er: Dictionary = rt["effects"].apply_effect(e2, ctx_hit, simulation)
 				_collect_effect_result(er, out_effects, predicted_deltas, resolved_formulas, simulation, ctx_hit)
 
 	event_bus.emit_event(EventNames.SKILL_CAST_FINISHED, {
