@@ -1,7 +1,7 @@
 extends RefCounted
 class_name SkillValidator
 
-const ALLOWED_TYPES := ["active", "passive", "aura"]
+const ALLOWED_TYPES = ["active", "passive", "aura"]
 
 static func validate_skill(skill: Dictionary, file_path: String, strict: bool) -> Array[Dictionary]:
 	var issues: Array[Dictionary] = []
@@ -10,7 +10,7 @@ static func validate_skill(skill: Dictionary, file_path: String, strict: bool) -
 	_require_type(skill, "id", TYPE_STRING, file_path, "$.id", issues, strict)
 	_require_type(skill, "type", TYPE_STRING, file_path, "$.type", issues, strict)
 
-	var t := String(skill.get("type", ""))
+	var t = String(skill.get("type", ""))
 	if t != "" and not ALLOWED_TYPES.has(t):
 		_push_issue(issues, "error" if strict else "warning", file_path, "$.type", "invalid_type: %s" % t)
 
@@ -19,7 +19,7 @@ static func validate_skill(skill: Dictionary, file_path: String, strict: bool) -
 		if not skill.has("targeting"):
 			_push_issue(issues, "error" if strict else "warning", file_path, "$.targeting", "missing_targeting")
 		else:
-			var tt := typeof(skill["targeting"])
+			var tt = typeof(skill["targeting"])
 			if tt != TYPE_STRING and tt != TYPE_DICTIONARY:
 				_push_issue(issues, "error" if strict else "warning", file_path, "$.targeting", "targeting_must_be_string_or_object")
 
@@ -81,4 +81,3 @@ static func _type_name(t: int) -> String:
 		TYPE_ARRAY: return "array"
 		TYPE_DICTIONARY: return "dictionary"
 		_: return "type_%d" % t
-

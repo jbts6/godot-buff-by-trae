@@ -11,28 +11,28 @@ static func rebuild_index() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var skills: Array[Dictionary] = []
 
-	var type_dirs := {
+	var type_dirs = {
 		"active": SKILL_ROOT + "/active",
 		"passive": SKILL_ROOT + "/passive",
 		"aura": SKILL_ROOT + "/aura",
 	}
 
 	for t in type_dirs.keys():
-		var dir_path := String(type_dirs[t])
-		var da := DirAccess.open(dir_path)
+		var dir_path = String(type_dirs[t])
+		var da = DirAccess.open(dir_path)
 		if da == null:
 			continue
 		da.list_dir_begin()
 		while true:
-			var fn := da.get_next()
+			var fn = da.get_next()
 			if fn == "":
 				break
 			if da.current_is_dir():
 				continue
 			if not fn.ends_with(".json"):
 				continue
-			var path := dir_path + "/" + fn
-			var r := JsonIO.read_json(path)
+			var path = dir_path + "/" + fn
+			var r = JsonIO.read_json(path)
 			if not bool(r.get("ok", false)):
 				issues.append({"severity":"error","file_path":path,"field_path":"$","message":"index_read_failed"})
 				continue
@@ -40,10 +40,10 @@ static func rebuild_index() -> Dictionary:
 				issues.append({"severity":"error","file_path":path,"field_path":"$","message":"skill_json_must_be_object"})
 				continue
 			var skill: Dictionary = r.get("data", {})
-			var v_issues := SkillValidator.validate_skill(skill, path, false)
+			var v_issues = SkillValidator.validate_skill(skill, path, false)
 			issues.append_array(v_issues)
 
-			var entry := {
+			var entry = {
 				"id": String(skill.get("id", "")),
 				"type": String(skill.get("type", t)),
 				"path": path,
@@ -51,12 +51,12 @@ static func rebuild_index() -> Dictionary:
 				"tags": skill.get("tags", []),
 				"mtime_unix": FileAccess.get_modified_time(path),
 			}
-			if entry.id == "":
+			if String(entry.get("id", "")) == "":
 				continue
 			skills.append(entry)
 		da.list_dir_end()
 
-	var index := {
+	var index = {
 		"version": 1,
 		"generated_at_unix": Time.get_unix_time_from_system(),
 		"skills": skills,
@@ -66,5 +66,5 @@ static func rebuild_index() -> Dictionary:
 
 
 static func write_index(index: Dictionary) -> Dictionary:
-	var preferred := ["version", "generated_at_unix", "skills"]
+	var preferred = ["version", "generated_at_unix", "skills"]
 	return JsonIO.write_json_stable(INDEX_PATH, index, preferred)

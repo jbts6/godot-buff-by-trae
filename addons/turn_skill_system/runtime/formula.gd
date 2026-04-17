@@ -7,11 +7,11 @@ class_name Formula
 ## - 返回：{ok,value,resolved:{expr,vars,result},error}
 
 static func eval_expr(expr: String, ctx: Dictionary, rounding := "floor") -> Dictionary:
-	var vars := _collect_vars(expr, ctx)
-	var rewritten := _rewrite_expr(expr)
+	var vars = _collect_vars(expr, ctx)
+	var rewritten = _rewrite_expr(expr)
 
-	var e := Expression.new()
-	var parse_err := e.parse(rewritten, vars.keys())
+	var e = Expression.new()
+	var parse_err = e.parse(rewritten, vars.keys())
 	if parse_err != OK:
 		return {"ok": false, "error": "expr_parse_failed:%s" % e.get_error_text(), "resolved": {"expr": expr, "vars": vars, "result": null}}
 
@@ -23,8 +23,8 @@ static func eval_expr(expr: String, ctx: Dictionary, rounding := "floor") -> Dic
 	if e.has_execute_failed():
 		return {"ok": false, "error": "expr_exec_failed:%s" % e.get_error_text(), "resolved": {"expr": expr, "vars": vars, "result": null}}
 
-	var num := float(value)
-	var out := _apply_rounding(num, rounding)
+	var num = float(value)
+	var out = _apply_rounding(num, rounding)
 	return {"ok": true, "value": out, "resolved": {"expr": expr, "vars": _collect_pretty_vars(expr, ctx), "result": out}}
 
 
@@ -39,7 +39,7 @@ static func _apply_rounding(x: float, rounding: String) -> float:
 
 
 static func _rewrite_expr(expr: String) -> String:
-	var out := expr
+	var out = expr
 	# 将 a.ATK -> a_ATK（Expression 的变量名不能包含 '.'）
 	out = out.replace("a.", "a_")
 	out = out.replace("t.", "t_")
@@ -49,12 +49,12 @@ static func _rewrite_expr(expr: String) -> String:
 static func _collect_vars(expr: String, ctx: Dictionary) -> Dictionary:
 	# 返回：{ "a_ATK": 100, "t_DEF": 20 }
 	var vars: Dictionary = {}
-	var re := RegEx.new()
+	var re = RegEx.new()
 	re.compile("\\b([at])\\.([A-Za-z_][A-Za-z0-9_]*)\\b")
 	for m in re.search_all(expr):
-		var who := String(m.get_string(1))
-		var stat := String(m.get_string(2))
-		var key := "%s_%s" % [who, stat]
+		var who = String(m.get_string(1))
+		var stat = String(m.get_string(2))
+		var key = "%s_%s" % [who, stat]
 		if vars.has(key):
 			continue
 		vars[key] = _lookup_stat(ctx, who, stat)
@@ -64,12 +64,12 @@ static func _collect_vars(expr: String, ctx: Dictionary) -> Dictionary:
 static func _collect_pretty_vars(expr: String, ctx: Dictionary) -> Dictionary:
 	# 返回：{ "a.ATK": 100, "t.DEF": 20 }
 	var vars: Dictionary = {}
-	var re := RegEx.new()
+	var re = RegEx.new()
 	re.compile("\\b([at])\\.([A-Za-z_][A-Za-z0-9_]*)\\b")
 	for m in re.search_all(expr):
-		var who := String(m.get_string(1))
-		var stat := String(m.get_string(2))
-		var key := "%s.%s" % [who, stat]
+		var who = String(m.get_string(1))
+		var stat = String(m.get_string(2))
+		var key = "%s.%s" % [who, stat]
 		if vars.has(key):
 			continue
 		vars[key] = _lookup_stat(ctx, who, stat)
@@ -78,13 +78,13 @@ static func _collect_pretty_vars(expr: String, ctx: Dictionary) -> Dictionary:
 
 static func _lookup_stat(ctx: Dictionary, who: String, stat: String) -> float:
 	# 只允许从纯数据取值：优先 ctx.a_stats / ctx.t_stats（Dictionary），否则尝试从单位的 stats 读取（扩展点）
-	var stats_key := "a_stats" if who == "a" else "t_stats"
+	var stats_key = "a_stats" if who == "a" else "t_stats"
 	if ctx.has(stats_key) and typeof(ctx[stats_key]) == TYPE_DICTIONARY:
 		var sd: Dictionary = ctx[stats_key]
 		if sd.has(stat):
 			return float(sd[stat])
 
-	var unit_key := "caster" if who == "a" else "target"
+	var unit_key = "caster" if who == "a" else "target"
 	if ctx.has(unit_key) and ctx[unit_key] != null:
 		var u = ctx[unit_key]
 		if u.has_method("get_stat"):
@@ -93,4 +93,3 @@ static func _lookup_stat(ctx: Dictionary, who: String, stat: String) -> float:
 			# 若上层提供了 ds 与 stat_id，可在 ctx 里放一个映射（扩展点）。
 			pass
 	return 0.0
-

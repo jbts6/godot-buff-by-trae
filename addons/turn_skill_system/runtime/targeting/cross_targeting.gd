@@ -4,8 +4,8 @@ class_name CrossTargeting
 func resolve(skill: Dictionary, caster, primary_cell, grid, extra: Dictionary) -> Array[Dictionary]:
 	if primary_cell == null:
 		return []
-	var c := Vector2i(primary_cell)
-	var cells := [
+	var c = Vector2i(primary_cell)
+	var cells: Array = [
 		c,
 		c + Vector2i(-1, 0),
 		c + Vector2i(1, 0),
@@ -28,4 +28,3 @@ func resolve(skill: Dictionary, caster, primary_cell, grid, extra: Dictionary) -
 	if not out.is_empty():
 		out[0]["role"] = "primary"
 	return out
-

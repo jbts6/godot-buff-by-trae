@@ -32,8 +32,8 @@ func get_units_by_camp(camp: String, alive_only := true) -> Array:
 	return out
 
 func get_first_enemy(caster):
-	var enemy_camp := "enemy" if String(caster.camp) == "ally" else "ally"
-	var enemies := get_units_by_camp(enemy_camp, true)
+	var enemy_camp = "enemy" if String(caster.camp) == "ally" else "ally"
+	var enemies: Array = get_units_by_camp(enemy_camp, true)
 	if enemies.is_empty():
 		return null
 	# 稳定排序：row asc, col asc
@@ -54,4 +54,3 @@ static func _is_dead(u) -> bool:
 		# 这里无法拿到 ds.stat_id("HP")，因此仅作为扩展点
 		return false
 	return false
-

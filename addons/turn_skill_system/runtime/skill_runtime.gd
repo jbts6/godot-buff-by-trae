@@ -26,7 +26,7 @@ static func cast_to_unit(skill_id: String, caster, primary_target, extra: Dictio
 	return cast_to_cell(skill_id, caster, Vector2i(primary_target.cell), extra)
 
 static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra: Dictionary = {}) -> Dictionary:
-	var cell := Vector2i(primary_cell)
+	var cell = Vector2i(primary_cell)
 	if cell.x < 0 or cell.x > 2 or cell.y < 0 or cell.y > 2:
 		return {"ok": false, "simulation": false, "skill_id": skill_id, "caster_id": _safe_id(caster), "errors": ["primary_cell_out_of_range"]}
 	return cast(skill_id, caster, cell, extra)
@@ -35,14 +35,14 @@ static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra
 ## --- Internal ---
 
 static func _cast_internal(simulation: bool, skill_id: String, caster, primary_cell, extra: Dictionary) -> Dictionary:
-	var rt := _get_runtime(extra)
+	var rt = _get_runtime(extra)
 	if rt.has("error"):
 		return _fail(simulation, skill_id, caster, [String(rt.get("error", "runtime_error"))])
 
 	var event_bus: BattleEventBus = rt["event_bus"]
 	event_bus.begin_capture()
 
-	var rng_seed := int(extra.get("rng_seed", 0))
+	var rng_seed = int(extra.get("rng_seed", 0))
 
 	event_bus.emit_event(EventNames.SKILL_CAST_STARTED, {
 		"skill_id": skill_id,
@@ -82,38 +82,38 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 	# on_cast（执行一次；target 取第一个目标供部分效果使用）
 	var primary_target = targets[0].get("unit", null)
 	for e in skill.get("on_cast", []):
-		var ctx := _make_ctx(skill, skill_id, caster, primary_target, rt, extra, rng_seed)
+		var ctx = _make_ctx(skill, skill_id, caster, primary_target, rt, extra, rng_seed)
 		var er: Dictionary = rt["effects"].apply_effect(e, ctx, simulation)
 		_collect_effect_result(er, out_effects, predicted_deltas, resolved_formulas, simulation, ctx)
 
 	# 命中参数（兼容 rpg_tests/skill_defs.json）
-	var hit_count := int(skill.get("hit_count", 1))
+	var hit_count = int(skill.get("hit_count", 1))
 	if hit_count <= 0:
 		hit_count = 1
 	var hit_base_damage = skill.get("hit_base_damage", [])
-	var base_damage_fallback := float(skill.get("base_damage", 0.0))
+	var base_damage_fallback = float(skill.get("base_damage", 0.0))
 
 	# 若 on_hit 为空但存在 base_damage/hit_base_damage：隐式补一个 damage effect
 	var on_hit_effects: Array = skill.get("on_hit", [])
-	var implicit_damage := false
+	var implicit_damage = false
 	if on_hit_effects.is_empty() and (base_damage_fallback > 0.0 or (typeof(hit_base_damage) == TYPE_ARRAY and hit_base_damage.size() > 0)):
 		implicit_damage = true
 
 	for t in targets:
 		var target_unit = t.get("unit", null)
 		for hit_index in range(hit_count):
-			var hit_damage := base_damage_fallback
+			var hit_damage = base_damage_fallback
 			if typeof(hit_base_damage) == TYPE_ARRAY and hit_index < hit_base_damage.size():
 				var hd = hit_base_damage[hit_index]
 				if typeof(hd) == TYPE_STRING:
-					var fr := Formula.eval_expr(String(hd), _make_ctx(skill, skill_id, caster, target_unit, rt, extra, rng_seed), "floor")
+					var fr = Formula.eval_expr(String(hd), _make_ctx(skill, skill_id, caster, target_unit, rt, extra, rng_seed), "floor")
 					if bool(fr.get("ok", false)):
 						hit_damage = float(fr.get("value", hit_damage))
 						resolved_formulas.append(fr.get("resolved", {}))
 				else:
 					hit_damage = float(hd)
 
-			var ctx_hit := _make_ctx(skill, skill_id, caster, target_unit, rt, extra, rng_seed)
+			var ctx_hit = _make_ctx(skill, skill_id, caster, target_unit, rt, extra, rng_seed)
 			ctx_hit["hit_index"] = hit_index
 			ctx_hit["hit_count"] = hit_count
 			ctx_hit["hit_base_damage"] = hit_damage

@@ -42,4 +42,3 @@ func _uninstall_dock() -> void:
 	remove_control_from_docks(_dock)
 	_dock.queue_free()
 	_dock = null
-

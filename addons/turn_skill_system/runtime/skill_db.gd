@@ -11,7 +11,7 @@ var _cache_by_id: Dictionary = {} # skill_id -> {"skill":Dictionary,"mtime":int}
 
 func reload_index() -> Dictionary:
 	_index_by_id.clear()
-	var r := JsonIO.read_json(INDEX_PATH)
+	var r = JsonIO.read_json(INDEX_PATH)
 	if not bool(r.get("ok", false)):
 		return {"ok": false, "errors": ["index_open_failed"], "path": INDEX_PATH}
 	if typeof(r.get("data")) != TYPE_DICTIONARY:
@@ -25,7 +25,7 @@ func reload_index() -> Dictionary:
 	for e in skills:
 		if typeof(e) != TYPE_DICTIONARY:
 			continue
-		var id := String(e.get("id", ""))
+		var id = String(e.get("id", ""))
 		if id == "":
 			continue
 		_index_by_id[id] = e
@@ -45,17 +45,17 @@ func get_skill(skill_id: String, strict := true) -> Dictionary:
 		return {"ok": false, "errors": ["unknown_skill_id:%s" % skill_id]}
 
 	var entry: Dictionary = _index_by_id[skill_id]
-	var path := String(entry.get("path", ""))
+	var path = String(entry.get("path", ""))
 	if path == "":
 		return {"ok": false, "errors": ["index_entry_missing_path:%s" % skill_id]}
 
-	var mtime := int(entry.get("mtime_unix", 0))
+	var mtime = int(entry.get("mtime_unix", 0))
 	if _cache_by_id.has(skill_id):
 		var cached: Dictionary = _cache_by_id[skill_id]
 		if int(cached.get("mtime", -1)) == mtime:
 			return {"ok": true, "skill": cached["skill"], "issues": cached.get("issues", [])}
 
-	var r := JsonIO.read_json(path)
+	var r = JsonIO.read_json(path)
 	if not bool(r.get("ok", false)):
 		return {"ok": false, "errors": ["skill_open_failed:%s" % path]}
 	if typeof(r.get("data")) != TYPE_DICTIONARY:
@@ -65,8 +65,8 @@ func get_skill(skill_id: String, strict := true) -> Dictionary:
 	if String(skill.get("type", "")) == "active":
 		SkillValidator.normalize_active_in_place(skill)
 
-	var issues := SkillValidator.validate_skill(skill, path, strict)
-	var has_error := false
+	var issues = SkillValidator.validate_skill(skill, path, strict)
+	var has_error = false
 	for it in issues:
 		if String(it.get("severity", "")) == "error":
 			has_error = true

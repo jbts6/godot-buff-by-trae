@@ -23,7 +23,7 @@ func resolve(skill: Dictionary, caster, primary_cell, grid, extra: Dictionary) -
 
 	var targeting = skill["targeting"]
 	if typeof(targeting) == TYPE_STRING:
-		var s := String(targeting)
+		var s = String(targeting)
 		if s == "FIRST":
 			return _resolve_rule("first_enemy", skill, caster, primary_cell, grid, extra)
 		if s == "ALL":
@@ -31,7 +31,7 @@ func resolve(skill: Dictionary, caster, primary_cell, grid, extra: Dictionary) -
 		return []
 
 	if typeof(targeting) == TYPE_DICTIONARY:
-		var rule_id := String(targeting.get("rule", ""))
+		var rule_id = String(targeting.get("rule", ""))
 		return _resolve_rule(rule_id, skill, caster, primary_cell, grid, extra)
 
 	return []
@@ -41,4 +41,3 @@ func _resolve_rule(rule_id: String, skill: Dictionary, caster, primary_cell, gri
 		return []
 	var h = _rules[rule_id]
 	return h.resolve(skill, caster, primary_cell, grid, extra)
-

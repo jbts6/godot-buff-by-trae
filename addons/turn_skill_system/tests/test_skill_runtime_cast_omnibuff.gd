@@ -55,4 +55,3 @@ func test_cast_uses_omnibuff_damage_pipeline() -> void:
 	assert_true(effects.size() >= 1)
 	assert_eq(String(effects[0].get("kind", "")), "damage")
 	assert_true(float(effects[0].get("value", 0)) > 0.0)
-
