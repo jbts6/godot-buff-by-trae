@@ -22,6 +22,11 @@
 - 哪些 API 是稳定推荐的（升级不容易炸）？
 - BONUS_DAMAGE / 不递归 guard 应该怎么配？
 
+相关文档导航（更偏“项目内战斗开发接入”）：
+- 接入主线：`res://addons/omnibuff/docs/integrator_guide.md`
+- 数据协议速查 + recipes：`res://addons/omnibuff/docs/schema_reference.md`
+- 调试与回归：`res://addons/omnibuff/docs/debug_and_qa.md`
+
 ### 0.1 Autoload：`OmniBuff`（命名空间入口）
 
 启用插件后会有 Autoload：`OmniBuff`（见 `res://addons/omnibuff/runtime/omnibuff_singleton.gd`）。
@@ -104,6 +109,38 @@ BONUS_DAMAGE 是一个 **DAMAGE 事件动作**，典型触发点：
 
 > BONUS_DAMAGE 的 trace 顺序可能与“base hit”不同（因为它是嵌套结算）。
 > 若你需要在回放/断言里识别 bonus hit，建议用 `tags_mask` 的 `BONUS_DAMAGE` bit 来区分，而不要依赖数组顺序。
+
+---
+
+## 0.4 扩展能力索引（Phase 1/2）
+
+### Stats breakdown（属性面板）
+
+Phase 2 提供：
+- `StatsComponent.get_breakdown(stat_id) -> {"base","bonus","final"}`
+
+口径：
+- `base = base_values + computed_base(derived)`
+- `final = 完整 pipeline 后的最终值`
+- `bonus = final - base`
+
+建议 UI：显示 final（主值），并展示 base/bonus（折叠/tooltip）。
+
+### LIFE events（DEATH/REVIVE）
+
+Phase 1 增加 `event_type=LIFE`，需要上层战斗系统在死亡/复活时显式触发：
+- `buffs.emit_event("LIFE","DEATH", LifeContext)`
+- `buffs.emit_event("LIFE","REVIVE", LifeContext)`
+
+详见：`integrator_guide.md` 的 LIFE 触发示例。
+
+### stack actions（ADD_STACKS / SET_STACKS）
+
+Phase 1 wrap-up 增加：
+- `ADD_STACKS {buff_id, delta, min_stack, max_stack}`
+- `SET_STACKS {buff_id, value, min_stack, max_stack}`
+
+常见配方见：`schema_reference.md`。
 
 ---
 

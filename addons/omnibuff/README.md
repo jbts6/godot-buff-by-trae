@@ -52,8 +52,11 @@ res://addons/omnibuff/
 - 伤害结算如果你更在意“插件升级兼容性”，建议优先使用：`DamagePipeline.deal_damage_v1(...)`（旧签名兼容层）。
 - BONUS_DAMAGE（追加伤害）需要不递归 guard：`filters.require_not_bonus_damage=true`，并建议用 tag `BONUS_DAMAGE` 识别 bonus hit（不要依赖 trace 顺序）。
 
-详细说明见：
-- `res://addons/omnibuff/docs/api.md`
+文档导航（建议按顺序阅读）：
+- 接入主线（战斗系统如何对接）：`res://addons/omnibuff/docs/integrator_guide.md`
+- 数据协议速查 + 常见配方：`res://addons/omnibuff/docs/schema_reference.md`
+- 调试与回归（UI demo / HUD / tests）：`res://addons/omnibuff/docs/debug_and_qa.md`
+- API 契约（contract）：`res://addons/omnibuff/docs/api.md`
 
 ---
 
