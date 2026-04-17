@@ -29,4 +29,3 @@ func test_skill_runtime_simulate_cast_compiles_and_runs() -> void:
 		"a_stats": {"ATK": 100},
 	})
 	assert_true(bool(sim.get("ok", false)))
-

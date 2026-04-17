@@ -16,4 +16,3 @@ func _init(eid: int, c: String, p: Vector2i, s, b) -> void:
 	cell = p
 	stats = s
 	buffs = b
-

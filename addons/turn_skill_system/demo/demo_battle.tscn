@@ -1,7 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://ccu7y1jqigr3u"]
 
-[ext_resource type="Script" path="res://addons/turn_skill_system/demo/demo_battle.gd" id="1"]
+[ext_resource type="Script" uid="uid://7u1sod8oc4r0" path="res://addons/turn_skill_system/demo/demo_battle.gd" id="1"]
 
-[node name="DemoBattle" type="Node"]
+[node name="DemoBattle" type="Node" unique_id=1750388087]
 script = ExtResource("1")
-

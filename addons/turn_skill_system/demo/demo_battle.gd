@@ -68,4 +68,3 @@ func _ready() -> void:
 		"turn_index": 1,
 	})
 	print("[demo] act_demo_cross => ", r2)
-

@@ -263,25 +263,25 @@ addons/omnibuff/
   plugin.cfg
   omnibuff.gd                    # EditorPlugin：启用/禁用时安装/卸载 Autoload OmniBuff
   runtime/
-    omnibuff_singleton.gd        # Autoload 单例：OmniBuff（命名空间入口）
-    core/
-      stats_core.gd              # StatCache/Dirty + modifiers 聚合
-      buff_core.gd               # Buff 实例、事件索引、DOT、驱散
-      damage_pipeline.gd         # 固定阶段伤害骨架（护盾/减伤/命中/暴击）
-      replay.gd                  # DamageTrace/DotTrace
-    components/
-      stats_component.gd
-      turn_component.gd
+	omnibuff_singleton.gd        # Autoload 单例：OmniBuff（命名空间入口）
+	core/
+	  stats_core.gd              # StatCache/Dirty + modifiers 聚合
+	  buff_core.gd               # Buff 实例、事件索引、DOT、驱散
+	  damage_pipeline.gd         # 固定阶段伤害骨架（护盾/减伤/命中/暴击）
+	  replay.gd                  # DamageTrace/DotTrace
+	components/
+	  stats_component.gd
+	  turn_component.gd
   demo/
-    demo_scene.tscn
-    demo_runner.gd
-    buff_ui_demo.tscn
-    buff_ui_demo.gd
+	demo_scene.tscn
+	demo_runner.gd
+	buff_ui_demo.tscn
+	buff_ui_demo.gd
   tests/
-    base/
-    helpers/
-    rpg/
-      test_*.gd
+	base/
+	helpers/
+	rpg/
+	  test_*.gd
 
 data/
   base_demo/                     # demo 数据集

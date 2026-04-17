@@ -58,8 +58,14 @@ static func _require_type(d: Dictionary, key: String, t: int, file_path: String,
 	if not d.has(key):
 		_push_issue(issues, "error" if strict else "warning", file_path, field_path, "missing_field")
 		return
-	if typeof(d[key]) != t:
-		_push_issue(issues, "error" if strict else "warning", file_path, field_path, "type_mismatch_expected_%s" % _type_name(t))
+	var val_type = typeof(d[key])
+	if val_type == t:
+		return
+	if t == TYPE_INT and val_type == TYPE_FLOAT and d[key] == int(d[key]):
+		return
+	if t == TYPE_FLOAT and val_type == TYPE_INT:
+		return
+	_push_issue(issues, "error" if strict else "warning", file_path, field_path, "type_mismatch_expected_%s" % _type_name(t))
 
 
 static func _push_issue(issues: Array, severity: String, file_path: String, field_path: String, message: String) -> void:
