@@ -1,12 +1,14 @@
 {
   "stats": [
-	{ "id": "HP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true },
+	{ "id": "HP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true, "derived": { "type": "LINEAR", "from": "STR", "ratio": 20.0, "round": "NONE" } },
 	{ "id": "ATK", "default": 10.0, "min": 0.0, "max": 9999.0, "clamp": true },
 	{ "id": "DEF", "default": 5.0, "min": 0.0, "max": 9999.0, "clamp": true },
+	{ "id": "STR", "default": 0.0, "min": 0.0, "max": 999.0, "clamp": true },
 	{ "id": "CRIT_RATE", "default": 0.05, "min": 0.0, "max": 1.0, "clamp": true },
 	{ "id": "CRIT_DMG", "default": 0.5, "min": 0.0, "max": 5.0, "clamp": true },
 	{ "id": "HIT_RATE", "default": 1.0, "min": 0.0, "max": 1.0, "clamp": true },
 	{ "id": "EVADE", "default": 0.0, "min": 0.0, "max": 1.0, "clamp": true },
+	{ "id": "DMG_REDUCE_RATING", "default": 0.0, "min": 0.0, "max": 0.95, "clamp": true, "curve": { "type": "DR_SOFTCAP", "k": 100.0, "apply_at": "POST_FINAL" } },
 	{ "id": "DMG_REDUCE", "default": 0.0, "min": 0.0, "max": 0.95, "clamp": true },
 	{ "id": "SHIELD", "default": 0.0, "min": 0.0, "max": 99999.0, "clamp": true }
   ]
