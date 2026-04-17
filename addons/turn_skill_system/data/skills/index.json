@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "generated_at_unix": 0,
+  "skills": [
+    {
+      "id": "act_demo_single",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_demo_single.json",
+      "name": "示例：单体斩击",
+      "tags": ["BUFF", "BASIC_ATTACK"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_demo_cross",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_demo_cross.json",
+      "name": "示例：十字横扫",
+      "tags": ["BUFF"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "pas_demo_turn_start_buff",
+      "type": "passive",
+      "path": "res://addons/turn_skill_system/data/skills/passive/pas_demo_turn_start_buff.json",
+      "name": "示例：回合开始加攻",
+      "tags": ["BUFF"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "aur_demo_front_row_atk",
+      "type": "aura",
+      "path": "res://addons/turn_skill_system/data/skills/aura/aur_demo_front_row_atk.json",
+      "name": "示例：前排光环（加攻）",
+      "tags": ["BUFF"],
+      "mtime_unix": 0
+    }
+  ]
+}

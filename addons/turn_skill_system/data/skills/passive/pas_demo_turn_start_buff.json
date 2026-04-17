@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "pas_demo_turn_start_buff",
+  "type": "passive",
+  "name": "示例：回合开始加攻",
+  "desc": "回合开始时给自己施加攻击力 buff（omnibuff）。",
+  "tags": ["BUFF"],
+  "triggers": [
+    {
+      "event": "turn_started",
+      "chance": 1.0,
+      "effects": [
+        {
+          "kind": "apply_buff",
+          "params": {
+            "buff_id": "buff_test_passive_atk_flat_5",
+            "scope": "caster"
+          }
+        }
+      ]
+    }
+  ]
+}
+

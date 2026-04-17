@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "id": "aur_demo_front_row_atk",
+  "type": "aura",
+  "name": "示例：前排光环（加攻）",
+  "desc": "同阵营前排单位进入范围时获得加攻 buff，离开范围移除。",
+  "tags": ["BUFF"],
+  "targeting": {
+    "needs_primary": false,
+    "primary_role": "cell",
+    "rule": "single_cell",
+    "params": {}
+  },
+  "aura": {
+    "range": {
+      "rule": "ally_front_row",
+      "params": {}
+    },
+    "on_enter": [
+      {
+        "kind": "apply_buff",
+        "params": {
+          "buff_id": "buff_atk_flat_20",
+          "scope": "target"
+        }
+      }
+    ],
+    "on_exit": [
+      {
+        "kind": "remove_buff",
+        "params": {
+          "buff_id": "buff_atk_flat_20",
+          "scope": "target",
+          "remove_scope": "ALL"
+        }
+      }
+    ]
+  }
+}
+

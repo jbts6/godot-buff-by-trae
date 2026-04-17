@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "act_demo_single",
+  "type": "active",
+  "name": "示例：单体斩击",
+  "desc": "对敌方第一个目标造成物理伤害（公式）。",
+  "tags": ["BUFF", "BASIC_ATTACK"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "hit_count": 1,
+  "base_damage": 0.0,
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "50 + a.ATK * 1.2",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

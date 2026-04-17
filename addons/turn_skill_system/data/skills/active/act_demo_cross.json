@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "act_demo_cross",
+  "type": "active",
+  "name": "示例：十字横扫",
+  "desc": "以指定格为中心，对十字范围内所有单位造成物理伤害（公式）。",
+  "tags": ["BUFF"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": {
+    "needs_primary": true,
+    "primary_role": "cell",
+    "rule": "cross",
+    "params": {}
+  },
+  "hit_count": 1,
+  "base_damage": 0.0,
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "20 + a.ATK * 0.6",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

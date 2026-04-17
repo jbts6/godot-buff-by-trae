@@ -1,0 +1,18 @@
+extends RefCounted
+class_name EventNames
+
+const TURN_STARTED := "turn_started"
+const TURN_ENDED := "turn_ended"
+const ACTION_STARTED := "action_started"
+const ACTION_FINISHED := "action_finished"
+const SKILL_CAST_STARTED := "skill_cast_started"
+const SKILL_CAST_FINISHED := "skill_cast_finished"
+const BEFORE_DAMAGE := "before_damage"
+const AFTER_DAMAGE := "after_damage"
+const BEFORE_HEAL := "before_heal"
+const AFTER_HEAL := "after_heal"
+const UNIT_DIED := "unit_died"
+const UNIT_REVIVED := "unit_revived"
+const UNIT_MOVED := "unit_moved"
+const GRID_CHANGED := "grid_changed"
+
