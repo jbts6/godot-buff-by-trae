@@ -14,18 +14,18 @@ const AUTOLOAD_NAME := "TurnSkillRuntime"
 
 ## --- Public API (固定，不可改名) ---
 
-static func cast(skill_id: String, caster, primary_cell := null, extra := {}) -> Dictionary:
+static func cast(skill_id: String, caster, primary_cell: Variant = null, extra: Dictionary = {}) -> Dictionary:
 	return _cast_internal(false, skill_id, caster, primary_cell, extra)
 
-static func simulate_cast(skill_id: String, caster, primary_cell := null, extra := {}) -> Dictionary:
+static func simulate_cast(skill_id: String, caster, primary_cell: Variant = null, extra: Dictionary = {}) -> Dictionary:
 	return _cast_internal(true, skill_id, caster, primary_cell, extra)
 
-static func cast_to_unit(skill_id: String, caster, primary_target, extra := {}) -> Dictionary:
+static func cast_to_unit(skill_id: String, caster, primary_target, extra: Dictionary = {}) -> Dictionary:
 	if primary_target == null:
 		return {"ok": false, "simulation": false, "skill_id": skill_id, "caster_id": _safe_id(caster), "errors": ["primary_target_is_null"]}
 	return cast_to_cell(skill_id, caster, Vector2i(primary_target.cell), extra)
 
-static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra := {}) -> Dictionary:
+static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra: Dictionary = {}) -> Dictionary:
 	var cell := Vector2i(primary_cell)
 	if cell.x < 0 or cell.x > 2 or cell.y < 0 or cell.y > 2:
 		return {"ok": false, "simulation": false, "skill_id": skill_id, "caster_id": _safe_id(caster), "errors": ["primary_cell_out_of_range"]}
@@ -34,7 +34,7 @@ static func cast_to_cell(skill_id: String, caster, primary_cell: Vector2i, extra
 
 ## --- Internal ---
 
-static func _cast_internal(simulation: bool, skill_id: String, caster, primary_cell, extra: Dictionary) -> Dictionary:
+static func _cast_internal(simulation: bool, skill_id: String, caster, primary_cell: Variant, extra: Dictionary) -> Dictionary:
 	var rt := _get_runtime(extra)
 	if rt.has("error"):
 		return _fail(simulation, skill_id, caster, [String(rt.get("error", "runtime_error"))])
