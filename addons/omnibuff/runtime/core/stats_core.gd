@@ -151,10 +151,48 @@ func recompute(stat_id: int) -> void:
 		v = override_v
 	v += final_add
 
+	# Phase 2：曲线（在 clamp 前应用；默认 apply_at=POST_FINAL）
+	v = _apply_curve(stat_id, v)
+
 	var def: Dictionary = ds.stat_defs[stat_id]
 	if bool(def.get("clamp", false)):
 		v = clamp(v, float(def.get("min", v)), float(def.get("max", v)))
 	final_values[stat_id] = v
+
+
+func _apply_curve(stat_id: int, v: float) -> float:
+	var def: Dictionary = ds.stat_defs[stat_id]
+	if not def.has("curve"):
+		return v
+	var c: Dictionary = def.get("curve", {})
+	if typeof(c) != TYPE_DICTIONARY:
+		return v
+	var apply_at := String(c.get("apply_at", "POST_FINAL")).to_upper()
+	if apply_at != "" and apply_at != "POST_FINAL":
+		return v
+	var ct := String(c.get("type", "")).to_upper()
+	if ct == "" or ct == "NONE":
+		return v
+	if ct == "DR_SOFTCAP":
+		var k := float(c.get("k", 0.0))
+		if k <= 0.0:
+			return v
+		return v / (v + k)
+	if ct == "EXP":
+		var a := float(c.get("a", 1.0))
+		var b := float(c.get("b", 1.0))
+		var cc := float(c.get("c", 0.0))
+		return a * exp(b * v) + cc
+	if ct == "LOG":
+		var a2 := float(c.get("a", 1.0))
+		var b2 := float(c.get("b", 1.0))
+		var c2 := float(c.get("c", 0.0))
+		var d2 := float(c.get("d", 0.0))
+		var x := b2 * v + c2
+		if x <= 0.0:
+			return v
+		return a2 * log(x) + d2
+	return v
 
 func get_final(stat_id: int) -> float:
 	# 热路径读取：若脏则重算一次，然后返回快照
