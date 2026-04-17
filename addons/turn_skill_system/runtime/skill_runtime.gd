@@ -176,6 +176,7 @@ static func _make_ctx(skill: Dictionary, skill_id: String, caster, target, rt: D
 		"element": skill.get("element", 0),
 		"tags": skill.get("tags", []),
 		"tags_mask": int(extra.get("tags_mask", 0)),
+		"is_bonus_damage": extra.get("is_bonus_damage", false),
 		"skill_id_int": int(extra.get("skill_id_int", -1)),
 		"a_stats": extra.get("a_stats", {}),
 		"t_stats": extra.get("t_stats", {}),

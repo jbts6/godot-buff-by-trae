@@ -71,7 +71,20 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 			element,
 			is_bonus_damage
 		)
-		return {"ok": true, "final_damage": float(dctx.final_damage), "meta": {"used": "deal_damage"}}
+		return {
+			"ok": true, 
+			"final_damage": float(dctx.final_damage), 
+			"meta": {
+				"used": "deal_damage",
+				"turn_index": turn_index,
+				"roll_key": roll_key,
+				"tags_mask": tags_mask,
+				"damage_type": damage_type,
+				"element": element,
+				"is_bonus_damage": is_bonus_damage,
+				"skill_id_int": skill_id_int
+			}
+		}
 
 	# 兜底：旧签名（不含 is_bonus_damage）
 	if pipe.has_method("deal_damage_v1"):
@@ -91,7 +104,20 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 			damage_type,
 			element
 		)
-		return {"ok": true, "final_damage": float(dctx_v1.final_damage), "meta": {"used": "deal_damage_v1"}}
+		return {
+			"ok": true, 
+			"final_damage": float(dctx_v1.final_damage), 
+			"meta": {
+				"used": "deal_damage_v1",
+				"turn_index": turn_index,
+				"roll_key": roll_key,
+				"tags_mask": tags_mask,
+				"damage_type": damage_type,
+				"element": element,
+				"is_bonus_damage": false,
+				"skill_id_int": skill_id_int
+			}
+		}
 
 	return {"ok": false, "error": "omnibuff_damage_pipeline_missing"}
 
