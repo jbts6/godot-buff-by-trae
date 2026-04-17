@@ -50,8 +50,15 @@ func test_cast_uses_omnibuff_damage_pipeline() -> void:
 		"a_stats": {"ATK": 100},
 	})
 
-	assert_true(bool(r.get("ok", false)))
+	var ok := bool(r.get("ok", false))
+	assert_true(ok)
+	if not ok:
+		print("[debug] cast failed: ", r)
+		return
 	var effects: Array = r.get("effects", [])
 	assert_true(effects.size() >= 1)
+	if effects.is_empty():
+		print("[debug] effects empty: ", r)
+		return
 	assert_eq(String(effects[0].get("kind", "")), "damage")
 	assert_true(float(effects[0].get("value", 0)) > 0.0)
