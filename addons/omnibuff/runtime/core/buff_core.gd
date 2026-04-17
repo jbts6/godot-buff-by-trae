@@ -533,6 +533,11 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 			l.filter_command_kind_mask_any = m_ck
 		if filters.has("item_id"):
 			l.filter_item_id = int(filters.get("item_id", -1))
+		# Phase 1 wrap-up：LIFE filters（actor_id/source_id）
+		if filters.has("actor_id"):
+			l.filter_actor_id = int(filters.get("actor_id", -1))
+		if filters.has("source_id"):
+			l.filter_source_id = int(filters.get("source_id", -1))
 		# Phase 2：bonus damage guard
 		if filters.has("require_not_bonus_damage"):
 			l.filter_require_not_bonus_damage = bool(filters.get("require_not_bonus_damage", false))
@@ -592,11 +597,19 @@ func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
 					else:
 						l.action_bonus_expr_inputs = inputs
 						l.action_bonus_expr_obj = e
+		# Phase 1 wrap-up：Stack actions payload
+		if l.action_kind == "ADD_STACKS" or l.action_kind == "SET_STACKS":
+			l.action_stack_buff_id = String(action.get("buff_id", ""))
+			l.action_stack_delta = int(action.get("delta", 0))
+			l.action_stack_value = int(action.get("value", 0))
+			l.action_stack_min = int(action.get("min_stack", 0))
+			l.action_stack_max = int(action.get("max_stack", 0))
 		# APPLY_BUFF / CHANCE_APPLY_BUFF 的 payload
-		if action.has("buff_id"):
-			l.action_buff_id = String(action.get("buff_id", ""))
-		elif action.has("apply_buff_id"):
-			l.action_buff_id = String(action.get("apply_buff_id", ""))
+		if l.action_kind == "APPLY_BUFF" or l.action_kind == "CHANCE_APPLY_BUFF":
+			if action.has("buff_id"):
+				l.action_buff_id = String(action.get("buff_id", ""))
+			elif action.has("apply_buff_id"):
+				l.action_buff_id = String(action.get("apply_buff_id", ""))
 		# 可选：额外叠层（默认 1）
 		if action.has("add_stacks"):
 			l.action_add_stacks = int(action.get("add_stacks", 1))
@@ -760,6 +773,90 @@ func remove_by_buff_id(stats: OmniStatsComponent, buff_id_str: String, scope: St
 			if scope == "FIRST":
 				break
 	return removed
+
+
+func add_stacks_by_buff_id(stats: OmniStatsComponent, buff_id_str: String, delta: int, min_stack: int = 0, max_stack: int = 0, scope: String = "ALL") -> int:
+	## Phase 1 wrap-up：对某个 buff 增/减 stacks（delta 可为负）
+	## - min_stack/max_stack：clamp（max_stack=0 表示使用 buff_def.stack.max_stack；若仍无则不封顶）
+	## - scope: "ALL" | "FIRST"
+	var bdid: int = int(ds.buff_id(buff_id_str))
+	if bdid < 0 or delta == 0:
+		return 0
+
+	var def: Dictionary = ds.buff_defs[bdid]
+	var stack: Dictionary = def.get("stack", {})
+	var def_max := int(stack.get("max_stack", 0))
+	var cap_max := max_stack
+	if cap_max <= 0:
+		cap_max = def_max
+
+	var changed := 0
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if int(inst.buff_def_id) != bdid:
+			continue
+		var ns := int(inst.stacks) + int(delta)
+		ns = max(ns, int(min_stack))
+		if cap_max > 0:
+			ns = min(ns, cap_max)
+		if ns <= 0:
+			if remove_by_instance(stats, int(inst.inst_id), false):
+				changed += 1
+				if scope == "FIRST":
+					break
+			continue
+		if ns == int(inst.stacks):
+			continue
+		inst.stacks = ns
+		_rebuild_instance_modifiers(stats, int(inst.inst_id))
+		_sync_dot_stacks_for_owner_inst(int(inst.inst_id), ns)
+		changed += 1
+		if scope == "FIRST":
+			break
+	return changed
+
+
+func set_stacks_by_buff_id(stats: OmniStatsComponent, buff_id_str: String, value: int, min_stack: int = 0, max_stack: int = 0, scope: String = "ALL") -> int:
+	## Phase 1 wrap-up：将某个 buff 的 stacks 设为指定值
+	var bdid: int = int(ds.buff_id(buff_id_str))
+	if bdid < 0:
+		return 0
+
+	var def: Dictionary = ds.buff_defs[bdid]
+	var stack: Dictionary = def.get("stack", {})
+	var def_max := int(stack.get("max_stack", 0))
+	var cap_max := max_stack
+	if cap_max <= 0:
+		cap_max = def_max
+
+	var changed := 0
+	for inst_id in inst_ids.duplicate():
+		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
+		if inst == null:
+			continue
+		if int(inst.buff_def_id) != bdid:
+			continue
+		var ns := int(value)
+		ns = max(ns, int(min_stack))
+		if cap_max > 0:
+			ns = min(ns, cap_max)
+		if ns <= 0:
+			if remove_by_instance(stats, int(inst.inst_id), false):
+				changed += 1
+				if scope == "FIRST":
+					break
+			continue
+		if ns == int(inst.stacks):
+			continue
+		inst.stacks = ns
+		_rebuild_instance_modifiers(stats, int(inst.inst_id))
+		_sync_dot_stacks_for_owner_inst(int(inst.inst_id), ns)
+		changed += 1
+		if scope == "FIRST":
+			break
+	return changed
 
 func remove_by_tag(stats: OmniStatsComponent, tag_id: String, scope: String = "ALL", source_entity_id: int = -1, include_implicit: bool = false, force: bool = false) -> int:
 	## A5：按 tag 主动移除（不检查“驱散免疫”）
@@ -1197,6 +1294,7 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 	var key := et * OmniEventIndex.PHASE_COUNT + ph
 	var arr := event_index.get_listeners_for(key)
 	var is_command := event_type.to_upper() == "COMMAND"
+	var is_life := event_type.to_upper() == "LIFE"
 	var is_bonus := false
 	if ctx.has_meta("is_bonus_damage") and bool(ctx.get_meta("is_bonus_damage")):
 		is_bonus = true
@@ -1222,6 +1320,16 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				if item_id_v != null:
 					item_id = int(item_id_v)
 				if item_id != int(l.filter_item_id):
+					continue
+		# Phase 1 wrap-up：LIFE filters（仅对 LIFE 有意义）
+		if is_life:
+			if int(l.filter_actor_id) >= 0:
+				var a_v: Variant = ctx.get("actor_id")
+				if a_v == null or int(a_v) != int(l.filter_actor_id):
+					continue
+			if int(l.filter_source_id) >= 0:
+				var s_v: Variant = ctx.get("source_id")
+				if s_v == null or int(s_v) != int(l.filter_source_id):
 					continue
 		# D：require_hit
 		if l.filter_require_hit and (not bool(ctx.get("hit"))):
@@ -1334,6 +1442,10 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_cancel_command_from_event(l, ctx)
 			"BONUS_DAMAGE":
 				_bonus_damage_from_event(l, ctx)
+			"ADD_STACKS":
+				_add_stacks_from_event(l, ctx)
+			"SET_STACKS":
+				_set_stacks_from_event(l, ctx)
 			"DOT_MUL_STACKS", "DOT_ADD_STACKS", "DOT_SET_STACKS", "DOT_CLEAR":
 				_apply_dot_action_from_event(l, ctx)
 			_:
@@ -1797,12 +1909,15 @@ func _command_kind_bit(kind: String) -> int:
 func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 	## 将 scope 映射为实体ID（最小约定）
 	## - SELF：本 BuffCore owner_entity（事件接收者）
-	## - SOURCE/ATTACKER：优先 ctx.attacker_id，否则回退 ctx.actor_id（COMMAND）
-	## - TARGET/DEFENDER：优先 ctx.defender_id，否则回退 ctx.targets[0]（COMMAND，若存在）
+	## - SOURCE/ATTACKER：优先 ctx.source_id（LIFE），否则 ctx.attacker_id，否则回退 ctx.actor_id（COMMAND/LIFE）
+	## - TARGET/DEFENDER：优先 ctx.defender_id，否则回退 ctx.actor_id（LIFE），否则回退 ctx.targets[0]（COMMAND，若存在）
 	var s := scope.to_upper()
 	if s == "" or s == "SELF":
 		return owner_entity_id
 	if s == "SOURCE" or s == "ATTACKER":
+		var v0: Variant = ctx.get("source_id")
+		if v0 != null:
+			return int(v0)
 		var v: Variant = ctx.get("attacker_id")
 		if v != null:
 			return int(v)
@@ -1814,6 +1929,9 @@ func _resolve_scope_entity_id(scope: String, ctx: RefCounted) -> int:
 		var v: Variant = ctx.get("defender_id")
 		if v != null:
 			return int(v)
+		var v2: Variant = ctx.get("actor_id")
+		if v2 != null:
+			return int(v2)
 		var tv: Variant = ctx.get("targets")
 		if tv != null and typeof(tv) == TYPE_PACKED_INT32_ARRAY:
 			var t: PackedInt32Array = tv
@@ -1948,6 +2066,62 @@ func _eval_bonus_damage_expr(
 	if typeof(out) != TYPE_INT and typeof(out) != TYPE_FLOAT:
 		return 0.0
 	return float(out)
+
+
+func _sync_dot_stacks_for_owner_inst(owner_inst_id: int, stacks: int) -> void:
+	# Phase 1 wrap-up：当 buff 实例 stacks 被外部动作修改时，同步其关联的 DOT 实例 stacks（若存在）
+	if not dots_by_target.has(owner_entity_id):
+		return
+	var dots: Array = dots_by_target.get(owner_entity_id, [])
+	for d in dots:
+		if d == null:
+			continue
+		if int(d.owner_buff_inst_id) == int(owner_inst_id):
+			d.stacks = int(stacks)
+
+
+func _add_stacks_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：对某个目标 buff 增/减层
+	if l.action_stack_buff_id == "" or int(l.action_stack_delta) == 0:
+		return
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var tstats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	var tbuffs: OmniBuffCore = buff_by_entity.get(target_eid, null)
+	if tstats == null or tbuffs == null:
+		return
+	tbuffs.add_stacks_by_buff_id(tstats, l.action_stack_buff_id, int(l.action_stack_delta), int(l.action_stack_min), int(l.action_stack_max))
+
+
+func _set_stacks_from_event(l: OmniEventIndex.Listener, ctx: RefCounted) -> void:
+	# 事件动作：将某个目标 buff 层数设定为指定值
+	if l.action_stack_buff_id == "":
+		return
+	if not ctx.has_meta("runtime"):
+		return
+	var rt: Variant = ctx.get_meta("runtime")
+	if typeof(rt) != TYPE_DICTIONARY:
+		return
+	var runtime: Dictionary = rt
+	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
+	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
+	var target_eid := _resolve_scope_entity_id(l.scope, ctx)
+	if target_eid < 0:
+		return
+	var tstats: OmniStatsComponent = stats_by_entity.get(target_eid, null)
+	var tbuffs: OmniBuffCore = buff_by_entity.get(target_eid, null)
+	if tstats == null or tbuffs == null:
+		return
+	tbuffs.set_stacks_by_buff_id(tstats, l.action_stack_buff_id, int(l.action_stack_value), int(l.action_stack_min), int(l.action_stack_max))
 
 func _event_seed(ctx: RefCounted, inst_id: int) -> int:
 	## 生成一个稳定 seed（用于 CHANCE_APPLY_BUFF 的伪随机）
