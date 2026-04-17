@@ -3,6 +3,14 @@
   "generated_at_unix": 0,
   "skills": [
     {
+      "id": "act_demo_heal",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_demo_heal.json",
+      "name": "Demo Heal",
+      "tags": ["HEAL"],
+      "mtime_unix": 0
+    },
+    {
       "id": "act_demo_single",
       "type": "active",
       "path": "res://addons/turn_skill_system/data/skills/active/act_demo_single.json",

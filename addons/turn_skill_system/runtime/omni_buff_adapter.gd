@@ -118,3 +118,72 @@ func simulate_apply_buff(target_unit, buff_id: String, source_unit) -> Dictionar
 
 func simulate_remove_buff(target_unit, buff_id: String, source_unit, remove_scope := "ALL") -> Dictionary:
 	return {"kind": "remove_buff", "buff_id": buff_id, "target_id": int(target_unit.entity_id), "source_id": int(source_unit.entity_id), "remove_scope": remove_scope}
+
+func heal(caster, target, amount: float, ctx: Dictionary) -> Dictionary:
+	var turn_index := int(ctx.get("turn_index", 0))
+	var roll_key := int(ctx.get("roll_key", 0))
+	var skill_id_int := int(ctx.get("skill_id_int", -1))
+	var tags_mask := int(ctx.get("tags_mask", 0))
+	
+	# 如果 omnibuff 提供了 heal 管线，这里优先调用
+	if pipe != null and pipe.has_method("heal"):
+		# 假设存在类似于 deal_damage 的签名
+		var dctx = pipe.heal(
+			caster.stats,
+			target.stats,
+			caster.buffs,
+			target.buffs,
+			ds,
+			amount,
+			replay,
+			turn_index,
+			tags_mask,
+			runtime_dict,
+			roll_key,
+			skill_id_int
+		)
+		return {"ok": true, "final_heal": float(dctx.get("final_heal", amount)), "meta": {"used": "pipe.heal"}}
+	
+	# 若无，则使用 heal_v1 最小一致性实现
+	if enums_rt == null or ds == null or target.stats == null:
+		return {"ok": false, "error": "omnibuff_not_initialized"}
+		
+	var hp_id := int(ds.stat_id_to_int.get("HP", -1))
+	if hp_id < 0:
+		return {"ok": false, "error": "missing_hp_stat"}
+		
+	var max_hp_id := int(ds.stat_id_to_int.get("MAX_HP", -1))
+	var max_hp := 99999.0
+	if max_hp_id >= 0:
+		max_hp = target.stats.get_final(max_hp_id)
+		
+	var current_hp := float(target.stats.get_final(hp_id))
+	var final_heal := amount
+	
+	if current_hp + final_heal > max_hp:
+		final_heal = max_hp - current_hp
+		if final_heal < 0:
+			final_heal = 0
+			
+	if final_heal > 0:
+		target.stats.add_base(hp_id, final_heal)
+		
+	if replay != null:
+		if replay.has_method("push_heal_trace"):
+			replay.push_heal_trace({
+				"turn_index": turn_index,
+				"target_id": int(target.entity_id),
+				"source_id": int(caster.entity_id),
+				"amount": final_heal,
+				"skill_id_int": skill_id_int
+			})
+		elif replay.has_method("push_trace"):
+			replay.push_trace("HEAL", {
+				"turn_index": turn_index,
+				"target_id": int(target.entity_id),
+				"source_id": int(caster.entity_id),
+				"amount": final_heal,
+				"skill_id_int": skill_id_int
+			})
+		
+	return {"ok": true, "final_heal": final_heal, "meta": {"used": "heal_v1", "original_amount": amount}}

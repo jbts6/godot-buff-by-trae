@@ -34,13 +34,24 @@ func apply(effect: Dictionary, ctx: Dictionary, simulation: bool) -> Dictionary:
 	if simulation:
 		return {"ok": true, "kind": "heal", "value": amount, "predicted": true, "meta": {"amount": amount}}
 
-	# 最小实现：demo 中直接修改 target.stats（若你的 StatsComponent 不支持 set_base/modify，这里后续可扩展）
-	# 现阶段只返回结果，不强制落地，以免破坏 omnibuff 统计口径。
+	var final_amount = amount
+	var meta = {"amount": amount}
+
+	var omnibuff = ctx.get("omnibuff")
+	if omnibuff != null and omnibuff.has_method("heal"):
+		var hr: Dictionary = omnibuff.heal(caster, target, amount, ctx)
+		if hr.get("ok", false):
+			final_amount = float(hr.get("final_heal", amount))
+			meta = hr.get("meta", {})
+		else:
+			return {"ok": false, "error": hr.get("error", "omnibuff_heal_failed")}
+
 	if event_bus != null:
 		event_bus.emit_event(EventNames.AFTER_HEAL, {
 			"skill_id": ctx.get("skill_id", ""),
 			"caster_id": int(caster.entity_id),
 			"target_id": int(target.entity_id),
-			"amount": amount,
+			"amount": final_amount,
 		})
-	return {"ok": true, "kind": "heal", "value": amount, "meta": {"amount": amount}}
+
+	return {"ok": true, "kind": "heal", "value": final_amount, "meta": meta}

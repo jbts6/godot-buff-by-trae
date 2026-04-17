@@ -1,0 +1,19 @@
+{
+  "id": "act_demo_heal",
+  "version": 1,
+  "type": "active",
+  "name": "Demo Heal",
+  "description": "Heals the target for 20 HP.",
+  "targeting": {
+    "rule": "single_cell",
+    "camp": "ally"
+  },
+  "on_hit": [
+    {
+      "kind": "heal",
+      "params": {
+        "amount": 20
+      }
+    }
+  ]
+}
