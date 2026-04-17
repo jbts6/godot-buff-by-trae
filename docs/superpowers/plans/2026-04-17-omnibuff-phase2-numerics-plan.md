@@ -4,7 +4,7 @@
 
 **Goal:** 实现 Phase 2 数值表达升级：① stat_defs 派生/转换属性（derived）；② 明确 bucket/phase 管线并保持旧语义；③ 曲线（curve）最小集（DR/EXP/LOG）；④ validators + tests 完整覆盖。
 
-**Architecture:** 扩展 `stat_defs.json` 协议；在 `DatasetCompiler` 把派生规则编译为依赖图与拓扑序写入 `OmniCompiledDataset`；`OmniStatsCore` 增加 `computed_base` 并实现 dirty 传播与派生重算；曲线在 POST_FINAL 阶段应用；最后以 GUT tests 回归与新增覆盖验收。
+**Architecture:** 扩展 `stat_defs.json` 协议；在 `DatasetCompiler` 把派生规则编译为依赖图与拓扑序写入 `OmniCompiledDataset`；`OmniStatsCore` 增加 `computed_base` 并实现 dirty 传播与派生重算；曲线在 POST_FINAL 阶段应用；同时提供 `get_breakdown()` 产出 base/bonus/final 给属性面板 UI；最后以 GUT tests 回归与新增覆盖验收。
 
 **Tech Stack:** Godot 4.x / GDScript / GUT / OmniBuff runtime。
 
@@ -23,6 +23,7 @@
 
 **Runtime**
 - Modify: `godot-buff/addons/omnibuff/runtime/core/stats_core.gd`
+- Modify: `godot-buff/addons/omnibuff/runtime/components/stats_component.gd`
 
 **Tests**
 - Create: `godot-buff/addons/omnibuff/tests/rpg/test_phase2_numerics_derived_and_buckets.gd`
@@ -303,6 +304,49 @@ git -C godot-buff commit -m "feat(stats): computed_base and derived dirty propag
 
 ---
 
+## Task 4.5：StatsComponent/StatsCore 提供 base/bonus/final（属性面板）
+
+**Files:**
+- Modify: `godot-buff/addons/omnibuff/runtime/core/stats_core.gd`
+- Modify: `godot-buff/addons/omnibuff/runtime/components/stats_component.gd`
+
+- [ ] **Step 1: StatsCore 增加 get_breakdown(stat_id)**
+
+在 `OmniStatsCore` 增加：
+
+```gdscript
+func get_breakdown(stat_id: int) -> Dictionary:
+	# 确保 final 已刷新
+	var final_v := get_final(stat_id)
+	# base = base_values + computed_base（computed_base 由 Phase2 derived 维护）
+	var base_v := float(base_values[stat_id])
+	if computed_base.size() > 0:
+		base_v += float(computed_base[stat_id])
+	return {
+		"base": base_v,
+		"final": final_v,
+		"bonus": final_v - base_v
+	}
+```
+
+> 备注：更细的 flat/pct/override/final_add/curve/clamp breakdown 可在后续迭代补齐；本轮只保证 UI 需要的 base/bonus/final。
+
+- [ ] **Step 2: StatsComponent 增加 get_breakdown(stat_id)**
+
+```gdscript
+func get_breakdown(stat_id: int) -> Dictionary:
+	return core.get_breakdown(stat_id)
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git -C godot-buff add addons/omnibuff/runtime/core/stats_core.gd addons/omnibuff/runtime/components/stats_component.gd
+git -C godot-buff commit -m "feat(stats): expose base/bonus/final breakdown"
+```
+
+---
+
 ## Task 5：曲线（curve）最小集实现（DR/EXP/LOG）
 
 **Files:**
@@ -384,6 +428,11 @@ func test_phase2_linear_derived_str_to_hp() -> void:
 	e["stats"].add_base(str, 5.0) # STR +=5
 	var hp2 := float(e["stats"].get_final(hp))
 	assert_true(hp2 > 100.0, "HP should increase after STR changes via derived")
+
+	var bd: Dictionary = e["stats"].get_breakdown(hp)
+	assert_true(bd.has("base") and bd.has("bonus") and bd.has("final"))
+	assert_true(float(bd["final"]) == hp2)
+	assert_true(float(bd["bonus"]) == float(bd["final"]) - float(bd["base"]))
 ```
 
 - [ ] **Step 2: Curves 测试**
@@ -449,4 +498,3 @@ git -C godot-buff commit -m "testdata(phase2): add derived and curve stat defs"
 
 - [ ] 在 Godot 编辑器里运行 GUT：确保新增 Phase2 tests 通过
 - [ ] 回归 `test_stat_percent_layers.gd` / `test_stat_clamp.gd` 等既有 tests 仍通过
-
