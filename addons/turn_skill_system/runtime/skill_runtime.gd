@@ -282,6 +282,18 @@ static func _fail(simulation: bool, skill_id: String, caster, errors: Array, eve
 static func _safe_id(u) -> int:
 	if u == null:
 		return -1
-	if u.has_property("entity_id"):
-		return int(u.entity_id)
+	if _has_property(u, "entity_id"):
+		return int(u.get("entity_id"))
 	return -1
+
+
+static func _has_property(obj, prop_name: String) -> bool:
+	# Godot 4：RefCounted/Object 没有 has_property()，用 get_property_list() 判定
+	if obj == null:
+		return false
+	if not (obj is Object):
+		return false
+	for p in obj.get_property_list():
+		if String(p.get("name", "")) == prop_name:
+			return true
+	return false

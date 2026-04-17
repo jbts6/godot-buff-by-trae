@@ -89,7 +89,18 @@ static func _lookup_stat(ctx: Dictionary, who: String, stat: String) -> float:
 		var u = ctx[unit_key]
 		if u.has_method("get_stat"):
 			return float(u.get_stat(stat))
-		if u.has_property("stats") and u.stats != null and u.stats.has_method("get_final"):
+		if _has_property(u, "stats") and u.stats != null and u.stats.has_method("get_final"):
 			# 若上层提供了 ds 与 stat_id，可在 ctx 里放一个映射（扩展点）。
 			pass
 	return 0.0
+
+
+static func _has_property(obj, prop_name: String) -> bool:
+	if obj == null:
+		return false
+	if not (obj is Object):
+		return false
+	for p in obj.get_property_list():
+		if String(p.get("name", "")) == prop_name:
+			return true
+	return false

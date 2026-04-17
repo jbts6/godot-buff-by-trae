@@ -48,9 +48,20 @@ static func _is_dead(u) -> bool:
 	# demo/最小契约：优先读 u.is_dead，否则用 stats.HP <= 0
 	if u.has_method("is_dead"):
 		return bool(u.is_dead())
-	if u.has_property("is_dead"):
-		return bool(u.is_dead)
-	if u.has_property("stats") and u.stats != null and u.stats.has_method("get_final"):
+	if _has_property(u, "is_dead"):
+		return bool(u.get("is_dead"))
+	if _has_property(u, "stats") and u.stats != null and u.stats.has_method("get_final"):
 		# 这里无法拿到 ds.stat_id("HP")，因此仅作为扩展点
 		return false
+	return false
+
+
+static func _has_property(obj, prop_name: String) -> bool:
+	if obj == null:
+		return false
+	if not (obj is Object):
+		return false
+	for p in obj.get_property_list():
+		if String(p.get("name", "")) == prop_name:
+			return true
 	return false
