@@ -238,7 +238,9 @@ static func _get_runtime(extra: Dictionary) -> Dictionary:
 	var effects := EffectRegistry.new()
 	effects.register_defaults()
 	var omnibuff := OmniBuffAdapter.new()
-	var grid := Grid.new()
+	var grid = extra.get("grid", null)
+	if grid == null:
+		grid = Grid.new()
 	return {
 		"db": db,
 		"event_bus": event_bus,
