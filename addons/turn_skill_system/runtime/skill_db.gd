@@ -17,7 +17,8 @@ func reload_index() -> Dictionary:
 	if typeof(r.get("data")) != TYPE_DICTIONARY:
 		return {"ok": false, "errors": ["index_invalid_json"], "path": INDEX_PATH}
 
-	var skills := r.get("data", {}).get("skills", [])
+	var data: Dictionary = r.get("data", {})
+	var skills: Array = data.get("skills", [])
 	if typeof(skills) != TYPE_ARRAY:
 		return {"ok": false, "errors": ["index_missing_skills_array"], "path": INDEX_PATH}
 
