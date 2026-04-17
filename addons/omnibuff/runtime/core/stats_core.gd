@@ -16,6 +16,10 @@ var ds: OmniCompiledDataset
 ## 基础值（base stat），长度=stat_count
 var base_values: PackedFloat32Array
 
+## Phase 2：派生/转换属性叠加到 base 的“额外 base”
+## - 最终 base = base_values + computed_base
+var computed_base: PackedFloat32Array
+
 ## 最终值缓存（final stat snapshot），长度=stat_count
 var final_values: PackedFloat32Array
 
@@ -36,11 +40,14 @@ func _init(dataset: OmniCompiledDataset) -> void:
 	base_values.resize(n)
 	final_values = PackedFloat32Array()
 	final_values.resize(n)
+	computed_base = PackedFloat32Array()
+	computed_base.resize(n)
 	dirty = PackedByteArray()
 	dirty.resize(n)
 	modifiers_by_stat.resize(n)
 	for i in range(n):
 		base_values[i] = float(ds.stat_defs[i].get("default", 0.0))
+		computed_base[i] = 0.0
 		final_values[i] = base_values[i]
 		dirty[i] = 0
 		modifiers_by_stat[i] = []
@@ -48,21 +55,58 @@ func _init(dataset: OmniCompiledDataset) -> void:
 func set_base(stat_id: int, v: float) -> void:
 	# 设置基础值（会使该stat缓存失效）
 	base_values[stat_id] = v
-	dirty[stat_id] = 1
+	mark_dirty(stat_id)
 
 func add_base(stat_id: int, dv: float) -> void:
 	# 增量修改基础值（例如扣血/加盾/成长变化）
 	base_values[stat_id] += dv
-	dirty[stat_id] = 1
+	mark_dirty(stat_id)
 
 func mark_dirty(stat_id: int) -> void:
 	# 由 BuffCore/外部系统调用：表示该stat受影响需要重算
 	dirty[stat_id] = 1
+	# Phase 2：dirty 传播到依赖该 stat 的派生属性
+	if ds == null:
+		return
+	if ds.derived_dependents_by_stat.size() == 0:
+		return
+	if stat_id < 0 or stat_id >= ds.derived_dependents_by_stat.size():
+		return
+	var deps: PackedInt32Array = ds.derived_dependents_by_stat[stat_id]
+	for sid in deps:
+		dirty[int(sid)] = 1
+
+
+func _recompute_computed_base_for(stat_id: int) -> void:
+	# Phase 2：根据 derived 定义重算 computed_base[stat_id]
+	if ds == null:
+		computed_base[stat_id] = 0.0
+		return
+	if ds.derived_defs_by_stat.size() == 0:
+		computed_base[stat_id] = 0.0
+		return
+	if stat_id < 0 or stat_id >= ds.derived_defs_by_stat.size():
+		computed_base[stat_id] = 0.0
+		return
+	var d: Dictionary = ds.derived_defs_by_stat[stat_id]
+	if d.is_empty():
+		computed_base[stat_id] = 0.0
+		return
+	var dt := String(d.get("type", "")).to_upper()
+	if dt == "LINEAR":
+		var from_name := String(d.get("from", ""))
+		var from_id := int(ds.stat_id(from_name))
+		var ratio := float(d.get("ratio", 0.0))
+		if from_id >= 0 and ratio != 0.0:
+			computed_base[stat_id] = get_final(from_id) * ratio
+			return
+	computed_base[stat_id] = 0.0
 
 func recompute(stat_id: int) -> void:
 	# 重算一个 stat 的最终值
 	# 注意：这里遍历的是“该 stat 的 modifier 聚合列表”，不是遍历全部 BuffInstance
-	var base := base_values[stat_id]
+	_recompute_computed_base_for(stat_id)
+	var base := base_values[stat_id] + computed_base[stat_id]
 	var flat := 0.0
 	var pct_by_layer: Dictionary = {} # int -> float（percent layers）
 	var final_add := 0.0
