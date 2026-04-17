@@ -24,4 +24,8 @@ echo "[GUT] Run tests..."
 # - res://addons/omnibuff/tests/rpg 下的大量用例
 # 且避免把 helpers/ 下的脚本当成测试扫描导致 warning，
 # 我们显式指定两次 -gdir，不开启 -ginclude_subdirs。
-"${GODOT_BIN}" --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://addons/omnibuff/tests/base -gdir=res://addons/omnibuff/tests/rpg -gexit
+"${GODOT_BIN}" --headless -s res://addons/gut/gut_cmdln.gd \
+  -gdir=res://addons/omnibuff/tests/base \
+  -gdir=res://addons/omnibuff/tests/rpg \
+  -gdir=res://addons/turn_skill_system/tests \
+  -gexit
