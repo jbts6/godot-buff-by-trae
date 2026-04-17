@@ -106,11 +106,6 @@ func _ready() -> void:
 	_reset_state()
 
 
-func _bb_escape(s: String) -> String:
-	# RichTextLabel bbcode 最小转义（避免日志中的 '[' 被当成 bbcode）
-	return s.replace("[", "\\[")
-
-
 func _is_error_line(msg: String) -> bool:
 	for m in ERROR_MATCHERS:
 		var d := m as Dictionary
@@ -146,12 +141,13 @@ func _push_error(msg: String, line_index: int) -> void:
 func _log(msg: String) -> void:
 	var line_index := log_box.get_line_count()
 	_log_buffer += msg + "\n"
-	var safe := _bb_escape(msg)
 	if _is_error_line(msg):
-		log_box.append_bbcode("[color=#ff4d4d]" + safe + "[/color]\n")
+		log_box.push_color(Color(1.0, 0.3, 0.3))
+		log_box.add_text(msg + "\n")
+		log_box.pop()
 		_push_error(msg, line_index)
 	else:
-		log_box.append_bbcode(safe + "\n")
+		log_box.add_text(msg + "\n")
 	log_box.scroll_to_line(log_box.get_line_count())
 
 
