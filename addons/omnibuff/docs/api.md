@@ -142,6 +142,11 @@ Phase 1 wrap-up 增加：
 
 常见配方见：`schema_reference.md`。
 
+### 技能系统接入建议（Skill Integration）
+
+关于 `skill_id/damage_type/element/tags_mask/roll_key` 的推荐约定（多段/多目标/追加伤害的确定性组织方式）：
+- `integrator_guide.md#9-技能系统接入建议skill_iddamage_typeelementtags_maskroll_key`
+
 ---
 
 ## 1. Dataset 加载链路（manifest → enums → sources → validate → compile）

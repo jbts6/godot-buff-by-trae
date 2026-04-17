@@ -13,6 +13,7 @@
 - [6. 事件与动作最佳实践（Phase 1）](#6-事件与动作最佳实践phase-1)
 - [7. DOT 与回合推进](#7-dot-与回合推进)
 - [8. 推荐调试工作流（Demo + HUD）](#8-推荐调试工作流demo--hud)
+- [9. 技能系统接入建议（skill_id/damage_type/element/tags_mask/roll_key）](#9-技能系统接入建议skill_iddamage_typeelementtags_maskroll_key)
 
 ---
 
@@ -204,3 +205,159 @@ print("HP base=", bd["base"], " bonus=", bd["bonus"], " final=", bd["final"])
    - `StatMods`：某个 stat 的 modifier 贡献项（可反查 buff_id）
 4) 用“复制日志 / 复制 dump”把信息贴到 issue 或发给同事
 
+---
+
+## 9. 技能系统接入建议（skill_id/damage_type/element/tags_mask/roll_key）
+
+> 本章目标：给技能系统一套“稳定注入 DamageContext 字段”的约定，确保：
+> - filters（skill_id/element/damage_type）能稳定命中
+> - 多段/多目标/追加伤害的命中/暴击与概率行为可复盘（roll_key 确定性）
+> - tags_mask 能用于筛选与回放识别（尤其 BONUS_DAMAGE）
+
+### 9.1 建议你在技能系统里维护的“编译表”（Skill Compile Table）
+
+建议为每个技能（或每个 skill entry）维护一份“编译后”的运行时结构（伪结构）：
+
+- `skill_id: int`
+  - 用于 `filters.skill_id`
+  - 建议：用你自己的技能表索引（稳定 int），不要直接用字符串
+- `damage_type: int`
+  - 用于 `filters.damage_type_any`
+  - 建议：与 `enums.json` 的 damage_type 代码对齐（例如 0=PHYSICAL，1=MAGIC，2=TRUE）
+- `element: int`
+  - 用于 `filters.element_any`
+  - 建议：与 `enums.json` 的 element 代码对齐（例如 0=FIRE，1=ICE）
+- `tags: Array[String]`
+  - 运行时用 `enums_rt.tag_mask(tags)` 生成 `tags_mask`
+  - 建议：默认包含 `"SKILL"`，若是普攻包含 `"ATTACK"`；若是额外结算包含 `"BONUS_DAMAGE"`
+
+> 注意：tag 不是“随便写字符串”，它依赖 enums.json 的 tag 表；推荐把常用 tag 做成常量列表并在数据集里统一维护。
+
+### 9.2 roll_key：确定性 RNG 的“唯一键”（强烈建议遵守）
+
+OmniDamagePipeline 的命中/暴击采用确定性 RNG：
+- seed 由 `turn_index + roll_key + attacker_id + defender_id + salt` 组合而来
+- 因此：**同一回合内每个独立结算点必须使用唯一 roll_key**
+
+推荐模板（纯函数，不依赖随机数）：
+
+```gdscript
+func make_roll_key(cast_seq: int, target_index: int, hit_index: int, kind: int) -> int:
+	# kind: 0=base_hit, 1=bonus, 2=dot_trigger, 3=proc
+	# cast_seq: 本场战斗内“施法序号”（同一施法实例内保持一致）
+	# target_index: 目标在稳定排序列表中的索引（eid 升序）
+	# hit_index: 多段中的段序号（从 0 开始）
+	return cast_seq * 100000 + kind * 10000 + target_index * 100 + hit_index
+```
+
+关键约束：
+- `targets` 必须稳定排序（例如 eid 升序），否则 target_index 会漂移，导致复盘不一致
+- bonus/proc 需要与 base hit 使用不同 kind（或不同 offset），避免 roll_key 冲突
+
+### 9.3 多段/多目标（ALL）的调用模板
+
+建议策略：
+- 多目标：先对目标 eid 升序排序
+- 多段：每段一次 `deal_damage_v1` / `deal_damage` 调用
+- 每次调用都明确传入：`roll_key/skill_id/damage_type/element/tags_mask`
+
+伪代码：
+
+```gdscript
+targets.sort()
+for ti in range(targets.size()):
+	for hi in range(hit_count):
+		var rk := make_roll_key(cast_seq, ti, hi, 0) # base hit
+		pipe.deal_damage_v1(attacker_stats, target_stats, atk_buffs, tgt_buffs, ds,
+			base_damage_per_hit[hi], replay, turn_index, tags_mask, runtime,
+			rk, skill_id, damage_type, element
+		)
+```
+
+### 9.4 BONUS_DAMAGE 与不递归 guard（两种来源都要注意）
+
+#### 情况 A：由 Buff action `BONUS_DAMAGE` 触发（推荐数据驱动）
+
+必须配置：
+- `filters.require_not_bonus_damage=true`
+
+原因：
+- BONUS_DAMAGE 的内部实现会再走一次 DamagePipeline；若不加 guard 会无限递归
+
+#### 情况 B：技能脚本直接调用 `deal_damage(..., is_bonus_damage=true)` 作为额外伤害
+
+建议：
+- `is_bonus_damage=true`
+- `tags_mask` 里包含 `BONUS_DAMAGE`
+- `roll_key` 使用 `kind=1`（bonus namespace）
+
+这样可以让：
+- filters.require_not_bonus_damage 生效（避免“额外伤害触发额外伤害”）
+- replay 里能用 tags_mask 区分 bonus hit（而非依赖 trace 顺序）
+
+### 9.5 完整示例：多目标 + 三段 + 第二段额外 bonus hit
+
+> 说明：
+> - 这是“技能系统侧”的推荐组织方式，不依赖任何新 runtime 类型。
+> - 目标排序稳定（eid 升序）。
+> - 第二段在命中时额外结算一次 bonus hit（演示 is_bonus_damage 与 roll_key namespace）。
+
+```gdscript
+func cast_triple_slash_all(
+	caster_id: int,
+	target_ids: Array[int],
+	cast_seq: int,
+	turn_index: int,
+	skill_id: int,
+	damage_type: int,
+	element: int,
+	enums_rt: RefCounted,
+	ds: RefCounted,
+	pipe: RefCounted,
+	replay: RefCounted,
+	runtime: Dictionary
+) -> void:
+	# 1) 稳定排序（保证确定性）
+	target_ids.sort()
+
+	# 2) 计算 tags_mask（建议 SKILL + 其它 tag）
+	var base_tags_mask := int(enums_rt.tag_mask(["SKILL"]))
+	var bonus_tags_mask := int(enums_rt.tag_mask(["SKILL", "BONUS_DAMAGE"]))
+
+	# 3) 多段伤害配置（示例）
+	var hits := [8.0, 8.0, 12.0] # 三段基础伤害
+
+	for ti in range(target_ids.size()):
+		var tid := int(target_ids[ti])
+		var atk_stats = runtime["stats_by_entity"].get(caster_id, null)
+		var atk_buffs = runtime["buff_by_entity"].get(caster_id, null)
+		var tgt_stats = runtime["stats_by_entity"].get(tid, null)
+		var tgt_buffs = runtime["buff_by_entity"].get(tid, null)
+		if atk_stats == null or atk_buffs == null or tgt_stats == null or tgt_buffs == null:
+			continue
+
+		for hi in range(hits.size()):
+			var rk := make_roll_key(cast_seq, ti, hi, 0) # base hit
+			pipe.deal_damage(
+				atk_stats, tgt_stats,
+				atk_buffs, tgt_buffs,
+				ds, float(hits[hi]), replay,
+				turn_index, base_tags_mask, runtime,
+				rk, skill_id, damage_type, element,
+				false # is_bonus_damage
+			)
+
+			# 第二段：额外触发一次 bonus hit（示例：30% 追加伤害）
+			if hi == 1:
+				var bonus_rk := make_roll_key(cast_seq, ti, hi, 1) # kind=1 (bonus)
+				pipe.deal_damage(
+					atk_stats, tgt_stats,
+					atk_buffs, tgt_buffs,
+					ds, float(hits[hi]) * 0.3, replay,
+					turn_index, bonus_tags_mask, runtime,
+					bonus_rk, skill_id, damage_type, element,
+					true # is_bonus_damage
+				)
+```
+
+> 上面示例如果你希望“bonus 必须基于最终伤害”而不是 base_damage*ratio，建议使用数据驱动 BONUS_DAMAGE（见 schema_reference recipes）。
