@@ -41,6 +41,7 @@ var _max_mp_id: int = -1
 var _rage_id: int = -1
 var _max_rage_id: int = -1
 var _debug_pending_ratio_sync: bool = false
+var _did_cast_max_hp_up: bool = false
 
 func _ready() -> void:
 	print("--- TurnManager Demo Start ---")
@@ -171,20 +172,15 @@ func _ready() -> void:
 	context.event_bus.event_emitted.connect(func(event_name, data):
 		if event_name in ["action_started", "action_finished", "unit_died"]:
 			print("[Demo Event] ", event_name, " ", data)
-		# 演示：在 entity 1 的第一次行动结算完成时，模拟一个“提高 MAX_HP 的技能/BUFF”。
-		# 由于 TurnManager 会在 ACTION_FINISHED 之后调用 sync_resources_keep_ratio(actor)，
-		# 因此我们在此处修改 MAX_HP，就会被同回合的同步逻辑捕捉到，保证 HP 百分比保持不变。
+		# 演示：改为“数据驱动”——entity 1 在 turn 1 施放 act_demo_max_hp_up 给自己加 MAX_HP+30%（3回合，可刷新），
+		# TurnManager 会在 ACTION_FINISHED 后自动同步 HP，保持百分比不变。
 		if event_name == "action_finished":
 			var actor_id = int(data.get("actor_id", -1))
 			var turn_index = int(data.get("turn_index", -1))
 			if actor_id == 1 and turn_index == 1 and _max_hp_id >= 0 and _hp_id >= 0:
 				var hp_before = float(u1.stats.get_final(_hp_id))
 				var max_before = float(u1.stats.get_final(_max_hp_id))
-				print("[Demo] Before MAX_HP buff (action_finished): entity=1 HP/MAX_HP = %s/%s" % [str(hp_before), str(max_before)])
-				u1.stats.add_base(_max_hp_id, 100.0) # MAX_HP 100 -> 200（保持 50% 的期望：HP 50 -> 100）
-				var hp_mid = float(u1.stats.get_final(_hp_id))
-				var max_mid = float(u1.stats.get_final(_max_hp_id))
-				print("[Demo] MAX_HP increased (before sync call): entity=1 HP/MAX_HP = %s/%s" % [str(hp_mid), str(max_mid)])
+				print("[Demo] After MAX_HP buff (action_finished): entity=1 HP/MAX_HP = %s/%s" % [str(hp_before), str(max_before)])
 				_debug_pending_ratio_sync = true
 	)
 	
@@ -198,6 +194,14 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 		return
 	print("[Demo] Action requested for entity %d, submitting command..." % actor.entity_id)
 	
+	# entity 1 的第 1 回合：对自己施放 MAX_HP +30%（3回合，可刷新）
+	if int(actor.get("entity_id")) == 1 and not _did_cast_max_hp_up:
+		_did_cast_max_hp_up = true
+		var self_cell = actor.get("cell")
+		var cmd0 = TurnCommand.new("act_demo_max_hp_up", Vector2i(self_cell))
+		turn_manager.submit_player_command(cmd0)
+		return
+
 	# Find an alive enemy
 	var target_cell = Vector2i.ZERO
 	var skill_rt = get_node("/root/TurnSkillRuntime")
