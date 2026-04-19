@@ -2,6 +2,9 @@ extends Node
 
 const OmniBuff = preload("res://addons/omnibuff/runtime/omnibuff_singleton.gd")
 const BattleLogger = preload("res://addons/turn_manager/runtime/battle_logger.gd")
+const BattleNarrator = preload("res://addons/turn_manager/runtime/battle_narrator.gd")
+
+@onready var battle_log_panel: BattleLogPanel = %BattleLogPanel
 
 class DemoBattleUnit extends Node:
 	var entity_id: int
@@ -48,6 +51,7 @@ var _rage_id: int = -1
 var _max_rage_id: int = -1
 var _speed_id: int = -1
 var _logger: BattleLogger
+var _narrator: BattleNarrator
 
 func _ready() -> void:
 	_logger = BattleLogger.new()
@@ -129,6 +133,20 @@ func _ready() -> void:
 	context.dataset = ds
 	context.enums_rt = enums_rt
 	context.runtime_dict = runtime_dict
+
+	# 6.1 语义化播报（输出到面板；默认简洁，可切换详细）
+	_narrator = BattleNarrator.new()
+	_narrator.bind(context.event_bus, skill_rt.grid, ds, skill_rt.db, runtime_dict, {
+		1: "主角",
+		2: "队友",
+		3: "Boss",
+		4: "随从",
+	}, {"detail_level": BattleNarrator.DETAIL_CONCISE})
+	if battle_log_panel != null:
+		battle_log_panel.set_narrator(_narrator)
+		_narrator.line_emitted.connect(func(bb: String, _meta: Dictionary):
+			battle_log_panel.append_line(bb)
+		)
 	
 	# 7. Connect signals
 	turn_manager.action_requested.connect(_on_action_requested)
