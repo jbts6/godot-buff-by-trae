@@ -115,7 +115,8 @@ func _ready() -> void:
 	skill_rt.grid.set_units(units)
 	skill_rt.omnibuff.setup(ds, enums_rt, runtime_dict)
 	# 注册被动与光环
-	skill_rt.passive_manager.register_unit_passives(hero, ["pas_hero_battle_haste"])
+	var hero_passives: Array[String] = ["pas_hero_battle_haste"]
+	skill_rt.passive_manager.register_unit_passives(hero, hero_passives)
 	skill_rt.aura_manager.register_aura(ally, "aur_ally_guard")
 	skill_rt.aura_manager.refresh_all()
 	
