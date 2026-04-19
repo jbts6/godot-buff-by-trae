@@ -135,6 +135,7 @@ func _ready() -> void:
 	turn_manager.turn_ended.connect(func(actor, index):
 		print("[Demo] Turn ended for entity %d (turn %d)" % [actor.entity_id, index])
 		_turns_elapsed += 1
+		_print_all_units_status("after_turn_%d" % index)
 		if _turns_elapsed >= _max_turns:
 			push_warning("[Demo] Reached max turns=%d, stopping battle to avoid infinite loop." % _max_turns)
 			turn_manager.stop_battle()
@@ -143,8 +144,10 @@ func _ready() -> void:
 	
 	# Subscribe to event bus to see actions
 	context.event_bus.event_emitted.connect(func(event_name, data):
-		if event_name in ["action_started", "action_finished", "unit_died"]:
+		if event_name in ["battle_started", "action_started", "action_finished", "unit_died"]:
 			print("[Demo Event] ", event_name, " ", data)
+		if event_name == "battle_started":
+			_print_all_units_status("battle_started")
 	)
 	
 	# 8. Start battle
@@ -175,6 +178,9 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 			cmd = TurnCommand.new("act_ally_basic", enemy_cell)
 	elif eid == 3:
 		# Boss：所有主动技能都在冷却；当全部在冷却时退化普攻
+		var cd_quake = int(turn_manager._get_skill_cooldown(eid, "act_boss_quake"))
+		var cd_crush = int(turn_manager._get_skill_cooldown(eid, "act_boss_crush"))
+		print("[Demo] Boss cooldowns: quake=%d, crush=%d" % [cd_quake, cd_crush])
 		var chosen = String(turn_manager._choose_skill_with_cooldown(eid, ["act_boss_quake", "act_boss_crush"], "act_boss_basic"))
 		cmd = TurnCommand.new(chosen, Vector2i(0, 0))
 	else:
@@ -276,3 +282,46 @@ func _pick_first_enemy_cell(actor: Node) -> Vector2i:
 	if t != null:
 		return Vector2i(t.get("cell"))
 	return Vector2i(0, 0)
+
+
+func _print_all_units_status(tag: String) -> void:
+	if not has_node("/root/TurnSkillRuntime"):
+		return
+	var skill_rt = get_node("/root/TurnSkillRuntime")
+	if skill_rt == null:
+		return
+	var lines: Array[String] = []
+	for u in skill_rt.grid._units:
+		if u == null:
+			continue
+		lines.append(_format_unit_status(u))
+	print("[Status] %s\n  %s" % [tag, "\n  ".join(lines)])
+
+
+func _format_unit_status(u: Node) -> String:
+	var eid = int(u.get("entity_id"))
+	var camp = String(u.get("camp"))
+	var st = u.get("stats")
+	var dead = (u.has_method("is_dead") and bool(u.call("is_dead")))
+	var hp = _get_stat_value(st, _hp_id)
+	var max_hp = _get_stat_value(st, _max_hp_id)
+	var mp = _get_stat_value(st, _mp_id)
+	var max_mp = _get_stat_value(st, _max_mp_id)
+	var spd = _get_stat_value(st, _speed_id)
+	var dead_s = dead ? " DEAD" : ""
+	return "eid=%d(%s)%s HP=%s/%s MP=%s/%s SPD=%s" % [
+		eid, camp, dead_s,
+		str(hp), str(max_hp),
+		str(mp), str(max_mp),
+		str(spd)
+	]
+
+
+func _get_stat_value(stats, stat_id: int) -> float:
+	if stats == null:
+		return 0.0
+	if stat_id < 0:
+		return 0.0
+	if not stats.has_method("get_final"):
+		return 0.0
+	return float(stats.get_final(stat_id))
