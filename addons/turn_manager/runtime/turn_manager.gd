@@ -465,6 +465,22 @@ func _build_turn_queue() -> void:
 			_turn_queue.append(u)
 			
 	_turn_queue.sort_custom(_sort_units)
+	if _context != null and _context.event_bus != null:
+		var order: Array = []
+		for u in _turn_queue:
+			if u == null:
+				continue
+			var spd = u.get_speed() if u.has_method("get_speed") else 0.0
+			order.append({
+				"eid": int(u.get("entity_id")),
+				"camp": String(u.get("camp")),
+				"speed": float(spd),
+			})
+		_context.event_bus.emit_event("turn_order_computed", {
+			"round_index": _round_index,
+			"turn_index": _turn_index,
+			"order": order,
+		})
 
 func _sort_units(a: Node, b: Node) -> bool:
 	var speed_a = a.get_speed() if a.has_method("get_speed") else 0.0
