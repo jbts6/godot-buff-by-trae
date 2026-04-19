@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 OmniBuffBootstrap="res://addons/omnibuff/omnibuff_bootstrap.gd"
+OmniBuff="*uid://bl8yrdx6miv75"
 
 [display]
 
@@ -28,7 +29,7 @@ window/stretch/scale=2.0
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omni_set_bonuses/plugin.cfg", "res://addons/omnibuff/plugin.cfg")
+enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/omni_set_bonuses/plugin.cfg", "res://addons/omnibuff/plugin.cfg", "res://addons/turn_manager/plugin.cfg")
 
 [physics]
 

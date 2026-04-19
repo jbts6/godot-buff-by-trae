@@ -30,9 +30,11 @@ func _init() -> void:
 		if script:
 			turn_component = script.new()
 
-	var pipeline_script = load("res://addons/omnibuff/runtime/components/damage_pipeline.gd")
-	if pipeline_script:
-		pipeline = pipeline_script.new()
+	var pipeline_path = "res://addons/omnibuff/runtime/components/damage_pipeline.gd"
+	if FileAccess.file_exists(pipeline_path):
+		var pipeline_script = load(pipeline_path)
+		if pipeline_script:
+			pipeline = pipeline_script.new()
 
 func build_from_autoload() -> void:
 	var root = Engine.get_main_loop().root

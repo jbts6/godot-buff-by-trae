@@ -9,18 +9,20 @@ class DummyUnit extends Node:
 	var camp: String
 	var cell: Vector2i
 	var speed: float
-	
-	func _init(p_id: int, p_camp: String, p_cell: Vector2i, p_speed: float) -> void:
-		entity_id = p_id
-		camp = p_camp
-		cell = p_cell
-		speed = p_speed
 		
 	func get_speed() -> float:
 		return speed
 		
 	func is_dead() -> bool:
 		return false
+
+func create_unit(p_id: int, p_camp: String, p_cell: Vector2i, p_speed: float) -> DummyUnit:
+	var u = DummyUnit.new()
+	u.entity_id = p_id
+	u.camp = p_camp
+	u.cell = p_cell
+	u.speed = p_speed
+	return u
 
 class DummyEventBus:
 	var events = []
@@ -44,15 +46,21 @@ func test_event_sequence() -> void:
 	ctx.event_bus = DummyEventBus.new()
 	ctx.turn_component = DummyTurnComponent.new()
 	ctx.grid = DummyGrid.new()
-	ctx.dataset = RefCounted.new()
-	ctx.enums_rt = RefCounted.new()
+	ctx.dataset = Resource.new()
+	ctx.enums_rt = Resource.new()
 	ctx.omnibuff_adapter = RefCounted.new()
 	
-	var u1 = DummyUnit.new(1, "ally", Vector2i(0, 0), 10.0)
-	var u2 = DummyUnit.new(2, "enemy", Vector2i(1, 0), 10.0)
+	var u1 = create_unit(1, "ally", Vector2i(0, 0), 10.0)
+	var u2 = create_unit(2, "enemy", Vector2i(1, 0), 10.0)
 	
-	tm.setup(ctx, [u1, u2])
+	var units: Array[Node] = []
+	units.assign([u1, u2])
+	tm.setup(ctx, units)
 	tm.start_battle()
+	
+	# Wait for state machine to advance to REQUEST_ACTION
+	await get_tree().process_frame
+	await get_tree().process_frame
 	
 	# After start_battle, state should be REQUEST_ACTION for u1
 	assert_eq(tm.get_state(), TurnManager.State.REQUEST_ACTION)
