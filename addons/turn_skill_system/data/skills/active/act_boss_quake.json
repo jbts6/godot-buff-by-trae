@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "act_boss_quake",
+  "type": "active",
+  "name": "Boss：毁灭震荡",
+  "desc": "对所有敌人造成物理伤害（AOE，冷却 4 回合）。",
+  "tags": ["AOE", "BOSS_SKILL"],
+  "cooldown_turns": 4,
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "ALL",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "20 + a.ATK * 1.0",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

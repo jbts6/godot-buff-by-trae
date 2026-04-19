@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "act_minion_stab",
+  "type": "active",
+  "name": "随从：穿刺",
+  "desc": "对敌方第一个目标造成单体物理伤害。",
+  "tags": ["BASIC_ATTACK"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "8 + a.ATK * 0.9",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

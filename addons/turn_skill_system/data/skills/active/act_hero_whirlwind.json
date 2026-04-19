@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "act_hero_whirlwind",
+  "type": "active",
+  "name": "主角：旋风斩",
+  "desc": "对所有敌人造成物理伤害（AOE，冷却 2 回合）。",
+  "tags": ["AOE"],
+  "cooldown_turns": 2,
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "ALL",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "10 + a.ATK * 0.7",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

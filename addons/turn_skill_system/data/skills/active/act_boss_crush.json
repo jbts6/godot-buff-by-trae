@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "act_boss_crush",
+  "type": "active",
+  "name": "Boss：粉碎重击",
+  "desc": "对敌方第一个目标造成高额物理伤害（冷却 2 回合）。",
+  "tags": ["BOSS_SKILL"],
+  "cooldown_turns": 2,
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "30 + a.ATK * 1.4",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

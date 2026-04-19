@@ -35,6 +35,70 @@
       "mtime_unix": 0
     },
     {
+      "id": "act_hero_strike",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_hero_strike.json",
+      "name": "主角：斩击",
+      "tags": ["BASIC_ATTACK"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_hero_whirlwind",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_hero_whirlwind.json",
+      "name": "主角：旋风斩",
+      "tags": ["AOE"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_ally_heal",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_ally_heal.json",
+      "name": "队友：治疗",
+      "tags": ["HEAL"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_ally_basic",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_ally_basic.json",
+      "name": "队友：普攻",
+      "tags": ["BASIC_ATTACK"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_boss_crush",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_boss_crush.json",
+      "name": "Boss：粉碎重击",
+      "tags": ["BOSS_SKILL"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_boss_quake",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_boss_quake.json",
+      "name": "Boss：毁灭震荡",
+      "tags": ["AOE", "BOSS_SKILL"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_boss_basic",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_boss_basic.json",
+      "name": "Boss：普攻",
+      "tags": ["BASIC_ATTACK"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "act_minion_stab",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_minion_stab.json",
+      "name": "随从：穿刺",
+      "tags": ["BASIC_ATTACK"],
+      "mtime_unix": 0
+    },
+    {
       "id": "pas_demo_turn_start_buff",
       "type": "passive",
       "path": "res://addons/turn_skill_system/data/skills/passive/pas_demo_turn_start_buff.json",
@@ -55,6 +119,14 @@
       "type": "aura",
       "path": "res://addons/turn_skill_system/data/skills/aura/aur_demo_front_row_atk.json",
       "name": "示例：前排光环（加攻）",
+      "tags": ["BUFF"],
+      "mtime_unix": 0
+    },
+    {
+      "id": "aur_ally_guard",
+      "type": "aura",
+      "path": "res://addons/turn_skill_system/data/skills/aura/aur_ally_guard.json",
+      "name": "队友：守护光环",
       "tags": ["BUFF"],
       "mtime_unix": 0
     }

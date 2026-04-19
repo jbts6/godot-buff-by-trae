@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "id": "act_ally_heal",
+  "type": "active",
+  "name": "队友：治疗",
+  "desc": "为友军单体恢复生命值。",
+  "tags": ["HEAL"],
+  "targeting": {
+    "rule": "single_cell",
+    "camp": "ally"
+  },
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "heal",
+      "params": { "amount": 35 }
+    }
+  ]
+}
+

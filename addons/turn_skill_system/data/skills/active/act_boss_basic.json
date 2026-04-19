@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "act_boss_basic",
+  "type": "active",
+  "name": "Boss：普攻",
+  "desc": "当 Boss 的所有技能在冷却时使用的普攻（无冷却）。",
+  "tags": ["BASIC_ATTACK"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "10 + a.ATK * 0.9",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+
