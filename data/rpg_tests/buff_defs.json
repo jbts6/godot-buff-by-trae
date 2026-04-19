@@ -109,6 +109,18 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_hero_speed_flat_5_3t",
+	  "name": "主角：开战加速 SPEED+5（3回合，可刷新）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "SPEED", "op": "ADD", "phase": "FLAT", "priority": 100, "value": 5.0 }
+	  ],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_shield_50",
 	  "name": "测试：护盾+50",
 	  "buff_type": "EXPLICIT",
