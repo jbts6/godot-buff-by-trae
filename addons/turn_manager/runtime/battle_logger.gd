@@ -62,4 +62,3 @@ func _get_stat_value(stats, stat_id: int) -> float:
 	if not stats.has_method("get_final"):
 		return 0.0
 	return float(stats.get_final(stat_id))
-
