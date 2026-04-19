@@ -4,8 +4,9 @@ extends RefCounted
 ## 必需字段
 var grid: Object
 var event_bus: Object
-var dataset: Resource
-var enums_rt: Resource
+# OmniBuff 的编译产物/运行时映射是 RefCounted（不是 Resource）
+var dataset: RefCounted
+var enums_rt: RefCounted
 var runtime_dict: Dictionary
 var turn_component: Object
 var omnibuff_adapter: Object

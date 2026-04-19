@@ -15,7 +15,10 @@
 
 ### 推荐方法/字段
 - `get_speed() -> float`: 提供当前速度，用于每轮开始时重排。
-- `is_dead() -> bool` (或通过 `hp_stat_id` 自动推断死亡状态)。
+- `is_dead() -> bool`（强烈建议实现）：
+  - `TurnManager` 自身可以在缺失 `is_dead()` 时通过 `hp_stat_id + dataset.stat_id + stats.get_final()` 推断死亡。
+  - 但 **TurnSkillSystem 的 `Grid.get_first_enemy()` 无法访问 dataset**，它会依赖 unit 的 `is_dead()`（或 `is_dead` 字段）来跳过死亡单位。
+  - 因此若你使用 `targeting: "FIRST"`（例如 `act_demo_single`），为了避免一直选到已死目标导致战斗无法结束，**请务必给 unit 提供 `is_dead()` 或 `is_dead` 字段**。
 
 ## 2. BattleContext 构建模式
 
@@ -68,6 +71,6 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 
 可在 `addons/turn_manager/demo/demo_battle.tscn` 查看最小化调用流。
 - 该场景自动挂载 `TurnManager`。
-- 构建 2 个虚构单位。
-- 在 `action_requested` 回调中模拟玩家或 AI 提交了一次 `TurnCommand`（`"strike"`）。
+- 使用 `res://data/rpg_tests/manifest.json` 编译 OmniBuff 数据集，并构建 2v2 单位（注入 `stats/buffs`，初始化 HP/ATK）。
+- 在 `action_requested` 回调中自动提交 `TurnCommand`：施放 `act_demo_single`（来自 `res://addons/turn_skill_system/data/skills`）。
 - 启动场景后查看控制台打印的事件序列。
