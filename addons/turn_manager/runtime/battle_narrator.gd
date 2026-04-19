@@ -44,6 +44,10 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 	match String(event_name):
 		"battle_started":
 			_emit_text("战斗开始！", {"event": "battle_started"})
+		"buff_applied":
+			_emit_buff_applied(data)
+		"buff_removed":
+			_emit_buff_removed(data)
 		"turn_order_computed":
 			_emit_turn_order(data)
 		"turn_started":
@@ -65,6 +69,25 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 		_:
 			# 其它事件先不播报；后续会补充 buff_applied/buff_removed 等。
 			pass
+
+
+func _emit_buff_applied(data: Dictionary) -> void:
+	var caster_id = int(data.get("caster_id", -1))
+	var target_id = int(data.get("target_id", -1))
+	var buff_id = String(data.get("buff_id", ""))
+	var caster_name = _name_of(caster_id)
+	var target_name = _name_of(target_id)
+	var buff_name = _buff_name(buff_id)
+	if caster_id >= 0 and target_id >= 0 and caster_id != target_id:
+		_emit_text("%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name], {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id})
+	else:
+		_emit_text("%s 获得效果【%s】" % [target_name, buff_name], {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id})
+
+
+func _emit_buff_removed(data: Dictionary) -> void:
+	var target_id = int(data.get("target_id", -1))
+	var buff_id = String(data.get("buff_id", ""))
+	_emit_text("%s 失去效果【%s】" % [_name_of(target_id), _buff_name(buff_id)], {"event": "buff_removed", "target_id": target_id, "buff_id": buff_id})
 
 
 func _emit_turn_order(data: Dictionary) -> void:
@@ -160,6 +183,26 @@ func _skill_name(skill_id: String) -> String:
 	return skill_id
 
 
+func _buff_name(buff_id: String) -> String:
+	if buff_id == "":
+		return "?"
+	# 若 dataset 可反查 buff.name，则优先用 name；否则退化 buff_id
+	if _ds != null and "buff_defs" in _ds:
+		var defs_any: Variant = _ds.get("buff_defs")
+		if typeof(defs_any) == TYPE_ARRAY:
+			var defs: Array = defs_any
+			for d_any in defs:
+				if typeof(d_any) != TYPE_DICTIONARY:
+					continue
+				var d: Dictionary = d_any
+				if String(d.get("id", "")) == buff_id:
+					var n = String(d.get("name", ""))
+					if n != "":
+						return n
+					break
+	return buff_id
+
+
 func _get_hp_pair(entity_id: int) -> Vector2:
 	var hp_id = _stat_id("HP")
 	var max_hp_id = _stat_id("MAX_HP")
@@ -182,4 +225,3 @@ func _stat_id(name: String) -> int:
 func _get_stats(entity_id: int):
 	var stats_by_entity: Dictionary = _runtime_dict.get("stats_by_entity", {})
 	return stats_by_entity.get(entity_id, null)
-
