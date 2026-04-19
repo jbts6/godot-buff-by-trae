@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "id": "act_demo_max_hp_up",
+  "type": "active",
+  "name": "示例：强身（MAX_HP+30%）",
+  "desc": "给自己施加 MAX_HP +30%（3回合，可刷新）。",
+  "tags": ["BUFF"],
+  "targeting": {
+    "rule": "single_cell",
+    "camp": "ally"
+  },
+  "on_cast": [
+    {
+      "kind": "apply_buff",
+      "params": { "buff_id": "buff_demo_max_hp_pct_30_3t", "scope": "caster" }
+    }
+  ],
+  "on_hit": []
+}
+

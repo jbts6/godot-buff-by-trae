@@ -27,6 +27,14 @@
       "mtime_unix": 0
     },
     {
+      "id": "act_demo_max_hp_up",
+      "type": "active",
+      "path": "res://addons/turn_skill_system/data/skills/active/act_demo_max_hp_up.json",
+      "name": "示例：强身（MAX_HP+30%）",
+      "tags": ["BUFF"],
+      "mtime_unix": 0
+    },
+    {
       "id": "pas_demo_turn_start_buff",
       "type": "passive",
       "path": "res://addons/turn_skill_system/data/skills/passive/pas_demo_turn_start_buff.json",
