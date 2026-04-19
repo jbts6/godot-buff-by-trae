@@ -75,13 +75,20 @@ func _emit_buff_applied(data: Dictionary) -> void:
 	var caster_id = int(data.get("caster_id", -1))
 	var target_id = int(data.get("target_id", -1))
 	var buff_id = String(data.get("buff_id", ""))
+	var skill_id = String(data.get("skill_id", ""))
 	var caster_name = _name_of(caster_id)
 	var target_name = _name_of(target_id)
 	var buff_name = _buff_name(buff_id)
 	if caster_id >= 0 and target_id >= 0 and caster_id != target_id:
-		_emit_text("%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name], {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id})
+		var s = "%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name]
+		if detail_level == DETAIL_VERBOSE and skill_id != "":
+			s += "（来源技能：%s）" % [_skill_name(skill_id)]
+		_emit_text(s, {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id, "skill_id": skill_id})
 	else:
-		_emit_text("%s 获得效果【%s】" % [target_name, buff_name], {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id})
+		var s2 = "%s 获得效果【%s】" % [target_name, buff_name]
+		if detail_level == DETAIL_VERBOSE and skill_id != "":
+			s2 += "（来源技能：%s）" % [_skill_name(skill_id)]
+		_emit_text(s2, {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id, "skill_id": skill_id})
 
 
 func _emit_buff_removed(data: Dictionary) -> void:
@@ -118,12 +125,15 @@ func _emit_damage_line(data: Dictionary) -> void:
 
 	# 简洁模式：每条 AFTER_DAMAGE 直接输出一行（AOE 会自然出现多行）
 	var hp_pair = _get_hp_pair(target_id)
-	_emit_text("%s 受到 %.0f 伤害，HP %.0f/%.0f" % [
+	var s = "%s 受到 %.0f 伤害，HP %.0f/%.0f" % [
 		_name_of(target_id),
 		final_damage,
 		hp_pair.x,
 		hp_pair.y,
-	], {
+	]
+	if detail_level == DETAIL_VERBOSE:
+		s += "（来自：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
+	_emit_text(s, {
 		"event": "after_damage",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
@@ -140,12 +150,15 @@ func _emit_heal_line(data: Dictionary) -> void:
 	var skill_id = String(data.get("skill_id", _current_skill_id))
 
 	var hp_pair = _get_hp_pair(target_id)
-	_emit_text("%s 恢复 %.0f，HP %.0f/%.0f" % [
+	var s = "%s 恢复 %.0f，HP %.0f/%.0f" % [
 		_name_of(target_id),
 		amount,
 		hp_pair.x,
 		hp_pair.y,
-	], {
+	]
+	if detail_level == DETAIL_VERBOSE:
+		s += "（施法者：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
+	_emit_text(s, {
 		"event": "after_heal",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
