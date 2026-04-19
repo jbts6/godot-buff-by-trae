@@ -72,5 +72,8 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 可在 `addons/turn_manager/demo/demo_battle.tscn` 查看最小化调用流。
 - 该场景自动挂载 `TurnManager`。
 - 使用 `res://data/rpg_tests/manifest.json` 编译 OmniBuff 数据集，并构建 2v2 单位（注入 `stats/buffs`，初始化 HP/ATK）。
-- 在 `action_requested` 回调中自动提交 `TurnCommand`：施放 `act_demo_single`（来自 `res://addons/turn_skill_system/data/skills`）。
+- 在 `action_requested` 回调中自动提交 `TurnCommand`：
+  - entity 1 的第一次行动：施放 `act_demo_max_hp_up`（给自己上 `MAX_HP +30%（3回合，可刷新）`）
+  - 其它情况：继续施放 `act_demo_single`
+  - 两个技能均来自 `res://addons/turn_skill_system/data/skills`
 - 启动场景后查看控制台打印的事件序列。
