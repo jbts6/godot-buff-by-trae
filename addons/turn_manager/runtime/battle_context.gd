@@ -30,7 +30,7 @@ func _init() -> void:
 		if script:
 			turn_component = script.new()
 
-	var pipeline_path = "res://addons/omnibuff/runtime/components/damage_pipeline.gd"
+	var pipeline_path = "res://addons/omnibuff/runtime/core/damage_pipeline.gd"
 	if FileAccess.file_exists(pipeline_path):
 		var pipeline_script = load(pipeline_path)
 		if pipeline_script:
@@ -47,17 +47,6 @@ func build_from_autoload() -> void:
 		omnibuff_adapter = skill_rt.get("omnibuff")
 		passive_manager = skill_rt.get("passive_manager")
 		aura_manager = skill_rt.get("aura_manager")
-		
-		# Dataset/enums_rt normally provided manually or via other autoloads,
-		# but let's try to pull from TurnSkillRuntime if available
-		# Note: TurnSkillRuntime db is SkillDB, not OmniCompiledDataset
-		
-	if root.has_node("OmniBuff"):
-		var omni_autoload = root.get_node("OmniBuff")
-		if omni_autoload.has_method("get_dataset"):
-			dataset = omni_autoload.get_dataset()
-		if omni_autoload.has_method("get_enums"):
-			enums_rt = omni_autoload.get_enums()
 
 func validate() -> bool:
 	if not grid:
@@ -67,10 +56,10 @@ func validate() -> bool:
 		push_error("[TurnManager] BattleContext validation failed: missing event_bus")
 		return false
 	if not dataset:
-		push_error("[TurnManager] BattleContext validation failed: missing dataset(ds)")
+		push_error("[TurnManager] BattleContext validation failed: missing dataset(ds). It must be provided manually by business logic.")
 		return false
 	if not enums_rt:
-		push_error("[TurnManager] BattleContext validation failed: missing enums_rt")
+		push_error("[TurnManager] BattleContext validation failed: missing enums_rt. It must be provided manually by business logic.")
 		return false
 	if not runtime_dict or typeof(runtime_dict) != TYPE_DICTIONARY:
 		push_error("[TurnManager] BattleContext validation failed: missing or invalid runtime_dict")
