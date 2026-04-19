@@ -308,7 +308,7 @@ func _format_unit_status(u: Node) -> String:
 	var mp = _get_stat_value(st, _mp_id)
 	var max_mp = _get_stat_value(st, _max_mp_id)
 	var spd = _get_stat_value(st, _speed_id)
-	var dead_s = dead ? " DEAD" : ""
+	var dead_s = " DEAD" if dead else ""
 	return "eid=%d(%s)%s HP=%s/%s MP=%s/%s SPD=%s" % [
 		eid, camp, dead_s,
 		str(hp), str(max_hp),
