@@ -262,6 +262,18 @@
 	  "triggers": []
 	},
 	{
+	  "id": "buff_demo_max_hp_pct_30_3t",
+	  "name": "示例：MAX_HP +30%（3回合，可刷新）",
+	  "buff_type": "EXPLICIT",
+	  "tags": ["BUFF"],
+	  "duration": { "type": "TURNS", "turns": 3, "tick_phase": "TURN_END" },
+	  "stack": { "mode": "REPLACE", "max_stack": 1, "refresh_policy": "RESET_TO_MAX", "ownership_mode": "GLOBAL" },
+	  "effects": [
+		{ "kind": "modifier", "stat": "MAX_HP", "op": "MUL", "phase": "PERCENT", "priority": 110, "value": 0.30 }
+	  ],
+	  "triggers": []
+	},
+	{
 	  "id": "buff_dot_fire_stack_3t",
 	  "name": "测试：灼烧DOT可叠层（3回合/回合开始结算）",
 	  "buff_type": "EXPLICIT",
