@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "pas_hero_battle_haste",
+  "type": "passive",
+  "name": "主角：开战先手",
+  "desc": "战斗开始时给自己施加 SPEED+5（3回合，可刷新），确保先手。",
+  "tags": ["BUFF"],
+  "triggers": [
+    {
+      "event": "battle_started",
+      "chance": 1.0,
+      "effects": [
+        {
+          "kind": "apply_buff",
+          "params": {
+            "buff_id": "buff_hero_speed_flat_5_3t",
+            "scope": "caster"
+          }
+        }
+      ]
+    }
+  ]
+}
+
