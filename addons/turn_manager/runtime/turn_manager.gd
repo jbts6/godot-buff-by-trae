@@ -150,6 +150,30 @@ func _choose_skill_with_cooldown(entity_id: int, preferred_skill_ids: Array, bas
 			return sid
 	return basic_skill_id
 
+
+func _get_skill_cooldown_turns(skill_id: String) -> int:
+	# 从 TurnSkillRuntime.SkillDB 读取 skill.cooldown_turns（扩展字段，默认为 0）
+	if skill_id == "":
+		return 0
+	var root = Engine.get_main_loop().root
+	if root == null:
+		return 0
+	if not root.has_node("TurnSkillRuntime"):
+		return 0
+	var rt = root.get_node("TurnSkillRuntime")
+	if rt == null:
+		return 0
+	var db = rt.get("db")
+	if db == null:
+		return 0
+	if not db.has_method("get_skill"):
+		return 0
+	var sr: Dictionary = db.call("get_skill", skill_id, true)
+	if not bool(sr.get("ok", false)):
+		return 0
+	var skill: Dictionary = sr.get("skill", {})
+	return int(skill.get("cooldown_turns", 0))
+
 func get_state() -> int:
 	return _state
 	
@@ -332,11 +356,24 @@ func _handle_resolve_action() -> void:
 		_transition_to(State.TURN_END)
 		return
 		
-	var actor_id = _current_actor.get("entity_id")
+	var actor_id = int(_current_actor.get("entity_id"))
+	var skill_id = String(_current_command.skill_id)
+	if _get_skill_cooldown(actor_id, skill_id) > 0:
+		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+			"turn_index": _turn_index,
+			"actor_id": actor_id,
+			"ok": false,
+			"errors": ["cooldown_not_ready"]
+		})
+		sync_resources_keep_ratio(_current_actor)
+		_clean_up_dead()
+		_current_command = null
+		_transition_to(State.TURN_END)
+		return
 	_context.event_bus.emit_event(EventNames.ACTION_STARTED, {
 		"turn_index": _turn_index, 
 		"actor_id": actor_id,
-		"skill_id": _current_command.skill_id
+		"skill_id": skill_id
 	})
 	
 	emit_signal("action_resolving", _current_actor, _current_command)
@@ -350,13 +387,17 @@ func _handle_resolve_action() -> void:
 	
 	var sr_script = load("res://addons/turn_skill_system/runtime/skill_runtime.gd")
 	if sr_script:
-		var result = sr_script.cast_to_cell(_current_command.skill_id, _current_actor, _current_command.primary_cell, extra)
+		var result = sr_script.cast_to_cell(skill_id, _current_actor, _current_command.primary_cell, extra)
 		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
 			"turn_index": _turn_index,
 			"actor_id": actor_id,
 			"ok": result.get("ok", false),
 			"errors": result.get("errors", [])
 		})
+		if bool(result.get("ok", false)):
+			var cd_turns = _get_skill_cooldown_turns(skill_id)
+			if cd_turns > 0:
+				_set_skill_cooldown(actor_id, skill_id, cd_turns)
 	else:
 		push_error("[TurnManager] SkillRuntime script not found!")
 		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
