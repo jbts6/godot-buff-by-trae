@@ -67,6 +67,16 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 - `TURN_ENDED`: 在回合结束 tick 结算后发出。
 - `UNIT_DIED`: 每次清理死亡单位时对新死亡单位发出。
 
+另外，Demo/播报系统还会用到：
+- `turn_order_computed`: 每次回合开始重排出手顺序后发出（payload 含 `order=[{eid,camp,speed}]`）。
+- `buff_applied` / `buff_removed`: 由 TurnSkillSystem 的 apply/remove buff effect 发出（用于语义化播报被动/光环）。
+
+## 4.1 战斗语义化播报（BattleNarrator + BattleLogPanel）
+
+TurnManager 提供一套可复用的“战斗播报”组件：
+- `res://addons/turn_manager/runtime/battle_narrator.gd`：监听 `BattleEventBus`，把事件翻译为中文播报行（BBCode），默认简洁，可切换详细。
+- `res://addons/turn_manager/runtime/ui/battle_log_panel.tscn`：RichTextLabel 面板展示播报（带“简洁/详细”切换与清空）。
+
 ## 5. Demo 运行
 
 可在 `addons/turn_manager/demo/demo_battle.tscn` 查看最小化调用流。
