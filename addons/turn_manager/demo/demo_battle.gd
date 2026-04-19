@@ -1,6 +1,6 @@
 extends Node
 
-class DemoUnit extends Node:
+class DemoBattleUnit extends Node:
 	var entity_id: int
 	var camp: String
 	var cell: Vector2i
@@ -34,8 +34,8 @@ func _ready() -> void:
 	context.build_from_autoload()
 	
 	# Create units
-	var u1 = DemoUnit.new(1, "ally", Vector2i(0, 0), 10.0)
-	var u2 = DemoUnit.new(2, "enemy", Vector2i(1, 0), 8.0)
+	var u1 = DemoBattleUnit.new(1, "ally", Vector2i(0, 0), 10.0)
+	var u2 = DemoBattleUnit.new(2, "enemy", Vector2i(1, 0), 8.0)
 	add_child(u1)
 	add_child(u2)
 	
