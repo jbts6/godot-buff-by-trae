@@ -296,9 +296,9 @@ func _sort_units(a: Node, b: Node) -> bool:
 	elif stable_order_mode == "cell":
 		var cell_a = a.get("cell")
 		var cell_b = b.get("cell")
-		if cell_a and cell_b:
-			stable_a = cell_a.y * 1000 + cell_a.x
-			stable_b = cell_b.y * 1000 + cell_b.x
+		if cell_a != null and cell_b != null:
+			stable_a = cell_a.x * 1000 + cell_a.y
+			stable_b = cell_b.x * 1000 + cell_b.y
 			
 	return stable_a < stable_b
 

@@ -57,6 +57,25 @@ func test_sorting_by_camp_priority() -> void:
 	u2.free()
 	tm.free()
 
+func test_stable_sorting_by_cell_row_major() -> void:
+	var u1 = create_unit(1, "ally", Vector2i(0, 2), 10.0)
+	var u2 = create_unit(2, "ally", Vector2i(1, 0), 10.0)
+	var u3 = create_unit(3, "ally", Vector2i(0, 1), 10.0)
+	
+	var tm = TurnManager.new()
+	tm.stable_order_mode = "cell"
+	tm._units.assign([u1, u2, u3])
+	tm._build_turn_queue()
+	
+	assert_eq(tm._turn_queue[0], u3, "Cell (0,1) should be first")
+	assert_eq(tm._turn_queue[1], u1, "Cell (0,2) should be second")
+	assert_eq(tm._turn_queue[2], u2, "Cell (1,0) should be third")
+	
+	u1.free()
+	u2.free()
+	u3.free()
+	tm.free()
+
 func test_stable_sorting_by_spawn_index() -> void:
 	var u1 = create_unit(1, "ally", Vector2i(0, 0), 10.0)
 	u1.set_meta("spawn_index", 1)
