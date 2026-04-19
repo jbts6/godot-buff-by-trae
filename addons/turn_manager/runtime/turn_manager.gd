@@ -72,6 +72,11 @@ func start_battle() -> void:
 		return
 	_round_index = 1
 	_turn_index = 1
+	if _context != null and _context.event_bus != null:
+		_context.event_bus.emit_event(EventNames.BATTLE_STARTED, {
+			"round_index": _round_index,
+			"turn_index": _turn_index,
+		})
 	emit_signal("battle_started", _units)
 	_transition_to(State.ROUND_START)
 

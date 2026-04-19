@@ -3,6 +3,7 @@ class_name EventNames
 
 const TURN_STARTED := "turn_started"
 const TURN_ENDED := "turn_ended"
+const BATTLE_STARTED := "battle_started"
 const ACTION_STARTED := "action_started"
 const ACTION_FINISHED := "action_finished"
 const SKILL_CAST_STARTED := "skill_cast_started"
