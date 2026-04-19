@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "act_hero_strike",
+  "type": "active",
+  "name": "主角：斩击",
+  "desc": "对敌方第一个目标造成单体物理伤害。",
+  "tags": ["BASIC_ATTACK"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "15 + a.ATK * 1.1",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

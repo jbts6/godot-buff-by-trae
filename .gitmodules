@@ -1,0 +1,3 @@
+[submodule "skills/skill-creator"]
+	path = skills/skill-creator
+	url = https://github.com/wuke3/skill-creator

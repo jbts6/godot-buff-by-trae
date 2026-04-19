@@ -28,4 +28,5 @@ echo "[GUT] Run tests..."
   -gdir=res://addons/omnibuff/tests/base \
   -gdir=res://addons/omnibuff/tests/rpg \
   -gdir=res://addons/turn_skill_system/tests \
+  -gdir=res://addons/turn_manager/tests \
   -gexit

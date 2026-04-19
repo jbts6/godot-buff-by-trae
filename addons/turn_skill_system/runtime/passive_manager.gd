@@ -28,7 +28,7 @@ func register_unit_passives(owner_unit, passive_skill_ids: Array[String]) -> voi
 	var owner_id := int(owner_unit.entity_id)
 	var arr: Array = []
 	for sid in passive_skill_ids:
-		var r := _db.get_skill(String(sid), true)
+		var r: Dictionary = _db.get_skill(String(sid), true)
 		if not bool(r.get("ok", false)):
 			continue
 		var skill: Dictionary = r.get("skill", {})

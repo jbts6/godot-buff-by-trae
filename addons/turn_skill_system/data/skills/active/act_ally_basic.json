@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "act_ally_basic",
+  "type": "active",
+  "name": "队友：普攻",
+  "desc": "对敌方第一个目标造成低量物理伤害。",
+  "tags": ["BASIC_ATTACK"],
+  "damage_type": "PHYSICAL",
+  "element": "NONE",
+  "targeting": "FIRST",
+  "on_cast": [],
+  "on_hit": [
+    {
+      "kind": "damage",
+      "params": {
+        "amount_expr": "5 + a.ATK * 0.6",
+        "rounding": "floor"
+      }
+    }
+  ]
+}
+

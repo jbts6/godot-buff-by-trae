@@ -8,6 +8,7 @@ class_name AuraManager
 ##
 ## 当前最小实现仅内置一个 range.rule：
 ## - "ally_front_row": 作用于 owner 同阵营且 cell.x == 0 的单位
+## - "ally_all": 作用于 owner 同阵营全体存活单位
 
 var _event_bus = null
 var _db = null
@@ -27,7 +28,7 @@ func bind(event_bus, db, effects, omnibuff, grid) -> void:
 
 
 func register_aura(owner_unit, aura_skill_id: String) -> void:
-	var r := _db.get_skill(aura_skill_id, true)
+	var r: Dictionary = _db.get_skill(aura_skill_id, true)
 	if not bool(r.get("ok", false)):
 		return
 	var skill: Dictionary = r.get("skill", {})
@@ -58,6 +59,8 @@ func _refresh_one(a: Dictionary) -> void:
 	var targets: Array = []
 	if rule == "ally_front_row":
 		targets = _get_allies_in_front_row(owner)
+	elif rule == "ally_all":
+		targets = _get_allies(owner)
 	else:
 		# 未知规则：不生效
 		targets = []
@@ -119,9 +122,26 @@ func _get_allies_in_front_row(owner_unit) -> Array:
 	for u in _grid._units:
 		if u == null:
 			continue
+		if u.has_method("is_dead") and bool(u.call("is_dead")):
+			continue
 		if String(u.camp) != String(owner_unit.camp):
 			continue
 		if Vector2i(u.cell).x != 0:
+			continue
+		out.append(u)
+	return out
+
+
+func _get_allies(owner_unit) -> Array:
+	if _grid == null:
+		return []
+	var out: Array = []
+	for u in _grid._units:
+		if u == null:
+			continue
+		if u.has_method("is_dead") and bool(u.call("is_dead")):
+			continue
+		if String(u.camp) != String(owner_unit.camp):
 			continue
 		out.append(u)
 	return out

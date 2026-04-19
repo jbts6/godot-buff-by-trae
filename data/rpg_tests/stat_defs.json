@@ -1,8 +1,14 @@
 {
   "stats": [
-	{ "id": "HP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true, "derived": { "type": "LINEAR", "from": "STR", "ratio": 20.0, "round": "NONE" } },
+	{ "id": "MAX_HP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true, "derived": { "type": "LINEAR", "from": "STR", "ratio": 20.0, "round": "NONE" } },
+	{ "id": "HP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true },
+	{ "id": "MAX_MP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true },
+	{ "id": "MP", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true },
+	{ "id": "MAX_RAGE", "default": 100.0, "min": 0.0, "max": 99999.0, "clamp": true },
+	{ "id": "RAGE", "default": 0.0, "min": 0.0, "max": 99999.0, "clamp": true },
 	{ "id": "ATK", "default": 10.0, "min": 0.0, "max": 9999.0, "clamp": true },
 	{ "id": "DEF", "default": 5.0, "min": 0.0, "max": 9999.0, "clamp": true },
+	{ "id": "SPEED", "default": 0.0, "min": 0.0, "max": 999.0, "clamp": true },
 	{ "id": "STR", "default": 0.0, "min": 0.0, "max": 999.0, "clamp": true },
 	{ "id": "CRIT_RATE", "default": 0.05, "min": 0.0, "max": 1.0, "clamp": true },
 	{ "id": "CRIT_DMG", "default": 0.5, "min": 0.0, "max": 5.0, "clamp": true },

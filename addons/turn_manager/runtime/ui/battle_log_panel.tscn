@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bq6l8b7lq5u1q"]
+
+[ext_resource type="Script" path="res://addons/turn_manager/runtime/ui/battle_log_panel.gd" id="1_panel"]
+
+[node name="BattleLogPanel" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_panel")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Toolbar" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="DetailLabel" type="Label" parent="Margin/VBox/Toolbar"]
+layout_mode = 2
+text = "播报："
+
+[node name="DetailSelect" type="OptionButton" parent="Margin/VBox/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+
+[node name="BtnClear" type="Button" parent="Margin/VBox/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "清空"
+
+[node name="LogBox" type="RichTextLabel" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+bbcode_enabled = true
+selection_enabled = true
