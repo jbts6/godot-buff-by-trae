@@ -33,6 +33,7 @@ func test_battle_narrator_emits_semantic_lines() -> void:
 	assert_true(lines.size() >= 3, "Narrator should emit multiple lines")
 	assert_true(_any_contains(lines, "战斗开始"), "Should contain battle start line")
 	assert_true(_any_contains(lines, "获得") or _any_contains(lines, "生效"), "Should contain buff applied line")
+	assert_true(_any_contains(lines, "出手顺序"), "Should contain turn order line")
 	assert_true(_any_contains(lines, "回合"), "Should contain turn line")
 	assert_true(_any_contains(lines, "受到") or _any_contains(lines, "伤害"), "Should contain damage line")
 
