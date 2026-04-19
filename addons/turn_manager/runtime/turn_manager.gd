@@ -36,6 +36,7 @@ var _current_actor: Node = null
 var _current_command: TurnCommand = null
 var _victory_condition: VictoryCondition
 var resource_snapshot_by_entity: Dictionary = {}
+var cooldown_by_entity: Dictionary = {} # eid -> {skill_id:String : turns_remaining:int}
 
 func setup(context: BattleContext, units: Array[Node]) -> void:
 	_context = context
@@ -85,6 +86,69 @@ func stop_battle() -> void:
 	_turn_queue.clear()
 	_current_actor = null
 	_current_command = null
+
+
+func _set_skill_cooldown(entity_id: int, skill_id: String, turns: int) -> void:
+	if entity_id <= 0:
+		return
+	if skill_id == "":
+		return
+	if turns <= 0:
+		if cooldown_by_entity.has(entity_id):
+			var d_any = cooldown_by_entity.get(entity_id, {})
+			if typeof(d_any) == TYPE_DICTIONARY:
+				var d: Dictionary = d_any
+				d.erase(skill_id)
+		return
+	if not cooldown_by_entity.has(entity_id):
+		cooldown_by_entity[entity_id] = {}
+	var any_d = cooldown_by_entity.get(entity_id, {})
+	if typeof(any_d) != TYPE_DICTIONARY:
+		any_d = {}
+		cooldown_by_entity[entity_id] = any_d
+	var cd: Dictionary = any_d
+	cd[skill_id] = int(turns)
+
+
+func _get_skill_cooldown(entity_id: int, skill_id: String) -> int:
+	if entity_id <= 0 or skill_id == "":
+		return 0
+	if not cooldown_by_entity.has(entity_id):
+		return 0
+	var any_d = cooldown_by_entity.get(entity_id, {})
+	if typeof(any_d) != TYPE_DICTIONARY:
+		return 0
+	var cd: Dictionary = any_d
+	return int(cd.get(skill_id, 0))
+
+
+func _tick_skill_cooldowns(entity_id: int) -> void:
+	if entity_id <= 0:
+		return
+	if not cooldown_by_entity.has(entity_id):
+		return
+	var any_d = cooldown_by_entity.get(entity_id, {})
+	if typeof(any_d) != TYPE_DICTIONARY:
+		return
+	var cd: Dictionary = any_d
+	var keys: Array = cd.keys()
+	for k_any in keys:
+		var k = String(k_any)
+		var v = int(cd.get(k, 0))
+		if v <= 1:
+			cd.erase(k)
+		else:
+			cd[k] = v - 1
+
+
+func _choose_skill_with_cooldown(entity_id: int, preferred_skill_ids: Array, basic_skill_id: String) -> String:
+	for sid_any in preferred_skill_ids:
+		var sid = String(sid_any)
+		if sid == "":
+			continue
+		if _get_skill_cooldown(entity_id, sid) <= 0:
+			return sid
+	return basic_skill_id
 
 func get_state() -> int:
 	return _state
@@ -231,7 +295,8 @@ func _handle_turn_start() -> void:
 		_transition_to(State.CHECK_END)
 		return
 		
-	var actor_id = _current_actor.get("entity_id")
+	var actor_id = int(_current_actor.get("entity_id"))
+	_tick_skill_cooldowns(actor_id)
 	emit_signal("turn_started", _current_actor, _turn_index)
 	_context.event_bus.emit_event(EventNames.TURN_STARTED, {"turn_index": _turn_index, "actor_id": actor_id})
 	
