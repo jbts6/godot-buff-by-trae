@@ -35,6 +35,7 @@ var _turn_index: int = 1
 var _current_actor: Node = null
 var _current_command: TurnCommand = null
 var _victory_condition: VictoryCondition
+var resource_snapshot_by_entity: Dictionary = {}
 
 func setup(context: BattleContext, units: Array[Node]) -> void:
 	_context = context
@@ -96,24 +97,99 @@ func submit_player_command(command: TurnCommand) -> void:
 	emit_signal("action_committed", _current_actor, command)
 	_transition_to(State.RESOLVE_ACTION)
 
+func sync_resources_keep_ratio(actor: Node) -> void:
+	if actor == null:
+		return
+	if _context == null:
+		return
+	var ds = _context.dataset
+	if ds == null or not ds.has_method("stat_id"):
+		return
+	var stats = actor.get("stats")
+	if stats == null:
+		return
+	if not stats.has_method("get_final") or not stats.has_method("add_base"):
+		return
+	var actor_id_var = actor.get("entity_id")
+	if actor_id_var == null:
+		return
+	var actor_id = int(actor_id_var)
+	if not resource_snapshot_by_entity.has(actor_id):
+		resource_snapshot_by_entity[actor_id] = {}
+	var snapshot_any = resource_snapshot_by_entity.get(actor_id, {})
+	if typeof(snapshot_any) != TYPE_DICTIONARY:
+		snapshot_any = {}
+		resource_snapshot_by_entity[actor_id] = snapshot_any
+	var snapshot: Dictionary = snapshot_any
+	
+	_sync_resource_pair_keep_ratio(stats, ds, snapshot, "HP", "MAX_HP")
+	_sync_resource_pair_keep_ratio(stats, ds, snapshot, "MP", "MAX_MP")
+	_sync_resource_pair_keep_ratio(stats, ds, snapshot, "RAGE", "MAX_RAGE")
+
+func _sync_resource_pair_keep_ratio(stats: Object, ds: Object, snapshot: Dictionary, cur_name: String, max_name: String) -> void:
+	var cur_id_int = int(ds.call("stat_id", cur_name))
+	var max_id_int = int(ds.call("stat_id", max_name))
+	if cur_id_int < 0 or max_id_int < 0:
+		return
+	
+	var old_cur = float(stats.call("get_final", cur_id_int))
+	var new_max_raw = float(stats.call("get_final", max_id_int))
+	var new_max = new_max_raw
+	if new_max < 0.0:
+		new_max = 0.0
+	
+	var old_max = 0.0
+	if snapshot.has(max_id_int):
+		old_max = float(snapshot.get(max_id_int, 0.0))
+	else:
+		old_max = float(new_max)
+		snapshot[max_id_int] = old_max
+	
+	var ratio = 0.0
+	if old_max > 0.0:
+		ratio = clamp(old_cur / old_max, 0.0, 1.0)
+	else:
+		ratio = 0.0
+	
+	var new_cur = floor(ratio * new_max)
+	new_cur = clamp(new_cur, 0.0, new_max)
+	
+	var delta = new_cur - old_cur
+	if delta != 0.0:
+		stats.call("add_base", cur_id_int, delta)
+	
+	# 更新快照：记录“上一次同步时的 MAX”
+	snapshot[max_id_int] = float(new_max)
+
 func is_dead(actor: Node) -> bool:
+	if actor == null:
+		return true
 	if actor.has_method("is_dead"):
-		return actor.is_dead()
-	elif "is_dead" in actor:
-		return actor.get("is_dead")
+		return bool(actor.call("is_dead"))
 		
 	var stats = actor.get("stats")
-	if not stats:
+	if stats == null:
 		push_error("[TurnManager] Unit %s missing stats component for death check" % actor.name)
 		return true
 		
-	var hp_id_int = _context.dataset.stat_id(hp_stat_id) if _context.dataset else -1
-	if hp_id_int == -1:
+	if _context == null or _context.dataset == null:
+		push_error("[TurnManager] Missing BattleContext.dataset for death check (hp_stat_id=%s)" % hp_stat_id)
+		return false
+		
+	var ds = _context.dataset
+	if not ds.has_method("stat_id"):
+		push_error("[TurnManager] dataset missing stat_id() for death check (hp_stat_id=%s)" % hp_stat_id)
+		return false
+	var hp_id_int = int(ds.call("stat_id", hp_stat_id))
+	if hp_id_int < 0:
 		push_error("[TurnManager] hp_stat_id '%s' not found in dataset" % hp_stat_id)
 		return false
 		
-	var hp = stats.get_final(hp_id_int)
-	return hp <= 0
+	if not stats.has_method("get_final"):
+		push_error("[TurnManager] stats missing get_final() for death check (unit=%s)" % actor.name)
+		return false
+	var hp = float(stats.call("get_final", hp_id_int))
+	return hp <= 0.0
 
 func _transition_to(new_state: int) -> void:
 	_state = new_state
@@ -169,6 +245,8 @@ func _handle_turn_start() -> void:
 	
 	if _context.aura_manager:
 		_context.aura_manager.refresh_all()
+	
+	sync_resources_keep_ratio(_current_actor)
 		
 	if is_dead(_current_actor):
 		_clean_up_dead()
@@ -218,6 +296,7 @@ func _handle_resolve_action() -> void:
 			"errors": ["SkillRuntime not found"]
 		})
 		
+	sync_resources_keep_ratio(_current_actor)
 	_clean_up_dead()
 	_current_command = null
 	_transition_to(State.TURN_END)
