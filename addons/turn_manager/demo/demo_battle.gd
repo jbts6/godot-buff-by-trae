@@ -144,8 +144,8 @@ func _ready() -> void:
 	}, {"detail_level": BattleNarrator.DETAIL_CONCISE})
 	if battle_log_panel != null:
 		battle_log_panel.set_narrator(_narrator)
-		_narrator.line_emitted.connect(func(bb: String, _meta: Dictionary):
-			battle_log_panel.append_line(bb)
+		_narrator.line_emitted.connect(func(bb: String, meta: Dictionary):
+			battle_log_panel.append_line(bb, meta)
 		)
 	
 	# 7. Connect signals

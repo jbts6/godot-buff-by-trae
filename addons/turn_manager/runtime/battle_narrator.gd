@@ -81,15 +81,33 @@ func _emit_buff_applied(data: Dictionary) -> void:
 	var target_name = _name_of(target_id)
 	var buff_name = _buff_name(buff_id)
 	if caster_id >= 0 and target_id >= 0 and caster_id != target_id:
-		var s = "%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name]
-		if detail_level == DETAIL_VERBOSE and skill_id != "":
-			s += "（来源技能：%s）" % [_skill_name(skill_id)]
-		_emit_text(s, {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id, "skill_id": skill_id})
+		var concise = "%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name]
+		var verbose = concise
+		if skill_id != "":
+			verbose += "（来源技能：%s）" % [_skill_name(skill_id)]
+		_emit_text(concise, {
+			"event": "buff_applied",
+			"caster_id": caster_id,
+			"target_id": target_id,
+			"buff_id": buff_id,
+			"skill_id": skill_id,
+			"text_concise": concise,
+			"text_verbose": verbose,
+		})
 	else:
-		var s2 = "%s 获得效果【%s】" % [target_name, buff_name]
-		if detail_level == DETAIL_VERBOSE and skill_id != "":
-			s2 += "（来源技能：%s）" % [_skill_name(skill_id)]
-		_emit_text(s2, {"event": "buff_applied", "caster_id": caster_id, "target_id": target_id, "buff_id": buff_id, "skill_id": skill_id})
+		var concise2 = "%s 获得效果【%s】" % [target_name, buff_name]
+		var verbose2 = concise2
+		if skill_id != "":
+			verbose2 += "（来源技能：%s）" % [_skill_name(skill_id)]
+		_emit_text(concise2, {
+			"event": "buff_applied",
+			"caster_id": caster_id,
+			"target_id": target_id,
+			"buff_id": buff_id,
+			"skill_id": skill_id,
+			"text_concise": concise2,
+			"text_verbose": verbose2,
+		})
 
 
 func _emit_buff_removed(data: Dictionary) -> void:
@@ -131,21 +149,22 @@ func _emit_damage_line(data: Dictionary) -> void:
 
 	# 简洁模式：每条 AFTER_DAMAGE 直接输出一行（AOE 会自然出现多行）
 	var hp_pair = _get_hp_pair(target_id)
-	var s = "%s 受到 %.0f 伤害，HP %.0f/%.0f" % [
+	var concise = "%s 受到 %.0f 伤害，HP %.0f/%.0f" % [
 		_name_of(target_id),
 		final_damage,
 		hp_pair.x,
 		hp_pair.y,
 	]
-	if detail_level == DETAIL_VERBOSE:
-		s += "（来自：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
-	_emit_text(s, {
+	var verbose = concise + "（来自：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
+	_emit_text(concise, {
 		"event": "after_damage",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
 		"caster_id": caster_id,
 		"target_id": target_id,
 		"final_damage": final_damage,
+		"text_concise": concise,
+		"text_verbose": verbose,
 	})
 
 
@@ -156,28 +175,35 @@ func _emit_heal_line(data: Dictionary) -> void:
 	var skill_id = String(data.get("skill_id", _current_skill_id))
 
 	var hp_pair = _get_hp_pair(target_id)
-	var s = "%s 恢复 %.0f，HP %.0f/%.0f" % [
+	var concise = "%s 恢复 %.0f，HP %.0f/%.0f" % [
 		_name_of(target_id),
 		amount,
 		hp_pair.x,
 		hp_pair.y,
 	]
-	if detail_level == DETAIL_VERBOSE:
-		s += "（施法者：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
-	_emit_text(s, {
+	var verbose = concise + "（施法者：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
+	_emit_text(concise, {
 		"event": "after_heal",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
 		"caster_id": caster_id,
 		"target_id": target_id,
 		"amount": amount,
+		"text_concise": concise,
+		"text_verbose": verbose,
 	})
 
 
 func _emit_text(text: String, meta: Dictionary = {}) -> void:
 	# 产出 BBCode（log.gd 颜色风格），用于 RichTextLabel
-	var bb = Log.to_printable([text], {"pretty": true})
-	line_emitted.emit(bb, meta)
+	var m: Dictionary = meta.duplicate(true)
+	if not m.has("text_concise"):
+		m["text_concise"] = text
+	if not m.has("text_verbose"):
+		m["text_verbose"] = text
+	var chosen = String(m.get("text_verbose")) if detail_level == DETAIL_VERBOSE else String(m.get("text_concise"))
+	var bb = Log.to_printable([chosen], {"pretty": true})
+	line_emitted.emit(bb, m)
 
 
 func _name_of(eid: int) -> String:
