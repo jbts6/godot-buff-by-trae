@@ -39,6 +39,45 @@ class DummyGrid:
 	func set_units(units: Array[Node]) -> void:
 		pass
 
+class FakeDataset extends Resource:
+	func stat_id(name: String) -> int:
+		if name == "HP": return 0
+		return -1
+
+class FakeStats extends RefCounted:
+	var hp_value: int = 10
+	func get_final(stat: int) -> int:
+		if stat == 0: return hp_value
+		return 0
+
+class UnitWithoutIsDead extends Node:
+	var entity_id: int
+	var camp: String
+	var cell: Vector2i
+	var speed: float
+	var stats: FakeStats
+	
+	func get_speed() -> float:
+		return speed
+
+func test_is_dead_default_behavior() -> void:
+	var tm = TurnManager.new()
+	var ctx = BattleContext.new()
+	ctx.dataset = FakeDataset.new()
+	tm._context = ctx
+	
+	var u = UnitWithoutIsDead.new()
+	u.stats = FakeStats.new()
+	u.stats.hp_value = 10
+	
+	assert_false(tm.is_dead(u), "Should not be dead when HP > 0")
+	
+	u.stats.hp_value = 0
+	assert_true(tm.is_dead(u), "Should be dead when HP <= 0")
+	
+	u.free()
+	tm.free()
+
 func test_event_sequence() -> void:
 	var tm = TurnManager.new()
 	var ctx = BattleContext.new()

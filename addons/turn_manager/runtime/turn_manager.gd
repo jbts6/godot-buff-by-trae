@@ -107,12 +107,12 @@ func is_dead(actor: Node) -> bool:
 		push_error("[TurnManager] Unit %s missing stats component for death check" % actor.name)
 		return true
 		
-	var hp_id_int = _context.enums_rt.get_stat_id(hp_stat_id) if _context.enums_rt else -1
+	var hp_id_int = _context.dataset.stat_id(hp_stat_id) if _context.dataset else -1
 	if hp_id_int == -1:
-		push_error("[TurnManager] hp_stat_id '%s' not found in enums_rt" % hp_stat_id)
+		push_error("[TurnManager] hp_stat_id '%s' not found in dataset" % hp_stat_id)
 		return false
 		
-	var hp = stats.get_stat(hp_id_int)
+	var hp = stats.get_final(hp_id_int)
 	return hp <= 0
 
 func _transition_to(new_state: int) -> void:
