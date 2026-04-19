@@ -20,6 +20,7 @@ func test_battle_narrator_emits_semantic_lines() -> void:
 	narrator.bind(bus, null, null, null, {}, {1: "主角", 2: "Boss"}, {})
 
 	bus.emit_event("battle_started", {})
+	bus.emit_event("buff_applied", {"skill_id": "pas_hero_battle_haste", "caster_id": 1, "target_id": 1, "buff_id": "buff_hero_speed_flat_5_3t"})
 	bus.emit_event("turn_order_computed", {"order": [
 		{"eid": 1, "speed": 15.0},
 		{"eid": 2, "speed": 12.0},
@@ -31,6 +32,7 @@ func test_battle_narrator_emits_semantic_lines() -> void:
 
 	assert_true(lines.size() >= 3, "Narrator should emit multiple lines")
 	assert_true(_any_contains(lines, "战斗开始"), "Should contain battle start line")
+	assert_true(_any_contains(lines, "获得") or _any_contains(lines, "生效"), "Should contain buff applied line")
 	assert_true(_any_contains(lines, "回合"), "Should contain turn line")
 	assert_true(_any_contains(lines, "受到") or _any_contains(lines, "伤害"), "Should contain damage line")
 
@@ -40,4 +42,3 @@ func _any_contains(lines: Array[String], needle: String) -> bool:
 		if needle in s:
 			return true
 	return false
-
