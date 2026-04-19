@@ -18,6 +18,7 @@ var _runtime_dict: Dictionary = {}
 var _name_map: Dictionary = {} # eid -> display name
 
 var _turn_index: int = 0
+var _round_index: int = 0
 var _actor_id: int = -1
 var _current_skill_id: String = ""
 
@@ -98,6 +99,11 @@ func _emit_buff_removed(data: Dictionary) -> void:
 
 
 func _emit_turn_order(data: Dictionary) -> void:
+	var round_idx = int(data.get("round_index", _round_index))
+	if round_idx != _round_index and round_idx > 0:
+		_round_index = round_idx
+		_emit_text("第 %d 轮开始" % [_round_index], {"event": "round_started", "round_index": _round_index})
+
 	var order_any: Variant = data.get("order", [])
 	if typeof(order_any) != TYPE_ARRAY:
 		return
