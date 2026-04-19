@@ -6,4 +6,5 @@
 [node name="DemoBattle" type="Node" unique_id=1744491935]
 script = ExtResource("1_demo")
 
-[node name="BattleLogPanel" parent="." instance=ExtResource("2_panel") unique_name_in_owner=true]
+[node name="BattleLogPanel" parent="." instance=ExtResource("2_panel")]
+unique_name_in_owner = true
