@@ -6,19 +6,24 @@ class DemoBattleUnit extends Node:
 	var entity_id: int
 	var camp: String
 	var cell: Vector2i
-	var speed: float
 	var stats: RefCounted
 	var buffs: RefCounted
 	var _hp_stat_id: int = -1
+	var _speed_stat_id: int = -1
 	
-	func _init(p_id: int, p_camp: String, p_cell: Vector2i, p_speed: float) -> void:
+	func _init(p_id: int, p_camp: String, p_cell: Vector2i) -> void:
 		entity_id = p_id
 		camp = p_camp
 		cell = p_cell
-		speed = p_speed
 		
 	func get_speed() -> float:
-		return speed
+		if stats == null:
+			return 0.0
+		if _speed_stat_id < 0:
+			return 0.0
+		if not stats.has_method("get_final"):
+			return 0.0
+		return float(stats.call("get_final", _speed_stat_id))
 		
 	func is_dead() -> bool:
 		# 供 TurnSkillSystem.Grid.get_first_enemy 判定存活目标使用。
@@ -40,8 +45,7 @@ var _mp_id: int = -1
 var _max_mp_id: int = -1
 var _rage_id: int = -1
 var _max_rage_id: int = -1
-var _debug_pending_ratio_sync: bool = false
-var _did_cast_max_hp_up: bool = false
+var _speed_id: int = -1
 
 func _ready() -> void:
 	print("--- TurnManager Demo Start ---")
@@ -69,57 +73,28 @@ func _ready() -> void:
 	_max_mp_id = int(ds.stat_id("MAX_MP"))
 	_rage_id = int(ds.stat_id("RAGE"))
 	_max_rage_id = int(ds.stat_id("MAX_RAGE"))
+	_speed_id = int(ds.stat_id("SPEED"))
 	
 	# 2. Initialize components
 	turn_manager = TurnManager.new()
 	add_child(turn_manager)
 	
-	# 3. Create 2v2 units
-	var u1 = DemoBattleUnit.new(1, "ally", Vector2i(0, 0), 10.0)
-	var u2 = DemoBattleUnit.new(2, "ally", Vector2i(0, 1), 9.0)
-	var u3 = DemoBattleUnit.new(3, "enemy", Vector2i(1, 0), 8.0)
-	var u4 = DemoBattleUnit.new(4, "enemy", Vector2i(1, 1), 7.0)
+	# 3. Create 2v2 units（主角/队友 vs Boss/随从）
+	# 站位仅用于日志定位；光环定义为“作用于全体友军”，不依赖站位。
+	var hero = DemoBattleUnit.new(1, "ally", Vector2i(0, 1))
+	var ally = DemoBattleUnit.new(2, "ally", Vector2i(0, 2))
+	var boss = DemoBattleUnit.new(3, "enemy", Vector2i(2, 1))
+	var minion = DemoBattleUnit.new(4, "enemy", Vector2i(2, 0))
 	
 	var units: Array[Node] = []
-	units.assign([u1, u2, u3, u4])
+	units.assign([hero, ally, boss, minion])
 	for u in units:
 		add_child(u)
 		u.stats = OmniBuff.StatsComponent.new(u.entity_id, ds)
 		u.buffs = OmniBuff.BuffCore.new(ds, enums_rt)
 		u._hp_stat_id = _hp_id
-
-		# 使用“读当前 → 加 delta”方式设置初值，避免依赖 default 行为
-		var atk_id = int(ds.stat_id("ATK"))
-		if atk_id >= 0:
-			var cur_atk = float(u.stats.get_final(atk_id))
-			u.stats.add_base(atk_id, 50.0 - cur_atk)
-
-		# 初始化资源对（HP/MP/RAGE）
-		if _max_hp_id >= 0:
-			var cur_max_hp = float(u.stats.get_final(_max_hp_id))
-			u.stats.add_base(_max_hp_id, 100.0 - cur_max_hp)
-		if _hp_id >= 0:
-			var cur_hp = float(u.stats.get_final(_hp_id))
-			u.stats.add_base(_hp_id, 100.0 - cur_hp)
-
-		if _max_mp_id >= 0:
-			var cur_max_mp = float(u.stats.get_final(_max_mp_id))
-			u.stats.add_base(_max_mp_id, 50.0 - cur_max_mp)
-		if _mp_id >= 0:
-			var cur_mp = float(u.stats.get_final(_mp_id))
-			u.stats.add_base(_mp_id, 50.0 - cur_mp)
-
-		if _max_rage_id >= 0:
-			var cur_max_rage = float(u.stats.get_final(_max_rage_id))
-			u.stats.add_base(_max_rage_id, 100.0 - cur_max_rage)
-		if _rage_id >= 0:
-			var cur_rage = float(u.stats.get_final(_rage_id))
-			u.stats.add_base(_rage_id, 0.0 - cur_rage)
-
-	# 让 ally#1 以 50% 血量开局（用于演示“回合内 MAX_HP 变化时保持百分比 + floor”）
-	if _hp_id >= 0 and _max_hp_id >= 0:
-		var cur_hp_u1 = float(u1.stats.get_final(_hp_id))
-		u1.stats.add_base(_hp_id, 50.0 - cur_hp_u1)
+		u._speed_stat_id = _speed_id
+		_init_unit_stats(u, ds)
 		
 	# 4. Build runtime_dict
 	var runtime_dict = {
@@ -139,6 +114,10 @@ func _ready() -> void:
 		skill_rt.ensure_ready()
 	skill_rt.grid.set_units(units)
 	skill_rt.omnibuff.setup(ds, enums_rt, runtime_dict)
+	# 注册被动与光环
+	skill_rt.passive_manager.register_unit_passives(hero, ["pas_hero_battle_haste"])
+	skill_rt.aura_manager.register_aura(ally, "aur_ally_guard")
+	skill_rt.aura_manager.refresh_all()
 	
 	# 6. Build BattleContext
 	var context = BattleContext.new()
@@ -158,13 +137,6 @@ func _ready() -> void:
 		if _turns_elapsed >= _max_turns:
 			push_warning("[Demo] Reached max turns=%d, stopping battle to avoid infinite loop." % _max_turns)
 			turn_manager.stop_battle()
-		# 演示：entity 1 在回合内 MAX_HP 增加后，TurnManager 应在 ACTION_FINISHED 后同步 HP，使百分比保持不变
-		if _debug_pending_ratio_sync and int(actor.get("entity_id")) == 1:
-			_debug_pending_ratio_sync = false
-			if _hp_id >= 0 and _max_hp_id >= 0:
-				var hp_after = float(actor.stats.get_final(_hp_id))
-				var max_after = float(actor.stats.get_final(_max_hp_id))
-				print("[Demo] After sync (turn_end): entity=1 HP/MAX_HP = %s/%s" % [str(hp_after), str(max_after)])
 	)
 	turn_manager.battle_ended.connect(func(res): print("[Demo] Battle ended: ", res))
 	
@@ -172,16 +144,6 @@ func _ready() -> void:
 	context.event_bus.event_emitted.connect(func(event_name, data):
 		if event_name in ["action_started", "action_finished", "unit_died"]:
 			print("[Demo Event] ", event_name, " ", data)
-		# 演示：改为“数据驱动”——entity 1 在 turn 1 施放 act_demo_max_hp_up 给自己加 MAX_HP+30%（3回合，可刷新），
-		# TurnManager 会在 ACTION_FINISHED 后自动同步 HP，保持百分比不变。
-		if event_name == "action_finished":
-			var actor_id = int(data.get("actor_id", -1))
-			var turn_index = int(data.get("turn_index", -1))
-			if actor_id == 1 and turn_index == 1 and _max_hp_id >= 0 and _hp_id >= 0:
-				var hp_before = float(u1.stats.get_final(_hp_id))
-				var max_before = float(u1.stats.get_final(_max_hp_id))
-				print("[Demo] After MAX_HP buff (action_finished): entity=1 HP/MAX_HP = %s/%s" % [str(hp_before), str(max_before)])
-				_debug_pending_ratio_sync = true
 	)
 	
 	# 8. Start battle
@@ -193,22 +155,123 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 	if _turns_elapsed >= _max_turns:
 		return
 	print("[Demo] Action requested for entity %d, submitting command..." % actor.entity_id)
-	
-	# entity 1 的第 1 回合：对自己施放 MAX_HP +30%（3回合，可刷新）
-	if int(actor.get("entity_id")) == 1 and not _did_cast_max_hp_up:
-		_did_cast_max_hp_up = true
-		var self_cell = actor.get("cell")
-		var cmd0 = TurnCommand.new("act_demo_max_hp_up", Vector2i(self_cell))
-		turn_manager.submit_player_command(cmd0)
-		return
 
-	# Find an alive enemy
-	var target_cell = Vector2i.ZERO
+	var eid = int(actor.get("entity_id"))
+	var cmd: TurnCommand = null
+	if eid == 1:
+		# 主角：优先 AOE（CD=2），否则单体
+		var sid = "act_hero_strike"
+		if turn_manager._get_skill_cooldown(eid, "act_hero_whirlwind") <= 0:
+			sid = "act_hero_whirlwind"
+		cmd = TurnCommand.new(sid, Vector2i(0, 0))
+	elif eid == 2:
+		# 队友：血量低于 60% 则治疗；否则普攻
+		var target_ally = _pick_lowest_hp_ally()
+		if target_ally != null and _get_hp_ratio(target_ally) < 0.6:
+			cmd = TurnCommand.new("act_ally_heal", Vector2i(target_ally.get("cell")))
+		else:
+			var enemy_cell = _pick_first_enemy_cell(actor)
+			cmd = TurnCommand.new("act_ally_basic", enemy_cell)
+	elif eid == 3:
+		# Boss：所有主动技能都在冷却；当全部在冷却时退化普攻
+		var chosen = String(turn_manager._choose_skill_with_cooldown(eid, ["act_boss_quake", "act_boss_crush"], "act_boss_basic"))
+		cmd = TurnCommand.new(chosen, Vector2i(0, 0))
+	else:
+		# 随从：固定单体
+		cmd = TurnCommand.new("act_minion_stab", Vector2i(0, 0))
+		
+	if cmd != null:
+		turn_manager.submit_player_command(cmd)
+
+
+func _init_unit_stats(u: DemoBattleUnit, ds) -> void:
+	var hp = 100.0
+	var mp = 50.0
+	var atk = 10.0
+	var def = 5.0
+	var spd = 0.0
+	match int(u.entity_id):
+		1: # HERO
+			hp = 220.0
+			mp = 80.0
+			atk = 55.0
+			def = 22.0
+			spd = 10.0
+		2: # ALLY
+			hp = 160.0
+			mp = 120.0
+			atk = 25.0
+			def = 18.0
+			spd = 7.0
+		3: # BOSS
+			hp = 420.0
+			mp = 100.0
+			atk = 80.0
+			def = 35.0
+			spd = 12.0
+		4: # MINION
+			hp = 240.0
+			mp = 40.0
+			atk = 40.0
+			def = 20.0
+			spd = 9.0
+
+	var stats = u.stats
+	if stats == null:
+		return
+	_set_stat_value(stats, ds, "MAX_HP", hp)
+	_set_stat_value(stats, ds, "HP", hp)
+	_set_stat_value(stats, ds, "MAX_MP", mp)
+	_set_stat_value(stats, ds, "MP", mp)
+	_set_stat_value(stats, ds, "ATK", atk)
+	_set_stat_value(stats, ds, "DEF", def)
+	_set_stat_value(stats, ds, "SPEED", spd)
+
+
+func _set_stat_value(stats, ds, stat_name: String, desired: float) -> void:
+	var sid = int(ds.stat_id(stat_name))
+	if sid < 0:
+		return
+	var cur = float(stats.get_final(sid))
+	stats.add_base(sid, desired - cur)
+
+
+func _get_hp_ratio(u: Node) -> float:
+	if u == null:
+		return 1.0
+	var st = u.get("stats")
+	if st == null:
+		return 1.0
+	if _hp_id < 0 or _max_hp_id < 0:
+		return 1.0
+	var cur_hp = float(st.get_final(_hp_id))
+	var max_hp = float(st.get_final(_max_hp_id))
+	if max_hp <= 0.0:
+		return 0.0
+	return clamp(cur_hp / max_hp, 0.0, 1.0)
+
+
+func _pick_lowest_hp_ally() -> Node:
 	var skill_rt = get_node("/root/TurnSkillRuntime")
-	var target = skill_rt.grid.get_first_enemy(actor)
-	if target:
-		target_cell = target.get("cell")
-	
-	# Auto-submit a command
-	var cmd = TurnCommand.new("act_demo_single", target_cell)
-	turn_manager.submit_player_command(cmd)
+	var best: Node = null
+	var best_ratio = 999.0
+	for u in skill_rt.grid._units:
+		if u == null:
+			continue
+		if String(u.get("camp")) != "ally":
+			continue
+		if u.has_method("is_dead") and bool(u.call("is_dead")):
+			continue
+		var r = _get_hp_ratio(u)
+		if r < best_ratio:
+			best_ratio = r
+			best = u
+	return best
+
+
+func _pick_first_enemy_cell(actor: Node) -> Vector2i:
+	var skill_rt = get_node("/root/TurnSkillRuntime")
+	var t = skill_rt.grid.get_first_enemy(actor)
+	if t != null:
+		return Vector2i(t.get("cell"))
+	return Vector2i(0, 0)
