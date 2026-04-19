@@ -35,15 +35,18 @@ layout_mode = 2
 layout_mode = 2
 text = "播报："
 
-[node name="DetailSelect" type="OptionButton" parent="Margin/VBox/Toolbar" unique_name_in_owner=true]
+[node name="DetailSelect" type="OptionButton" parent="Margin/VBox/Toolbar"]
+unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(120, 0)
 
-[node name="BtnClear" type="Button" parent="Margin/VBox/Toolbar" unique_name_in_owner=true]
+[node name="BtnClear" type="Button" parent="Margin/VBox/Toolbar"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "清空"
 
-[node name="LogBox" type="RichTextLabel" parent="Margin/VBox" unique_name_in_owner=true]
+[node name="LogBox" type="RichTextLabel" parent="Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
