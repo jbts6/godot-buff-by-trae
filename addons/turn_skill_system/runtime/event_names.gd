@@ -15,4 +15,3 @@ const UNIT_DIED := "unit_died"
 const UNIT_REVIVED := "unit_revived"
 const UNIT_MOVED := "unit_moved"
 const GRID_CHANGED := "grid_changed"
-

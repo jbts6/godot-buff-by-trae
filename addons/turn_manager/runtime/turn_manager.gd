@@ -1,0 +1,317 @@
+class_name TurnManager
+extends Node
+
+signal battle_started(units: Array[Node])
+signal round_started(round_index: int, queue: Array[Node])
+signal turn_started(actor: Node, turn_index: int)
+signal action_requested(actor: Node, valid_skill_ids: Array[String])
+signal action_committed(actor: Node, command: TurnCommand)
+signal action_resolving(actor: Node, command: TurnCommand)
+signal turn_ended(actor: Node, turn_index: int)
+signal battle_ended(result: Dictionary)
+
+enum State {
+	IDLE,
+	ROUND_START,
+	TURN_START,
+	REQUEST_ACTION,
+	RESOLVE_ACTION,
+	TURN_END,
+	CHECK_END,
+	BATTLE_END
+}
+
+@export var ally_camp_name: String = "ally"
+@export var enemy_camp_name: String = "enemy"
+@export var hp_stat_id: String = "HP"
+@export_enum("spawn_index", "cell") var stable_order_mode: String = "spawn_index"
+
+var _state: int = State.IDLE
+var _context: BattleContext
+var _units: Array[Node] = []
+var _turn_queue: Array[Node] = []
+var _round_index: int = 0
+var _turn_index: int = 1
+var _current_actor: Node = null
+var _current_command: TurnCommand = null
+var _victory_condition: VictoryCondition
+
+func setup(context: BattleContext, units: Array[Node]) -> void:
+	_context = context
+	_units = units
+	
+	if not _context.validate():
+		push_error("[TurnManager] Setup failed due to invalid context")
+		return
+		
+	if _context.runtime_dict.is_empty() or not _context.runtime_dict.has("stats_by_entity"):
+		_context.runtime_dict["stats_by_entity"] = {}
+		_context.runtime_dict["buff_by_entity"] = {}
+		
+	var spawn_index = 0
+	for u in _units:
+		if not u.has_method("get_speed"):
+			push_error("[TurnManager] Unit %s is missing get_speed() method" % u.name)
+			
+		var eid = u.get("entity_id")
+		if eid != null:
+			if u.get("stats"):
+				_context.runtime_dict["stats_by_entity"][eid] = u.get("stats")
+			if u.get("buffs"):
+				_context.runtime_dict["buff_by_entity"][eid] = u.get("buffs")
+				
+		u.set_meta("spawn_index", spawn_index)
+		spawn_index += 1
+		
+	_context.grid.set_units(_units)
+	_victory_condition = VictoryCondition.new(ally_camp_name, enemy_camp_name)
+
+func start_battle() -> void:
+	if _state != State.IDLE:
+		return
+	_round_index = 1
+	_turn_index = 1
+	emit_signal("battle_started", _units)
+	_transition_to(State.ROUND_START)
+
+func stop_battle() -> void:
+	_state = State.IDLE
+	_turn_queue.clear()
+	_current_actor = null
+	_current_command = null
+
+func get_state() -> int:
+	return _state
+	
+func get_current_actor() -> Node:
+	return _current_actor
+
+func submit_player_command(command: TurnCommand) -> void:
+	if _state != State.REQUEST_ACTION:
+		push_warning("[TurnManager] Ignoring submit_player_command, not in REQUEST_ACTION state")
+		return
+	if not command:
+		return
+	_current_command = command
+	emit_signal("action_committed", _current_actor, command)
+	_transition_to(State.RESOLVE_ACTION)
+
+func is_dead(actor: Node) -> bool:
+	if actor.has_method("is_dead"):
+		return actor.is_dead()
+	elif "is_dead" in actor:
+		return actor.get("is_dead")
+		
+	var stats = actor.get("stats")
+	if not stats:
+		push_error("[TurnManager] Unit %s missing stats component for death check" % actor.name)
+		return true
+		
+	var hp_id_int = _context.enums_rt.get_stat_id(hp_stat_id) if _context.enums_rt else -1
+	if hp_id_int == -1:
+		push_error("[TurnManager] hp_stat_id '%s' not found in enums_rt" % hp_stat_id)
+		return false
+		
+	var hp = stats.get_stat(hp_id_int)
+	return hp <= 0
+
+func _transition_to(new_state: int) -> void:
+	_state = new_state
+	call_deferred("_advance")
+
+func _advance() -> void:
+	match _state:
+		State.ROUND_START:
+			_handle_round_start()
+		State.TURN_START:
+			_handle_turn_start()
+		State.REQUEST_ACTION:
+			_handle_request_action()
+		State.RESOLVE_ACTION:
+			_handle_resolve_action()
+		State.TURN_END:
+			_handle_turn_end()
+		State.CHECK_END:
+			_handle_check_end()
+		State.BATTLE_END:
+			_handle_battle_end()
+
+func _handle_round_start() -> void:
+	_build_turn_queue()
+	emit_signal("round_started", _round_index, _turn_queue.duplicate())
+	if _turn_queue.is_empty():
+		_transition_to(State.CHECK_END)
+	else:
+		_current_actor = _turn_queue.pop_front()
+		_transition_to(State.TURN_START)
+
+func _handle_turn_start() -> void:
+	if not is_instance_valid(_current_actor) or is_dead(_current_actor):
+		_transition_to(State.CHECK_END)
+		return
+		
+	var actor_id = _current_actor.get("entity_id")
+	emit_signal("turn_started", _current_actor, _turn_index)
+	_context.event_bus.emit_event(EventNames.TURN_STARTED, {"turn_index": _turn_index, "actor_id": actor_id})
+	
+	var entity_ids_sorted = PackedInt32Array([actor_id])
+	var pipeline = _context.get("pipeline")
+	var ds = _context.dataset
+	var replay = _context.get("replay")
+	_context.turn_component.on_turn_start(
+		entity_ids_sorted,
+		_context.runtime_dict["buff_by_entity"],
+		_context.runtime_dict["stats_by_entity"],
+		pipeline,
+		ds,
+		replay
+	)
+	
+	if _context.aura_manager:
+		_context.aura_manager.refresh_all()
+		
+	if is_dead(_current_actor):
+		_clean_up_dead()
+		_transition_to(State.CHECK_END)
+	else:
+		_transition_to(State.REQUEST_ACTION)
+
+func _handle_request_action() -> void:
+	emit_signal("action_requested", _current_actor, [])
+
+func _handle_resolve_action() -> void:
+	if not _current_command:
+		_transition_to(State.TURN_END)
+		return
+		
+	var actor_id = _current_actor.get("entity_id")
+	_context.event_bus.emit_event(EventNames.ACTION_STARTED, {
+		"turn_index": _turn_index, 
+		"actor_id": actor_id,
+		"skill_id": _current_command.skill_id
+	})
+	
+	emit_signal("action_resolving", _current_actor, _current_command)
+	
+	var extra = _current_command.extra.duplicate()
+	extra["grid"] = _context.grid
+	extra["dataset"] = _context.dataset
+	extra["enums_rt"] = _context.enums_rt
+	extra["runtime_dict"] = _context.runtime_dict
+	extra["turn_index"] = _turn_index
+	
+	var sr_script = load("res://addons/turn_skill_system/runtime/skill_runtime.gd")
+	if sr_script:
+		var result = sr_script.cast_to_cell(_current_command.skill_id, _current_actor, _current_command.primary_cell, extra)
+		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+			"turn_index": _turn_index,
+			"actor_id": actor_id,
+			"ok": result.get("ok", false),
+			"errors": result.get("errors", [])
+		})
+	else:
+		push_error("[TurnManager] SkillRuntime script not found!")
+		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+			"turn_index": _turn_index,
+			"actor_id": actor_id,
+			"ok": false,
+			"errors": ["SkillRuntime not found"]
+		})
+		
+	_clean_up_dead()
+	_current_command = null
+	_transition_to(State.TURN_END)
+
+func _handle_turn_end() -> void:
+	if not is_instance_valid(_current_actor):
+		_transition_to(State.CHECK_END)
+		return
+		
+	var actor_id = _current_actor.get("entity_id")
+	var entity_ids_sorted = PackedInt32Array([actor_id])
+	var pipeline = _context.get("pipeline")
+	var ds = _context.dataset
+	var replay = _context.get("replay")
+	
+	_context.turn_component.on_turn_end(
+		entity_ids_sorted,
+		_context.runtime_dict["buff_by_entity"],
+		_context.runtime_dict["stats_by_entity"],
+		pipeline,
+		ds,
+		replay
+	)
+	
+	_context.event_bus.emit_event(EventNames.TURN_ENDED, {"turn_index": _turn_index, "actor_id": actor_id})
+	emit_signal("turn_ended", _current_actor, _turn_index)
+	
+	if _context.aura_manager:
+		_context.aura_manager.refresh_all()
+		
+	_clean_up_dead()
+	_turn_index += 1
+	_transition_to(State.CHECK_END)
+
+func _handle_check_end() -> void:
+	var result = _victory_condition.check(_units, self)
+	if result.get("ended", false):
+		emit_signal("battle_ended", result)
+		_transition_to(State.BATTLE_END)
+	else:
+		if _turn_queue.is_empty():
+			_round_index += 1
+			_transition_to(State.ROUND_START)
+		else:
+			_current_actor = _turn_queue.pop_front()
+			_transition_to(State.TURN_START)
+
+func _handle_battle_end() -> void:
+	pass
+
+func _build_turn_queue() -> void:
+	_turn_queue.clear()
+	for u in _units:
+		if is_instance_valid(u) and not is_dead(u):
+			_turn_queue.append(u)
+			
+	_turn_queue.sort_custom(_sort_units)
+
+func _sort_units(a: Node, b: Node) -> bool:
+	var speed_a = a.get_speed() if a.has_method("get_speed") else 0.0
+	var speed_b = b.get_speed() if b.has_method("get_speed") else 0.0
+	
+	if speed_a != speed_b:
+		return speed_a > speed_b
+		
+	var camp_a = 1 if a.get("camp") == ally_camp_name else 0
+	var camp_b = 1 if b.get("camp") == ally_camp_name else 0
+	if camp_a != camp_b:
+		return camp_a > camp_b
+		
+	var stable_a = 0
+	var stable_b = 0
+	if stable_order_mode == "spawn_index":
+		stable_a = a.get_meta("spawn_index", 0)
+		stable_b = b.get_meta("spawn_index", 0)
+	elif stable_order_mode == "cell":
+		var cell_a = a.get("cell")
+		var cell_b = b.get("cell")
+		if cell_a and cell_b:
+			stable_a = cell_a.y * 1000 + cell_a.x
+			stable_b = cell_b.y * 1000 + cell_b.x
+			
+	return stable_a < stable_b
+
+func _clean_up_dead() -> void:
+	for u in _units:
+		if is_instance_valid(u) and is_dead(u):
+			if not u.get_meta("is_dead_processed", false):
+				u.set_meta("is_dead_processed", true)
+				var eid = u.get("entity_id")
+				_context.event_bus.emit_event(EventNames.UNIT_DIED, {"actor_id": eid})
+				
+	var new_q: Array[Node] = []
+	for u in _turn_queue:
+		if is_instance_valid(u) and not is_dead(u):
+			new_q.append(u)
+	_turn_queue = new_q

@@ -2,6 +2,8 @@
 
 JSON 权威的技能系统（active/passive/aura），集成 `addons/omnibuff`，并提供 Editor Dock 编辑器与最小 Demo。
 
+> 更详细的“业务侧调用/集成”文档见：`docs/turn_skill_system/turn_skill_system_usage.md`
+
 ## 1) 启用插件
 
 1. 打开 Godot：`Project → Project Settings → Plugins`
@@ -114,4 +116,3 @@ func apply(effect: Dictionary, ctx: Dictionary, simulation: bool) -> Dictionary
 已实现：
 - `apply_buff/remove_buff` → `OmniBuff.BuffCore.apply_buff/remove_by_buff_id`
 - `damage` → `OmniBuff.DamagePipeline.deal_damage`（兜底 `deal_damage_v1`）
-

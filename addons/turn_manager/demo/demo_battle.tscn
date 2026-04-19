@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://d3m0_turn_manager_demo"]
+
+[ext_resource type="Script" path="res://addons/turn_manager/demo/demo_battle.gd" id="1_demo"]
+
+[node name="DemoBattle" type="Node"]
+script = ExtResource("1_demo")

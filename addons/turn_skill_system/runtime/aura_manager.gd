@@ -27,7 +27,7 @@ func bind(event_bus, db, effects, omnibuff, grid) -> void:
 
 
 func register_aura(owner_unit, aura_skill_id: String) -> void:
-	var r := _db.get_skill(aura_skill_id, true)
+	var r: Dictionary = _db.get_skill(aura_skill_id, true)
 	if not bool(r.get("ok", false)):
 		return
 	var skill: Dictionary = r.get("skill", {})
