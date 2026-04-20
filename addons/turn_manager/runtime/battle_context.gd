@@ -12,6 +12,7 @@ var turn_component: Object
 var omnibuff_adapter: Object
 var passive_manager: Object
 var aura_manager: Object
+var battle_item_system: Object
 
 ## 可选字段
 var pipeline: Object

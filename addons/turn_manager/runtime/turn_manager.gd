@@ -357,8 +357,13 @@ func _handle_resolve_action() -> void:
 		return
 		
 	var actor_id = int(_current_actor.get("entity_id"))
-	var skill_id = String(_current_command.skill_id)
-	if _get_skill_cooldown(actor_id, skill_id) > 0:
+	var cmd_kind = String(_current_command.kind)
+	var cmd_id = String(_current_command.id)
+	var skill_id = cmd_id if cmd_kind == "skill" else ""
+	var item_id = cmd_id if cmd_kind == "item" else ""
+
+	# 技能冷却只对 kind=skill 生效
+	if cmd_kind == "skill" and _get_skill_cooldown(actor_id, skill_id) > 0:
 		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
 			"turn_index": _turn_index,
 			"actor_id": actor_id,
@@ -370,10 +375,14 @@ func _handle_resolve_action() -> void:
 		_current_command = null
 		_transition_to(State.TURN_END)
 		return
+
 	_context.event_bus.emit_event(EventNames.ACTION_STARTED, {
-		"turn_index": _turn_index, 
+		"turn_index": _turn_index,
 		"actor_id": actor_id,
-		"skill_id": skill_id
+		"kind": cmd_kind,
+		"id": cmd_id,
+		"skill_id": skill_id,
+		"item_id": item_id,
 	})
 	
 	emit_signal("action_resolving", _current_actor, _current_command)
@@ -385,27 +394,44 @@ func _handle_resolve_action() -> void:
 	extra["runtime_dict"] = _context.runtime_dict
 	extra["turn_index"] = _turn_index
 	
-	var sr_script = load("res://addons/turn_skill_system/runtime/skill_runtime.gd")
-	if sr_script:
-		var result = sr_script.cast_to_cell(skill_id, _current_actor, _current_command.primary_cell, extra)
-		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
-			"turn_index": _turn_index,
-			"actor_id": actor_id,
-			"ok": result.get("ok", false),
-			"errors": result.get("errors", [])
-		})
-		if bool(result.get("ok", false)):
-			var cd_turns = _get_skill_cooldown_turns(skill_id)
-			if cd_turns > 0:
-				_set_skill_cooldown(actor_id, skill_id, cd_turns)
+	if cmd_kind == "item":
+		if _context == null or _context.battle_item_system == null or not _context.battle_item_system.has_method("execute_item"):
+			_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+				"turn_index": _turn_index,
+				"actor_id": actor_id,
+				"ok": false,
+				"errors": ["BattleItemSystem missing"]
+			})
+		else:
+			var result: Dictionary = _context.battle_item_system.execute_item(actor_id, item_id, _current_command.primary_cell)
+			_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+				"turn_index": _turn_index,
+				"actor_id": actor_id,
+				"ok": result.get("ok", false),
+				"errors": result.get("errors", [])
+			})
 	else:
-		push_error("[TurnManager] SkillRuntime script not found!")
-		_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
-			"turn_index": _turn_index,
-			"actor_id": actor_id,
-			"ok": false,
-			"errors": ["SkillRuntime not found"]
-		})
+		var sr_script = load("res://addons/turn_skill_system/runtime/skill_runtime.gd")
+		if sr_script:
+			var result = sr_script.cast_to_cell(skill_id, _current_actor, _current_command.primary_cell, extra)
+			_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+				"turn_index": _turn_index,
+				"actor_id": actor_id,
+				"ok": result.get("ok", false),
+				"errors": result.get("errors", [])
+			})
+			if bool(result.get("ok", false)):
+				var cd_turns = _get_skill_cooldown_turns(skill_id)
+				if cd_turns > 0:
+					_set_skill_cooldown(actor_id, skill_id, cd_turns)
+		else:
+			push_error("[TurnManager] SkillRuntime script not found!")
+			_context.event_bus.emit_event(EventNames.ACTION_FINISHED, {
+				"turn_index": _turn_index,
+				"actor_id": actor_id,
+				"ok": false,
+				"errors": ["SkillRuntime not found"]
+			})
 		
 	sync_resources_keep_ratio(_current_actor)
 	_clean_up_dead()
