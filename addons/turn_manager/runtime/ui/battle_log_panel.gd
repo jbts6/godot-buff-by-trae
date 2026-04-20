@@ -34,6 +34,8 @@ func append_line(bbcode_line: String, meta: Dictionary = {}) -> void:
 		"bbcode": bbcode_line,
 		"text_concise": String(meta.get("text_concise", "")),
 		"text_verbose": String(meta.get("text_verbose", "")),
+		"bb_concise": String(meta.get("bb_concise", "")),
+		"bb_verbose": String(meta.get("bb_verbose", "")),
 		"meta": meta.duplicate(true),
 	}
 	_entries.append(entry)
@@ -62,12 +64,19 @@ func _append_entry(entry: Dictionary, _is_rerender: bool = false) -> void:
 	var level = int(detail_select.get_selected_id())
 	var concise = String(entry.get("text_concise", ""))
 	var verbose = String(entry.get("text_verbose", ""))
-	var bbcode = String(entry.get("bbcode", ""))
+	var bb_concise = String(entry.get("bb_concise", ""))
+	var bb_verbose = String(entry.get("bb_verbose", ""))
+	var bbcode = ""
 
 	# 优先使用“原始文本”再交给 Log.to_printable 生成 BBCode，保证切换后可重渲染。
-	var chosen_text = verbose if level == 1 else concise
-	if chosen_text != "":
-		bbcode = Log.to_printable([chosen_text], {"pretty": true})
+	if level == 1 and bb_verbose != "":
+		bbcode = bb_verbose
+	elif level == 0 and bb_concise != "":
+		bbcode = bb_concise
+	else:
+		var chosen_text = verbose if level == 1 else concise
+		if chosen_text != "":
+			bbcode = Log.to_printable([chosen_text], {"pretty": true})
 
 	if bbcode == "":
 		return

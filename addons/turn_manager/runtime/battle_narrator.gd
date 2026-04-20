@@ -10,6 +10,15 @@ const DETAIL_VERBOSE := 1
 
 var detail_level: int = DETAIL_CONCISE
 
+# 主题（classic：友方绿 / 敌方红）
+const COLOR_ALLY := "#43AA8B"
+const COLOR_ENEMY := "#F94144"
+const COLOR_SKILL := "#90DBF4"
+const COLOR_TURN := "#F9C74F"
+const COLOR_ROUND := "#F9C74F"
+const COLOR_MUTED := "#7C8498"
+const COLOR_LINE := "#666666"
+
 var _event_bus = null
 var _grid = null
 var _ds = null
@@ -44,7 +53,7 @@ func set_detail_level(level: int) -> void:
 func _on_event(event_name: String, data: Dictionary) -> void:
 	match String(event_name):
 		"battle_started":
-			_emit_text("战斗开始！", {"event": "battle_started"})
+			_emit_bb(_bb_text("战斗开始！"), {"event": "battle_started"})
 		"buff_applied":
 			_emit_buff_applied(data)
 		"buff_removed":
@@ -54,19 +63,32 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 		"turn_started":
 			_turn_index = int(data.get("turn_index", _turn_index))
 			_actor_id = int(data.get("actor_id", -1))
-			_emit_text("回合 %d：%s 行动" % [_turn_index, _name_of(_actor_id)], {"event": "turn_started", "turn_index": _turn_index, "actor_id": _actor_id})
+			_emit_bb(_bb_sep_soft(), {"event": "turn_sep", "turn_index": _turn_index})
+			_emit_bb(
+				"%s：%s 行动" % [
+					_bb_turn(_turn_index),
+					_bb_unit(_actor_id),
+				],
+				{"event": "turn_started", "turn_index": _turn_index, "actor_id": _actor_id}
+			)
 		"action_started":
 			_turn_index = int(data.get("turn_index", _turn_index))
 			_actor_id = int(data.get("actor_id", _actor_id))
 			_current_skill_id = String(data.get("skill_id", ""))
-			_emit_text("%s 使用【%s】" % [_name_of(_actor_id), _skill_name(_current_skill_id)], {"event": "action_started", "turn_index": _turn_index, "actor_id": _actor_id, "skill_id": _current_skill_id})
+			_emit_bb(
+				"%s 使用 %s" % [
+					_bb_unit(_actor_id),
+					_bb_skill(_current_skill_id),
+				],
+				{"event": "action_started", "turn_index": _turn_index, "actor_id": _actor_id, "skill_id": _current_skill_id}
+			)
 		"after_damage":
 			_emit_damage_line(data)
 		"after_heal":
 			_emit_heal_line(data)
 		"unit_died":
 			var dead_id = int(data.get("actor_id", -1))
-			_emit_text("%s 倒下了！" % [_name_of(dead_id)], {"event": "unit_died", "actor_id": dead_id})
+			_emit_bb("%s 倒下了！" % [_bb_unit(dead_id)], {"event": "unit_died", "actor_id": dead_id})
 		_:
 			# 其它事件先不播报；后续会补充 buff_applied/buff_removed 等。
 			pass
@@ -81,11 +103,11 @@ func _emit_buff_applied(data: Dictionary) -> void:
 	var target_name = _name_of(target_id)
 	var buff_name = _buff_name(buff_id)
 	if caster_id >= 0 and target_id >= 0 and caster_id != target_id:
-		var concise = "%s 使 %s 获得效果【%s】" % [caster_name, target_name, buff_name]
+		var concise = "%s 使 %s 获得效果 %s" % [_bb_unit(caster_id), _bb_unit(target_id), _bb_buff(buff_id)]
 		var verbose = concise
 		if skill_id != "":
-			verbose += "（来源技能：%s）" % [_skill_name(skill_id)]
-		_emit_text(concise, {
+			verbose += _bb_muted("（来源技能：%s）" % [_skill_name(skill_id)])
+		_emit_bb(concise, {
 			"event": "buff_applied",
 			"caster_id": caster_id,
 			"target_id": target_id,
@@ -95,11 +117,11 @@ func _emit_buff_applied(data: Dictionary) -> void:
 			"text_verbose": verbose,
 		})
 	else:
-		var concise2 = "%s 获得效果【%s】" % [target_name, buff_name]
+		var concise2 = "%s 获得效果 %s" % [_bb_unit(target_id), _bb_buff(buff_id)]
 		var verbose2 = concise2
 		if skill_id != "":
-			verbose2 += "（来源技能：%s）" % [_skill_name(skill_id)]
-		_emit_text(concise2, {
+			verbose2 += _bb_muted("（来源技能：%s）" % [_skill_name(skill_id)])
+		_emit_bb(concise2, {
 			"event": "buff_applied",
 			"caster_id": caster_id,
 			"target_id": target_id,
@@ -113,14 +135,15 @@ func _emit_buff_applied(data: Dictionary) -> void:
 func _emit_buff_removed(data: Dictionary) -> void:
 	var target_id = int(data.get("target_id", -1))
 	var buff_id = String(data.get("buff_id", ""))
-	_emit_text("%s 失去效果【%s】" % [_name_of(target_id), _buff_name(buff_id)], {"event": "buff_removed", "target_id": target_id, "buff_id": buff_id})
+	_emit_bb("%s 失去效果 %s" % [_bb_unit(target_id), _bb_buff(buff_id)], {"event": "buff_removed", "target_id": target_id, "buff_id": buff_id})
 
 
 func _emit_turn_order(data: Dictionary) -> void:
 	var round_idx = int(data.get("round_index", _round_index))
 	if round_idx != _round_index and round_idx > 0:
 		_round_index = round_idx
-		_emit_text("第 %d 轮开始" % [_round_index], {"event": "round_started", "round_index": _round_index})
+		_emit_bb(_bb_sep_hard(), {"event": "round_sep", "round_index": _round_index})
+		_emit_bb(_bb_round(_round_index), {"event": "round_started", "round_index": _round_index})
 
 	var order_any: Variant = data.get("order", [])
 	if typeof(order_any) != TYPE_ARRAY:
@@ -135,10 +158,10 @@ func _emit_turn_order(data: Dictionary) -> void:
 		var it: Dictionary = it_any
 		var eid = int(it.get("eid", -1))
 		var spd = float(it.get("speed", 0.0))
-		parts.append("%s(%.0f)" % [_name_of(eid), spd])
+		parts.append("%s%s" % [_bb_unit(eid), _bb_muted("(%.0f)" % spd)])
 	if parts.is_empty():
 		return
-	_emit_text("计算出手顺序：" + " > ".join(parts), {"event": "turn_order_computed"})
+	_emit_bb(_bb_muted("计算出手顺序：") + " > ".join(parts), {"event": "turn_order_computed"})
 
 
 func _emit_damage_line(data: Dictionary) -> void:
@@ -149,14 +172,13 @@ func _emit_damage_line(data: Dictionary) -> void:
 
 	# 简洁模式：每条 AFTER_DAMAGE 直接输出一行（AOE 会自然出现多行）
 	var hp_pair = _get_hp_pair(target_id)
-	var concise = "%s 受到 %.0f 伤害，HP %.0f/%.0f" % [
-		_name_of(target_id),
-		final_damage,
-		hp_pair.x,
-		hp_pair.y,
+	var concise = "- %s 受到 %s 伤害，%s" % [
+		_bb_unit(target_id),
+		_bb_dmg(final_damage),
+		_bb_hp(hp_pair.x, hp_pair.y),
 	]
-	var verbose = concise + "（来自：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
-	_emit_text(concise, {
+	var verbose = concise + _bb_muted("（来自：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)])
+	_emit_bb(concise, {
 		"event": "after_damage",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
@@ -175,14 +197,13 @@ func _emit_heal_line(data: Dictionary) -> void:
 	var skill_id = String(data.get("skill_id", _current_skill_id))
 
 	var hp_pair = _get_hp_pair(target_id)
-	var concise = "%s 恢复 %.0f，HP %.0f/%.0f" % [
-		_name_of(target_id),
-		amount,
-		hp_pair.x,
-		hp_pair.y,
+	var concise = "- %s 恢复 %s，%s" % [
+		_bb_unit(target_id),
+		_bb_heal(amount),
+		_bb_hp(hp_pair.x, hp_pair.y),
 	]
-	var verbose = concise + "（施法者：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)]
-	_emit_text(concise, {
+	var verbose = concise + _bb_muted("（施法者：%s｜技能：%s）" % [_name_of(caster_id), _skill_name(skill_id)])
+	_emit_bb(concise, {
 		"event": "after_heal",
 		"turn_index": _turn_index,
 		"skill_id": skill_id,
@@ -193,17 +214,92 @@ func _emit_heal_line(data: Dictionary) -> void:
 		"text_verbose": verbose,
 	})
 
-
-func _emit_text(text: String, meta: Dictionary = {}) -> void:
-	# 产出 BBCode（log.gd 颜色风格），用于 RichTextLabel
+func _emit_bb(bbcode: String, meta: Dictionary = {}) -> void:
 	var m: Dictionary = meta.duplicate(true)
-	if not m.has("text_concise"):
-		m["text_concise"] = text
-	if not m.has("text_verbose"):
-		m["text_verbose"] = text
-	var chosen = String(m.get("text_verbose")) if detail_level == DETAIL_VERBOSE else String(m.get("text_concise"))
-	var bb = Log.to_printable([chosen], {"pretty": true})
-	line_emitted.emit(bb, m)
+	# 兼容 BattleLogPanel 的重渲染：同时提供 concise/verbose 的 BBCode 版本
+	if not m.has("bb_concise"):
+		m["bb_concise"] = bbcode
+	if not m.has("bb_verbose"):
+		m["bb_verbose"] = bbcode
+	line_emitted.emit(bbcode, m)
+
+
+func _bb_text(s: String) -> String:
+	# 普通文本走 log.gd 的 pretty（顺便兼容控制台输出）
+	return Log.to_printable([s], {"pretty": true})
+
+
+func _bb_color(s: String, color_hex: String, bold: bool = false) -> String:
+	if bold:
+		return "[color=%s][b]%s[/b][/color]" % [color_hex, s]
+	return "[color=%s]%s[/color]" % [color_hex, s]
+
+
+func _bb_muted(s: String) -> String:
+	return _bb_color(s, COLOR_MUTED, false)
+
+
+func _bb_turn(turn_index: int) -> String:
+	return _bb_color("回合 %d" % turn_index, COLOR_TURN, true)
+
+
+func _bb_round(round_index: int) -> String:
+	return _bb_color("第 %d 轮开始" % round_index, COLOR_ROUND, true)
+
+
+func _bb_skill(skill_id: String) -> String:
+	return _bb_color("【%s】" % _skill_name(skill_id), COLOR_SKILL, true)
+
+
+func _bb_buff(buff_id: String) -> String:
+	return _bb_color("【%s】" % _buff_name(buff_id), COLOR_SKILL, true)
+
+
+func _bb_dmg(v: float) -> String:
+	return _bb_color("%.0f" % v, COLOR_ENEMY, true)
+
+
+func _bb_heal(v: float) -> String:
+	return _bb_color("%.0f" % v, COLOR_ALLY, true)
+
+
+func _bb_hp(hp: float, max_hp: float) -> String:
+	return _bb_muted("HP %.0f/%.0f" % [hp, max_hp])
+
+
+func _bb_sep_hard() -> String:
+	return _bb_color("────────────────────────", COLOR_LINE, false)
+
+
+func _bb_sep_soft() -> String:
+	return _bb_color("------------------------", COLOR_LINE, false)
+
+
+func _bb_unit(eid: int) -> String:
+	var camp = _camp_of(eid)
+	var n = _name_of(eid)
+	if camp == "ally":
+		return _bb_color(n, COLOR_ALLY, true)
+	if camp == "enemy":
+		return _bb_color(n, COLOR_ENEMY, true)
+	return _bb_color(n, COLOR_MUTED, false)
+
+
+func _camp_of(eid: int) -> String:
+	if _grid == null:
+		return ""
+	if not ("_units" in _grid):
+		return ""
+	var units_any: Variant = _grid.get("_units")
+	if typeof(units_any) != TYPE_ARRAY:
+		return ""
+	var units: Array = units_any
+	for u in units:
+		if u == null:
+			continue
+		if int(u.get("entity_id")) == eid:
+			return String(u.get("camp"))
+	return ""
 
 
 func _name_of(eid: int) -> String:
