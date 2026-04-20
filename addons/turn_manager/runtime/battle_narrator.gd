@@ -54,6 +54,8 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 	match String(event_name):
 		"battle_started":
 			_emit_bb(_bb_text("战斗开始！"), {"event": "battle_started"})
+		"item_used":
+			_emit_item_used(data)
 		"buff_applied":
 			_emit_buff_applied(data)
 		"buff_removed":
@@ -72,6 +74,9 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 				{"event": "turn_started", "turn_index": _turn_index, "actor_id": _actor_id}
 			)
 		"action_started":
+			# item 会由 item_used 事件播报，避免重复
+			if String(data.get("kind", "skill")) == "item" or String(data.get("item_id", "")) != "":
+				return
 			_turn_index = int(data.get("turn_index", _turn_index))
 			_actor_id = int(data.get("actor_id", _actor_id))
 			_current_skill_id = String(data.get("skill_id", ""))
@@ -92,6 +97,27 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 		_:
 			# 其它事件先不播报；后续会补充 buff_applied/buff_removed 等。
 			pass
+
+
+func _emit_item_used(data: Dictionary) -> void:
+	var actor_id = int(data.get("actor_id", -1))
+	var item_id = String(data.get("item_id", ""))
+	var item_name = String(data.get("item_name", ""))
+	var target_id = int(data.get("target_id", -1))
+
+	var item_disp = item_name if item_name != "" else item_id
+	var s = "%s 使用 道具%s" % [
+		_bb_unit(actor_id),
+		_bb_item(item_disp),
+	]
+	if target_id >= 0:
+		s += _bb_muted("（目标：%s）" % [_name_of(target_id)])
+	_emit_bb(s, {
+		"event": "item_used",
+		"actor_id": actor_id,
+		"item_id": item_id,
+		"target_id": target_id,
+	})
 
 
 func _emit_buff_applied(data: Dictionary) -> void:
@@ -249,6 +275,9 @@ func _bb_round(round_index: int) -> String:
 
 func _bb_skill(skill_id: String) -> String:
 	return _bb_color("【%s】" % _skill_name(skill_id), COLOR_SKILL, true)
+
+func _bb_item(item_name: String) -> String:
+	return _bb_color("【%s】" % item_name, COLOR_SKILL, true)
 
 
 func _bb_buff(buff_id: String) -> String:
