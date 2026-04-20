@@ -52,6 +52,7 @@ var _max_rage_id: int = -1
 var _speed_id: int = -1
 var _logger: BattleLogger
 var _narrator: BattleNarrator
+var _auto_step_delay_sec: float = 1.0
 
 func _ready() -> void:
 	_logger = BattleLogger.new()
@@ -180,6 +181,9 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 	if _turns_elapsed >= _max_turns:
 		return
 	_logger.log_event("action_requested", {"entity_id": int(actor.get("entity_id"))})
+	# 仅 demo：给自动回合一点节奏感
+	if _auto_step_delay_sec > 0.0:
+		await get_tree().create_timer(_auto_step_delay_sec).timeout
 
 	var eid = int(actor.get("entity_id"))
 	var cmd: TurnCommand = null
