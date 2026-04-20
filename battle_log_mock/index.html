@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>战斗播报样式 Mock</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #151923;
+        --text: #d9dee7;
+        --muted: #7c8498;
+        --line: #2a3142;
+        --round: #ffd166;
+        --turn: #ffd166;
+        --skill: #bdb2ff;
+        --ally: #4cc9f0;
+        --enemy: #f94144;
+        --dmg: #f94144;
+        --heal: #43aa8b;
+      }
+
+      [data-theme="classic"] {
+        --ally: #43aa8b;
+        --enemy: #f94144;
+        --skill: #90dbf4;
+        --round: #f9c74f;
+        --turn: #f9c74f;
+      }
+
+      [data-theme="warm"] {
+        --ally: #4cc9f0;
+        --enemy: #f8961e;
+        --dmg: #f8961e;
+        --skill: #f1c0e8;
+        --round: #ffd166;
+        --turn: #ffd166;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .title {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      select {
+        background: #0b0d12;
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 8px;
+        outline: none;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 14px 18px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      }
+      .sep {
+        margin: 12px 0;
+        border-top: 1px solid var(--line);
+      }
+      .sep.soft {
+        border-top-style: dashed;
+        opacity: 0.85;
+      }
+      .line {
+        padding: 4px 2px;
+        line-height: 1.35;
+        font-size: 15px;
+        white-space: pre-wrap;
+      }
+      .muted { color: var(--muted); }
+      .tag {
+        display: inline-block;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        margin-right: 8px;
+      }
+      .round { color: var(--round); font-weight: 800; }
+      .turn { color: var(--turn); font-weight: 800; }
+      .skill { color: var(--skill); font-weight: 800; }
+      .ally { color: var(--ally); font-weight: 700; }
+      .enemy { color: var(--enemy); font-weight: 700; }
+      .dmg { color: var(--dmg); font-weight: 900; }
+      .heal { color: var(--heal); font-weight: 900; }
+      .hp { color: var(--text); }
+      .note {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      code {
+        background: #0b0d12;
+        border: 1px solid var(--line);
+        padding: 1px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body data-theme="default">
+    <div class="wrap">
+      <header>
+        <div class="title">战斗播报样式 Mock（选一个主题，我再落到 Godot / BBCode）</div>
+        <div class="controls">
+          <span>主题</span>
+          <select id="theme">
+            <option value="default">默认（友方蓝 / 敌方红）</option>
+            <option value="classic">经典（友方绿 / 敌方红）</option>
+            <option value="warm">暖色（友方蓝 / 敌方橙）</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="panel" id="panel">
+        <div class="line"><span class="tag">SYSTEM</span>战斗开始！</div>
+        <div class="line"><span class="tag">PASSIVE</span><span class="ally">主角</span> 获得效果【开战先手：<span class="muted">SPEED +5（3 回合）</span>】</div>
+        <div class="line"><span class="tag">AURA</span><span class="ally">队友</span> 使 <span class="ally">全体友军</span> 获得效果【守护光环：<span class="muted">减伤 20%</span>】</div>
+
+        <div class="sep"></div>
+        <div class="line"><span class="round">第 1 轮开始</span></div>
+        <div class="line"><span class="muted">计算出手顺序：</span><span class="ally">主角</span>(15) &gt; <span class="enemy">Boss</span>(12) &gt; <span class="enemy">随从</span>(9) &gt; <span class="ally">队友</span>(7)</div>
+
+        <div class="sep soft"></div>
+        <div class="line"><span class="turn">回合 1</span>：<span class="ally">主角</span> 使用 <span class="skill">【旋风斩】</span>（目标：<span class="enemy">全体敌军</span>）</div>
+        <div class="line">- <span class="enemy">Boss</span> 受到 <span class="dmg">68</span> 伤害，<span class="hp">HP 352/420</span></div>
+        <div class="line">- <span class="enemy">随从</span> 受到 <span class="dmg">41</span> 伤害，<span class="hp">HP 199/240</span></div>
+
+        <div class="sep soft"></div>
+        <div class="line"><span class="turn">回合 2</span>：<span class="enemy">Boss</span> 使用 <span class="skill">【毁灭震荡】</span>（目标：<span class="ally">全体友军</span>）</div>
+        <div class="line">- <span class="ally">主角</span> 受到 <span class="dmg">120</span> 伤害，<span class="hp">HP 100/220</span></div>
+        <div class="line">- <span class="ally">队友</span> 受到 <span class="dmg">95</span> 伤害，<span class="hp">HP 65/160</span></div>
+
+        <div class="sep soft"></div>
+        <div class="line"><span class="turn">回合 3</span>：<span class="ally">队友</span> 使用 <span class="skill">【治疗】</span>（目标：<span class="ally">主角</span>）</div>
+        <div class="line">- <span class="ally">主角</span> 恢复 <span class="heal">35</span>，<span class="hp">HP 135/220</span></div>
+
+        <div class="sep"></div>
+        <div class="line"><span class="round">第 2 轮开始</span></div>
+        <div class="line"><span class="muted">（分割线示例：轮次/回合之间更清晰）</span></div>
+      </div>
+
+      <div class="note">
+        提示：这个页面只是选配色/分割线风格，最终会落到 Godot 的 RichTextLabel（BBCode）里。<br/>
+        选好主题后你告诉我：<code>default</code> / <code>classic</code> / <code>warm</code>，我就按该主题把 BattleNarrator 的输出改成带颜色的 BBCode，并加轮次/回合分割线。
+      </div>
+    </div>
+
+    <script>
+      const el = document.getElementById("theme");
+      el.addEventListener("change", () => {
+        document.body.setAttribute("data-theme", el.value);
+      });
+    </script>
+  </body>
+</html>
+
