@@ -185,6 +185,12 @@ git commit -m "feat(turn_manager): add TurnCommand kind for item"
   - 输出可点击 cell 列表
 - [ ] Step 3 (GREEN): overlay 高亮与点击回调：
   - 点格子生成 TurnCommand（skill/item）并 submit
+- [ ] Step 3.1 (GREEN): 增加“取消选择/返回”交互：
+  - ActionPanel 上提供 `取消/返回` 按钮（或 Esc 键）
+  - 取消后：
+    - 清空当前选中的 action（skill/item）
+    - 清空高亮格子
+    - 回到技能/道具列表可选状态
 - [ ] Step 4: Commit
 
 ---
@@ -210,4 +216,3 @@ git commit -m "feat(turn_manager): add TurnCommand kind for item"
 
 - [ ] Step 1: 描述 UI 操作流与 item 系统边界
 - [ ] Step 2: Commit
-
