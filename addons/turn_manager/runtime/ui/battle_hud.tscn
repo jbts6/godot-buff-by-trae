@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://c4tq4x0igq6v0"]
+
+[ext_resource type="PackedScene" path="res://addons/turn_manager/runtime/ui/battle_action_panel.tscn" id="1_action"]
+[ext_resource type="PackedScene" path="res://addons/turn_manager/runtime/ui/battle_log_panel.tscn" id="2_log"]
+[ext_resource type="Script" path="res://addons/turn_manager/runtime/ui/battle_hud.gd" id="3_hud"]
+
+[node name="BattleHUD" type="CanvasLayer"]
+layer = 50
+script = ExtResource("3_hud")
+
+[node name="Root" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HSplit" type="HSplitContainer" parent="Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+split_offset = 320
+
+[node name="ActionPanel" parent="Root/HSplit" instance=ExtResource("1_action") unique_name_in_owner=true]
+custom_minimum_size = Vector2(300, 0)
+
+[node name="Right" type="VBoxContainer" parent="Root/HSplit"]
+
+[node name="OverlayHost" type="Control" parent="Root/HSplit/Right" unique_name_in_owner=true]
+custom_minimum_size = Vector2(0, 180)
+size_flags_horizontal = 3
+
+[node name="BattleLogPanel" parent="Root/HSplit/Right" instance=ExtResource("2_log") unique_name_in_owner=true]
+size_flags_vertical = 3
+
