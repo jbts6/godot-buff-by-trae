@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://21f61w4cwfb2"]
 
 [ext_resource type="Script" uid="uid://qckwomgm85j8" path="res://addons/turn_manager/demo/demo_battle.gd" id="1_demo"]
-[ext_resource type="PackedScene" uid="uid://bq6l8b7lq5u1q" path="res://addons/turn_manager/runtime/ui/battle_log_panel.tscn" id="2_panel"]
+[ext_resource type="PackedScene" uid="uid://c4tq4x0igq6v0" path="res://addons/turn_manager/runtime/ui/battle_hud.tscn" id="2_hud"]
 
 [node name="DemoBattle" type="Node" unique_id=1744491935]
 script = ExtResource("1_demo")
 
-[node name="BattleLogPanel" parent="." instance=ExtResource("2_panel")]
+[node name="BattleHUD" parent="." instance=ExtResource("2_hud")]
 unique_name_in_owner = true

@@ -3,8 +3,10 @@ extends Node
 const OmniBuff = preload("res://addons/omnibuff/runtime/omnibuff_singleton.gd")
 const BattleLogger = preload("res://addons/turn_manager/runtime/battle_logger.gd")
 const BattleNarrator = preload("res://addons/turn_manager/runtime/battle_narrator.gd")
+const BattleItemSystem = preload("res://addons/turn_manager/runtime/items/battle_item_system.gd")
+const Inventory = preload("res://addons/inventory_system/runtime/inventory.gd")
 
-@onready var battle_log_panel: BattleLogPanel = %BattleLogPanel
+@onready var battle_hud: BattleHUD = %BattleHUD
 
 class DemoBattleUnit extends Node:
 	var entity_id: int
@@ -53,6 +55,10 @@ var _speed_id: int = -1
 var _logger: BattleLogger
 var _narrator: BattleNarrator
 var _auto_step_delay_sec: float = 1.0
+var _inventory: Inventory
+var _item_db: Dictionary = {}
+var _battle_item_system: BattleItemSystem
+var _waiting_actor_id: int = -1
 
 func _ready() -> void:
 	_logger = BattleLogger.new()
@@ -135,6 +141,24 @@ func _ready() -> void:
 	context.enums_rt = enums_rt
 	context.runtime_dict = runtime_dict
 
+	# 6.0 独立背包/道具系统（demo 初始化）
+	_inventory = Inventory.new()
+	_inventory.set_count("item_potion_small", 2)
+	_item_db = {
+		"item_potion_small": {
+			"id": "item_potion_small",
+			"name": "小治疗药水",
+			"desc": "为友军单体恢复 35 HP。",
+			"targeting": {"rule": "single_cell", "camp": "ally"},
+			"effects": [
+				{"kind": "heal", "params": {"amount": 35}}
+			]
+		}
+	}
+	_battle_item_system = BattleItemSystem.new()
+	_battle_item_system.bind(context.event_bus, skill_rt.omnibuff, _inventory, ds, runtime_dict, _item_db, skill_rt.grid)
+	context.battle_item_system = _battle_item_system
+
 	# 6.1 语义化播报（输出到面板；默认简洁，可切换详细）
 	_narrator = BattleNarrator.new()
 	_narrator.bind(context.event_bus, skill_rt.grid, ds, skill_rt.db, runtime_dict, {
@@ -143,10 +167,23 @@ func _ready() -> void:
 		3: "Boss",
 		4: "随从",
 	}, {"detail_level": BattleNarrator.DETAIL_CONCISE})
-	if battle_log_panel != null:
-		battle_log_panel.set_narrator(_narrator)
-		_narrator.line_emitted.connect(func(bb: String, meta: Dictionary):
-			battle_log_panel.append_line(bb, meta)
+
+	# 6.2 HUD：技能/道具 + 格子点选目标 + 播报
+	if battle_hud != null:
+		battle_hud.bind_runtime(skill_rt.grid, skill_rt.db, _inventory, _item_db, _narrator)
+		battle_hud.command_ready.connect(func(cmd: TurnCommand):
+			# 只接受当前等待的玩家单位的输入
+			if _waiting_actor_id < 0:
+				return
+			var eid = _waiting_actor_id
+			_logger.log_event("submit_command", {
+				"entity_id": eid,
+				"kind": String(cmd.kind),
+				"id": String(cmd.id),
+				"primary_cell": cmd.primary_cell,
+			})
+			_waiting_actor_id = -1
+			turn_manager.submit_player_command(cmd)
 		)
 	
 	# 7. Connect signals
@@ -181,44 +218,50 @@ func _on_action_requested(actor: Node, valid_skills: Array) -> void:
 	if _turns_elapsed >= _max_turns:
 		return
 	_logger.log_event("action_requested", {"entity_id": int(actor.get("entity_id"))})
-	# 仅 demo：给自动回合一点节奏感
-	if _auto_step_delay_sec > 0.0:
-		await get_tree().create_timer(_auto_step_delay_sec).timeout
-
+	var camp = String(actor.get("camp"))
 	var eid = int(actor.get("entity_id"))
-	var cmd: TurnCommand = null
-	if eid == 1:
-		# 主角：优先 AOE（CD=2），否则单体
-		var sid = "act_hero_strike"
-		if turn_manager._get_skill_cooldown(eid, "act_hero_whirlwind") <= 0:
-			sid = "act_hero_whirlwind"
-		cmd = TurnCommand.new(sid, Vector2i(0, 0))
-	elif eid == 2:
-		# 队友：血量低于 60% 则治疗；否则普攻
-		var target_ally = _pick_lowest_hp_ally()
-		if target_ally != null and _get_hp_ratio(target_ally) < 0.6:
-			cmd = TurnCommand.new("act_ally_heal", Vector2i(target_ally.get("cell")))
+
+	# 敌方：继续自动（带节奏延迟）
+	if camp == "enemy":
+		if _auto_step_delay_sec > 0.0:
+			await get_tree().create_timer(_auto_step_delay_sec).timeout
+		var cmd_ai: TurnCommand = null
+		if eid == 3:
+			# Boss：所有主动技能都在冷却；当全部在冷却时退化普攻
+			var cd_quake = int(turn_manager._get_skill_cooldown(eid, "act_boss_quake"))
+			var cd_crush = int(turn_manager._get_skill_cooldown(eid, "act_boss_crush"))
+			_logger.log_boss_cooldowns("before_choose", {"quake": cd_quake, "crush": cd_crush})
+			var chosen = String(turn_manager._choose_skill_with_cooldown(eid, ["act_boss_quake", "act_boss_crush"], "act_boss_basic"))
+			cmd_ai = TurnCommand.new_skill(chosen, Vector2i(0, 0))
 		else:
-			var enemy_cell = _pick_first_enemy_cell(actor)
-			cmd = TurnCommand.new("act_ally_basic", enemy_cell)
-	elif eid == 3:
-		# Boss：所有主动技能都在冷却；当全部在冷却时退化普攻
-		var cd_quake = int(turn_manager._get_skill_cooldown(eid, "act_boss_quake"))
-		var cd_crush = int(turn_manager._get_skill_cooldown(eid, "act_boss_crush"))
-		_logger.log_boss_cooldowns("before_choose", {"quake": cd_quake, "crush": cd_crush})
-		var chosen = String(turn_manager._choose_skill_with_cooldown(eid, ["act_boss_quake", "act_boss_crush"], "act_boss_basic"))
-		cmd = TurnCommand.new(chosen, Vector2i(0, 0))
+			cmd_ai = TurnCommand.new_skill("act_minion_stab", Vector2i(0, 0))
+		turn_manager.submit_player_command(cmd_ai)
+		return
+
+	# 友方：交给 UI（技能/道具 + 格子点选目标）
+	_waiting_actor_id = eid
+	var skill_ids: Array = []
+	if eid == 1:
+		skill_ids = ["act_hero_strike", "act_hero_whirlwind"]
 	else:
-		# 随从：固定单体
-		cmd = TurnCommand.new("act_minion_stab", Vector2i(0, 0))
-		
-	if cmd != null:
-		_logger.log_event("submit_command", {
-			"entity_id": eid,
-			"skill_id": String(cmd.skill_id),
-			"primary_cell": cmd.primary_cell,
-		})
-		turn_manager.submit_player_command(cmd)
+		skill_ids = ["act_ally_basic", "act_ally_heal"]
+	if battle_hud != null:
+		battle_hud.open_for_actor(actor, skill_ids, _get_item_list_for_ui())
+	else:
+		push_warning("[Demo] BattleHUD missing, cannot accept player input.")
+
+
+func _get_item_list_for_ui() -> Array:
+	var out: Array = []
+	for k in _item_db.keys():
+		var id = String(k)
+		var def: Dictionary = _item_db.get(id, {})
+		var name = String(def.get("name", id))
+		var count = _inventory.get_count(id) if _inventory != null else 0
+		if count <= 0:
+			continue
+		out.append({"id": id, "name": name, "count": count})
+	return out
 
 
 func _init_unit_stats(u: DemoBattleUnit, ds) -> void:
