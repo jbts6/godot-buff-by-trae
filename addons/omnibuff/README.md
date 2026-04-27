@@ -53,6 +53,7 @@ res://addons/omnibuff/
 - BONUS_DAMAGE（追加伤害）需要不递归 guard：`filters.require_not_bonus_damage=true`，并建议用 tag `BONUS_DAMAGE` 识别 bonus hit（不要依赖 trace 顺序）。
 
 文档导航（建议按顺序阅读）：
+- Tutorial（从零理解设计原理/思想/用法）：`res://addons/omnibuff/tutorial/00_index.md`
 - 接入主线（战斗系统如何对接）：`res://addons/omnibuff/docs/integrator_guide.md`
 - 数据协议速查 + 常见配方：`res://addons/omnibuff/docs/schema_reference.md`
 - 调试与回归（UI demo / HUD / tests）：`res://addons/omnibuff/docs/debug_and_qa.md`
