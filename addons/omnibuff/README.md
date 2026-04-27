@@ -1,6 +1,6 @@
 # OmniBuff（Godot 4.7）— “万物皆 Buff” 的回合制 Buff/Stat/DamagePipeline
 
-> 当前仓库状态：可运行 demo + GUT 自动化测试（包含整回合脚本式集成测试）。  
+> 当前仓库状态：可运行 demo + GUT 自动化测试（包含整回合脚本式集成测试）。
 > 目标：**性能硬约束**（StatCache + EventIndex）+ **数据驱动**（manifest/enums/defs → validate → compile）+ **可回归**（GUT）。
 
 ## 1. 安装与启用
@@ -103,7 +103,7 @@ func run_one_hit() -> void:
 
 ## 4. DOT 语义（重要）：默认在 TURN_START 结算
 
-本项目约定：**DOT 在“目标回合开始（TURN_START）”结算**。  
+本项目约定：**DOT 在“目标回合开始（TURN_START）”结算**。
 也就是：你在 Turn2 给对方挂上 DOT，**要等到 Turn3 start** 才会第一次掉血。
 
 运行时接口：
@@ -143,7 +143,7 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 
 ### 6.1 属性系统（StatsCore / StatCache）
 - `ADD/FLAT`（平铺加成）
-- `MUL/PERCENT`（百分比加成）  
+- `MUL/PERCENT`（百分比加成）
   公式：`final = (base + flat) * (1 + pct)`
 
 ### 6.2 伤害流水线（DamagePipeline）
@@ -187,7 +187,7 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 
 推荐工作流（适合提 issue / 远程协作定位）：
 
-1) 打开 `buff_ui_demo.tscn`，选择 dataset（通常 `rpg_tests`），运行能复现问题的 scenario  
+1) 打开 `buff_ui_demo.tscn`，选择 dataset（通常 `rpg_tests`），运行能复现问题的 scenario
 2) 打开 **Debug HUD**：
    - `Dots`：查看 DOT 的 turns/stacks（权威来自 DotInstance）
    - `Listeners`：查看有哪些监听者、最近一次触发命中了哪些 inst
@@ -293,11 +293,11 @@ data/
 ## 9. 常见问题（FAQ）
 
 ### Q1：为什么推荐用 `OmniBuff.Xxx`，而不是直接 `class_name Xxx`？
-因为 Godot 的全局类表/缓存有时会出现“解析期不可见”的问题（尤其是切分支/CI/headless/编辑器缓存不刷新）。  
+因为 Godot 的全局类表/缓存有时会出现“解析期不可见”的问题（尤其是切分支/CI/headless/编辑器缓存不刷新）。
 `OmniBuff` 入口通过 `preload("res://...")` 暴露 Script 资源，引用更稳定。
 
 ### Q2：为什么有些地方不建议用 `:=`？
-当变量类型是 `RefCounted` 或动态对象时，Godot 4 的静态分析可能无法推断 `:=` 的结果类型，导致解析期报错。  
+当变量类型是 `RefCounted` 或动态对象时，Godot 4 的静态分析可能无法推断 `:=` 的结果类型，导致解析期报错。
 建议显式标注类型或直接用 `var x = ...`（不做推断约束）。
 
 ---
