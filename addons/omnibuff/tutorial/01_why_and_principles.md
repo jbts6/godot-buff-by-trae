@@ -2,8 +2,8 @@
 
 本章回答三个问题：
 
-1) 为什么要做“Buff 插件”，而不是把逻辑散落在技能/角色脚本里？  
-2) OmniBuff 的设计取舍是什么（性能、数据驱动、可回归）？  
+1) 为什么要做“Buff 插件”，而不是把逻辑散落在技能/角色脚本里？
+2) OmniBuff 的设计取舍是什么（性能、数据驱动、可回归）？
 3) 你读代码时应该怎么建立心智模型（哪些是边界、哪些是热路径）？
 
 ---
@@ -12,27 +12,27 @@
 
 ```mermaid
 flowchart TD
-  subgraph Data[数据层（可编辑）]
+  subgraph Data["数据层<br/>可编辑"]
     M[manifest.json]
     E[enums.json]
     S[stat_defs.json]
     B[buff_defs.json]
   end
 
-  subgraph Load[加载/校验/编译（冷路径）]
-    L[ManifestLoader.load_dataset_full]
-    V[Validate.validate_all]
-    C[DatasetCompiler.compile]
-    DS[CompiledDataset (只读)]
+  subgraph Load["加载/校验/编译<br/>冷路径"]
+    L["ManifestLoader.load_dataset_full"]
+    V["Validate.validate_all"]
+    C["DatasetCompiler.compile"]
+    DS["CompiledDataset<br/>只读"]
   end
 
-  subgraph Runtime[运行时（热路径）]
-    ST[StatsComponent/StatsCore\nStatCache]
-    BU[BuffCore\nBuffInst + DotInstance]
-    EV[EventIndex\nlisteners subset]
-    DP[DamagePipeline\nfixed stages]
-    TU[TurnComponent\nTURN_START tick DOT]
-    RP[Replay (output-only)]
+  subgraph Runtime["运行时<br/>热路径"]
+    ST["StatsComponent/StatsCore<br/>StatCache"]
+    BU["BuffCore<br/>BuffInst + DotInstance"]
+    EV["EventIndex<br/>listeners subset"]
+    DP["DamagePipeline<br/>fixed stages"]
+    TU["TurnComponent<br/>TURN_START tick DOT"]
+    RP["Replay<br/>output-only"]
   end
 
   Data --> L --> V --> C --> DS
@@ -46,7 +46,7 @@ flowchart TD
 ```
 
 核心思想：
-- **数据层可变**（配置/策划可写），但进入运行时前必须 **validate + compile**  
+- **数据层可变**（配置/策划可写），但进入运行时前必须 **validate + compile**
 - 运行时只依赖 `CompiledDataset`（只读结构），避免在热路径反复解析 JSON 字段
 
 ---
@@ -130,13 +130,13 @@ Godot 的全局类表（class_name）由编辑器扫描/缓存生成：
 
 如果你要理解插件怎么跑：
 
-1) **数据集加载**：`config/manifest_loader.gd`  
-2) **校验规则**：`config/compiler/validators.gd`  
-3) **编译产物**：`config/compiler/dataset_compiler.gd` → `runtime/core/compiled_data.gd`  
-4) **属性系统**：`runtime/core/stats_core.gd` + `runtime/components/stats_component.gd`  
-5) **buff 系统**：`runtime/core/buff_core.gd`（包含 DotInstance / event/action 执行）  
-6) **伤害流水线**：`runtime/core/damage_pipeline.gd`  
-7) **回合 tick**：`runtime/components/turn_component.gd`  
+1) **数据集加载**：`config/manifest_loader.gd`
+2) **校验规则**：`config/compiler/validators.gd`
+3) **编译产物**：`config/compiler/dataset_compiler.gd` → `runtime/core/compiled_data.gd`
+4) **属性系统**：`runtime/core/stats_core.gd` + `runtime/components/stats_component.gd`
+5) **buff 系统**：`runtime/core/buff_core.gd`（包含 DotInstance / event/action 执行）
+6) **伤害流水线**：`runtime/core/damage_pipeline.gd`
+7) **回合 tick**：`runtime/components/turn_component.gd`
 8) **调试与回归**：`demo/buff_ui_demo.tscn` + `demo/debug_hud.tscn` + `tests/`
 
 ---
@@ -148,6 +148,5 @@ Godot 的全局类表（class_name）由编辑器扫描/缓存生成：
 - 为什么要用 EventIndex + StatCache，而不是遍历全量
 - 为什么 roll_key 是“确定性”的关键
 
-下一章：去跑通一次最小闭环（加载数据集 → 上 buff → 结算一次伤害）。  
+下一章：去跑通一次最小闭环（加载数据集 → 上 buff → 结算一次伤害）。
 继续阅读：`02_quickstart_run_a_hit.md`
-
