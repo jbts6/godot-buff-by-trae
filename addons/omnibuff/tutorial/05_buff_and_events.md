@@ -29,7 +29,7 @@
 
 ```mermaid
 flowchart TD
-  A[BuffCore.emit_event(event_type, phase, ctx)] --> B[EventIndex.get_listeners_for(key)]
+  A["BuffCore.emit_event type/phase/ctx"] --> B["EventIndex.get_listeners_for key"]
   B --> C{遍历 listeners 子集}
   C --> D[filters 匹配?]
   D -->|yes| E[执行 action]
@@ -149,4 +149,3 @@ BONUS_DAMAGE 的坑：追加伤害本质是嵌套调用 DamagePipeline。
 
 下一章：伤害流水线、DOT、回合推进与 Replay。  
 继续阅读：`06_damage_dot_turn_replay.md`
-

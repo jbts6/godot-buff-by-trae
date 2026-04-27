@@ -53,9 +53,9 @@ OmniBuff 推荐的工程化习惯是：
 ```mermaid
 flowchart LR
   A[新增能力点] --> B[写最小 GUT 测试]
-  B --> C[让测试先红（RED）]
+  B --> C["让测试先红<br/>RED"]
   C --> D[实现 runtime/compiler/validators]
-  D --> E[测试变绿（GREEN）]
+  D --> E["测试变绿<br/>GREEN"]
   E --> F[加一个 UI demo scenario 方便 QA/复现]
 ```
 
@@ -136,4 +136,3 @@ GODOT_BIN="/path/to/godot" ./run_gut_tests.sh
 到此为止，你已经拥有读懂 OmniBuff 代码的完整心智模型。  
 如果你要进一步深入，请直接对照源码路径阅读：
 - `runtime/core/*`、`config/compiler/*`、`demo/*`、`tests/*`
-

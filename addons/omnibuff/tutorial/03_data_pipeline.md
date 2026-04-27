@@ -28,13 +28,13 @@
 flowchart LR
   M[manifest.json] --> L[ManifestLoader.load_dataset_full]
   L --> E[load enums.json]
-  L --> S[load sources\n(stat_defs/buff_defs/...)]
+  L --> S["load sources<br/>stat_defs/buff_defs/..."]
   E --> V[Validate.validate_all]
   S --> V
   V -->|issues| OUT[Result.issues]
   V -->|ok| C[DatasetCompiler.compile]
   C --> DS[CompiledDataset]
-  DS --> RT[Runtime (Stats/Buff/Damage)]
+  DS --> RT["Runtime<br/>Stats/Buff/Damage"]
 ```
 
 重点：
@@ -126,4 +126,3 @@ manifest 的价值：
 
 下一章我们深入 Stats 系统：缓存、分层、override、breakdown、derived/curve。  
 继续阅读：`04_stats_system.md`
-

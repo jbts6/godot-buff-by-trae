@@ -32,9 +32,9 @@ StatCache 的策略：
 
 ```mermaid
 flowchart TD
-  W[base/modifier 发生变化] --> D[mark_dirty(stat_id)]
-  D --> R[get_final(stat_id)]
-  R -->|dirty=1| C[recompute(stat_id)]
+  W["base/modifier 发生变化"] --> D["mark_dirty stat_id"]
+  D --> R["get_final stat_id"]
+  R -->|dirty=1| C["recompute stat_id"]
   R -->|dirty=0| V[return cached final]
   C --> V
 ```
@@ -146,4 +146,3 @@ Phase 2 支持最小曲线集：
 
 下一章：Buff 与事件系统（EventIndex、filters/actions、LIFE/STACKS）。  
 继续阅读：`05_buff_and_events.md`
-

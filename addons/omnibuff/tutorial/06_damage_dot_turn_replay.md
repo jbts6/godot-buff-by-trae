@@ -25,8 +25,8 @@
 flowchart LR
   B[BUILD] --> BD[BEFORE_DEAL]
   BD --> BT[BEFORE_TAKE]
-  BT --> R[RESOLVE\n计算 final_damage]
-  R --> A[APPLY\n扣HP/吸收护盾]
+  BT --> R["RESOLVE<br/>计算 final_damage"]
+  R --> A["APPLY<br/>扣HP/吸收护盾"]
   A --> AD[AFTER_DEAL]
   AD --> AT[AFTER_TAKE]
 ```
@@ -90,9 +90,9 @@ DOT 的权威结构是 `DotInstance`：
 ```mermaid
 stateDiagram-v2
   [*] --> Applied: apply_buff(dot_buff)
-  Applied --> Waiting: current turn\n(no tick)
+  Applied --> Waiting: current turn - no tick
   Waiting --> Tick: TURN_START
-  Tick --> Waiting: remaining_turns--\n(if >0)
+  Tick --> Waiting: remaining_turns-- if >0
   Tick --> Expired: remaining_turns==0
   Applied --> Removed: dispel/remove buff
   Waiting --> Removed: dispel/remove buff
@@ -142,4 +142,3 @@ Replay 的定位：
 
 下一章我们进入“怎么调试、怎么扩展、怎么回归”。  
 继续阅读：`07_debug_and_extend.md`
-
