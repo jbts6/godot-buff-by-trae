@@ -191,14 +191,15 @@ function nodeLabel(n: NodeRef) {
   }
 }
 
-function nodeLabelWithName(ds: Dataset, n: NodeRef) {
+function nodeLabelWithName(ds: Dataset, n: NodeRef, advanced: boolean) {
   if (n.kind === 'buff') {
     const b = ds.buff_defs.find((x) => x.id === n.id)
     const name = b?.name?.trim() ? b.name.trim() : n.id
-    return `${name} (${n.id})`
+    return advanced ? `${name} (${n.id})` : name
   }
   if (n.kind === 'stat') {
-    return `${t(`stat.${n.id}`, n.id)} (${n.id})`
+    const zh = t(`stat.${n.id}`, n.id)
+    return advanced ? `${zh} (${n.id})` : zh
   }
   return nodeLabel(n)
 }
@@ -374,11 +375,28 @@ function getTemplate(name: string, templates: Record<string, TemplateSchema>, fa
   return templates[name] ?? templates[fallback]
 }
 
+function fmtEnum(i18nPrefix: string | undefined, id: string, advanced: boolean) {
+  if (!i18nPrefix) return id
+  const zh = t(`${i18nPrefix}.${id}`, id)
+  return advanced ? `${zh} (${id})` : zh
+}
+
+function fmtStat(id: string, advanced: boolean) {
+  const zh = t(`stat.${id}`, id)
+  return advanced ? `${zh} (${id})` : zh
+}
+
+function fmtTag(id: string, advanced: boolean) {
+  const zh = t(`tag.${id}`, id)
+  return advanced ? `${zh} (${id})` : zh
+}
+
 function renderSchema(
   ds: Dataset,
   schema: FieldSchema[],
   obj: Record<string, unknown>,
   onPatch: (patch: Record<string, unknown>) => void,
+  advanced: boolean,
 ) {
   const fields = schema.filter((f) => (f.showIf ? f.showIf({ obj, ds }) : true))
 
@@ -389,7 +407,7 @@ function renderSchema(
         const label = (
           <div className="labelRow">
             <label>{f.label}</label>
-            <span className="hint">{f.hint ?? f.key}</span>
+            <span className="hint">{advanced ? f.hint ?? f.key : ''}</span>
           </div>
         )
 
@@ -436,7 +454,7 @@ function renderSchema(
               >
                 {opts.map((o) => (
                   <option key={o} value={o}>
-                    {f.i18nPrefix ? `${t(`${f.i18nPrefix}.${o}`, o)} (${o})` : o}
+                    {fmtEnum(f.i18nPrefix, o, advanced)}
                   </option>
                 ))}
               </select>
@@ -455,7 +473,7 @@ function renderSchema(
               >
                 {ds.stat_defs.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {t(`stat.${s.id}`, s.id)} ({s.id})
+                    {fmtStat(s.id, advanced)}
                   </option>
                 ))}
               </select>
@@ -474,7 +492,7 @@ function renderSchema(
               >
                 {ds.buff_defs.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.id})
+                    {advanced ? `${b.name} (${b.id})` : b.name}
                   </option>
                 ))}
               </select>
@@ -502,7 +520,7 @@ function renderSchema(
                           onPatch({ [f.key]: Array.from(next) })
                         }}
                       />
-                      {t(`tag.${tagId}`, tagId)} ({tagId})
+                      {fmtTag(tagId, advanced)}
                     </span>
                   )
                 })}
@@ -534,6 +552,7 @@ function App() {
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [newEffectKind, setNewEffectKind] = useState<string>('modifier')
   const [newTriggerActionKind, setNewTriggerActionKind] = useState<string>('HEAL')
+  const [advanced, setAdvanced] = useState<boolean>(false)
 
   const issues = useMemo(() => computeIssues(ds), [ds])
   const ok = issues.every((i) => i.severity !== 'error')
@@ -697,6 +716,14 @@ function App() {
           <button className="btn btnPrimary" onClick={onExportClick} type="button">
             导出
           </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => setAdvanced((v) => !v)}
+            title="高级模式：显示英文 key/ID，适合程序与调试使用。"
+          >
+            {advanced ? '高级：开' : '高级：关'}
+          </button>
         </div>
       </header>
 
@@ -735,7 +762,7 @@ function App() {
                     tabIndex={0}
                   >
                     <span className={dot} />
-                    <span>{nodeLabelWithName(ds, node)}</span>
+                    <span>{nodeLabelWithName(ds, node, advanced)}</span>
                     <span className="treeMeta">{meta}</span>
                   </div>
                 )
@@ -749,7 +776,7 @@ function App() {
             <div className="sheet">
               <div className="sheetTop">
                 <div className="sheetTitle">
-                  <h3>{nodeLabelWithName(ds, selected)}</h3>
+                  <h3>{nodeLabelWithName(ds, selected, advanced)}</h3>
                   <div className="crumbs">{crumbs(selected)}</div>
                 </div>
                 <span className="chip">
@@ -902,7 +929,7 @@ function App() {
                                   updateBuff({ tags: Array.from(next) })
                                 }}
                               />
-                              {t(`tag.${tagId}`, tagId)} ({tagId})
+                              {fmtTag(tagId, advanced)}
                             </span>
                           )
                         })}
@@ -924,8 +951,12 @@ function App() {
                               else updateBuff({ duration: { type: 'TURNS', turns: selectedBuff.duration.turns ?? 3 } })
                             }}
                           >
-                            <option value="PERMANENT">{t('duration.PERMANENT', 'PERMANENT')} (PERMANENT)</option>
-                            <option value="TURNS">{t('duration.TURNS', 'TURNS')} (TURNS)</option>
+                            <option value="PERMANENT">
+                              {advanced ? `${t('duration.PERMANENT', 'PERMANENT')} (PERMANENT)` : t('duration.PERMANENT', 'PERMANENT')}
+                            </option>
+                            <option value="TURNS">
+                              {advanced ? `${t('duration.TURNS', 'TURNS')} (TURNS)` : t('duration.TURNS', 'TURNS')}
+                            </option>
                           </select>
                           {selectedBuff.duration.type === 'TURNS' && (
                             <input
@@ -979,15 +1010,15 @@ function App() {
                                 </button>
                                 </div>
                               </div>
-                              {renderSchema(ds, tpl.fields, effObj, (patch) => patchBuffEffect(idx, patch))}
+                              {renderSchema(ds, tpl.fields, effObj, (patch) => patchBuffEffect(idx, patch), advanced)}
                             </div>
                           )
                         })}
                         <div className="inline">
                           <select className="select" value={newEffectKind} onChange={(e) => setNewEffectKind(e.target.value)}>
-                            {Object.entries(EFFECT_TEMPLATES).map(([k, t]) => (
+                            {Object.entries(EFFECT_TEMPLATES).map(([k, tpl]) => (
                               <option key={k} value={k}>
-                                {t.label}
+                                {tpl.label}
                               </option>
                             ))}
                           </select>
@@ -1029,7 +1060,7 @@ function App() {
                                   >
                                     {ds.enums.event_type.map((x) => (
                                       <option key={x} value={x}>
-                                        {t(`event_type.${x}`, x)} ({x})
+                                        {advanced ? `${t(`event_type.${x}`, x)} (${x})` : t(`event_type.${x}`, x)}
                                       </option>
                                     ))}
                                   </select>
@@ -1041,7 +1072,7 @@ function App() {
                                   >
                                     {(EVENT_PHASE_BY_TYPE[String(tr.event_type)] ?? []).map((p) => (
                                       <option key={p} value={p}>
-                                        {t(`event_phase.${p}`, p)} ({p})
+                                        {advanced ? `${t(`event_phase.${p}`, p)} (${p})` : t(`event_phase.${p}`, p)}
                                       </option>
                                     ))}
                                   </select>
@@ -1052,7 +1083,7 @@ function App() {
                                   >
                                     {ds.enums.scope.map((x) => (
                                       <option key={x} value={x}>
-                                        {t(`scope.${x}`, x)} ({x})
+                                        {advanced ? `${t(`scope.${x}`, x)} (${x})` : t(`scope.${x}`, x)}
                                       </option>
                                     ))}
                                   </select>
@@ -1063,8 +1094,12 @@ function App() {
                               </div>
 
                               <div className="rowTitle" style={{ marginTop: 8 }}>Filters</div>
-                              {renderSchema(ds, filterSchema, (tr.filters ?? {}) as Record<string, unknown>, (patch) =>
-                                patchBuffTriggerFilters(idx, patch),
+                              {renderSchema(
+                                ds,
+                                filterSchema,
+                                (tr.filters ?? {}) as Record<string, unknown>,
+                                (patch) => patchBuffTriggerFilters(idx, patch),
+                                advanced,
                               )}
 
                               <div className="rowTitle" style={{ marginTop: 10 }}>Action</div>
@@ -1076,14 +1111,18 @@ function App() {
                                 >
                                   {ds.enums.action_kind.map((x) => (
                                     <option key={x} value={x}>
-                                      {t(`action_kind.${x}`, x)} ({x})
+                                      {advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x)}
                                     </option>
                                   ))}
                                 </select>
                                 <span className="miniNote">{actionTpl.label}</span>
                               </div>
-                              {renderSchema(ds, actionTpl.fields, (tr.action ?? {}) as Record<string, unknown>, (patch) =>
-                                patchBuffTriggerAction(idx, patch),
+                              {renderSchema(
+                                ds,
+                                actionTpl.fields,
+                                (tr.action ?? {}) as Record<string, unknown>,
+                                (patch) => patchBuffTriggerAction(idx, patch),
+                                advanced,
                               )}
                             </div>
                           )
@@ -1096,7 +1135,7 @@ function App() {
                           >
                             {ds.enums.action_kind.map((x) => (
                               <option key={x} value={x}>
-                                {t(`action_kind.${x}`, x)} ({x})
+                                {advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x)}
                               </option>
                             ))}
                           </select>
