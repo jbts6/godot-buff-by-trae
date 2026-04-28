@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import './App.css'
 import { t } from './i18n/zh-CN'
+import { Badge, Button, Checkbox, Input, InputNumber, Select, Tooltip } from 'antd'
 
 type Dataset = {
   manifest: { id: string; name: string; files: Array<{ type: string; path: string }> }
@@ -577,14 +578,9 @@ function renderSchema(
           return (
             <div className="field" key={f.key}>
               {label}
-              <span className="pill">
-                <input
-                  type="checkbox"
-                  checked={Boolean(v ?? false)}
-                  onChange={(e) => onPatch({ [f.key]: e.target.checked })}
-                />
+              <Checkbox checked={Boolean(v ?? false)} onChange={(e) => onPatch({ [f.key]: e.target.checked })}>
                 {f.label}
-              </span>
+              </Checkbox>
             </div>
           )
         }
@@ -593,11 +589,10 @@ function renderSchema(
           return (
             <div className="field" key={f.key}>
               {label}
-              <input
-                className="input"
-                type="number"
+              <InputNumber
+                style={{ width: '100%' }}
                 value={Number(v ?? 0)}
-                onChange={(e) => onPatch({ [f.key]: Number(e.target.value) })}
+                onChange={(val) => onPatch({ [f.key]: Number(val ?? 0) })}
                 placeholder={f.placeholder}
               />
             </div>
@@ -609,17 +604,11 @@ function renderSchema(
           return (
             <div className="field" key={f.key}>
               {label}
-              <select
-                className="select"
+              <Select
                 value={String(v ?? opts[0] ?? '')}
-                onChange={(e) => onPatch({ [f.key]: e.target.value })}
-              >
-                {opts.map((o) => (
-                  <option key={o} value={o}>
-                    {fmtEnum(f.i18nPrefix, o, advanced)}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => onPatch({ [f.key]: val })}
+                options={opts.map((o) => ({ value: o, label: fmtEnum(f.i18nPrefix, o, advanced) }))}
+              />
             </div>
           )
         }
@@ -628,17 +617,13 @@ function renderSchema(
           return (
             <div className="field" key={f.key}>
               {label}
-              <select
-                className="select"
+              <Select
                 value={String(v ?? ds.stat_defs[0]?.id ?? '')}
-                onChange={(e) => onPatch({ [f.key]: e.target.value })}
-              >
-                {ds.stat_defs.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {fmtStat(s.id, advanced)}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => onPatch({ [f.key]: val })}
+                options={ds.stat_defs.map((s) => ({ value: s.id, label: fmtStat(s.id, advanced) }))}
+                showSearch
+                optionFilterProp="label"
+              />
             </div>
           )
         }
@@ -647,46 +632,33 @@ function renderSchema(
           return (
             <div className="field" key={f.key}>
               {label}
-              <select
-                className="select"
-                value={String(v ?? ds.buff_defs[0]?.buff_id ?? '')}
-                onChange={(e) => onPatch({ [f.key]: Number(e.target.value) })}
-              >
-                {ds.buff_defs.map((b) => (
-                  <option key={b.buff_id} value={String(b.buff_id)}>
-                    {advanced ? `${b.name} (${b.buff_key}) [${b.buff_id}]` : b.name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={Number(v ?? ds.buff_defs[0]?.buff_id ?? 0)}
+                onChange={(val) => onPatch({ [f.key]: Number(val) })}
+                options={ds.buff_defs.map((b) => ({
+                  value: b.buff_id,
+                  label: advanced ? `${b.name} (${b.buff_key}) [${b.buff_id}]` : b.name,
+                }))}
+                showSearch
+                optionFilterProp="label"
+              />
             </div>
           )
         }
 
         if (f.type === 'tags') {
-          const selected = new Set<string>(Array.isArray(v) ? (v as string[]) : [])
+          const selected = Array.isArray(v) ? (v as string[]) : []
           return (
             <div className="field" key={f.key}>
               {label}
-              <div className="inline">
-                {ds.enums.tags.map((tagId) => {
-                  const checked = selected.has(tagId)
-                  return (
-                    <span className="pill" key={tagId}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          const next = new Set(selected)
-                          if (e.target.checked) next.add(tagId)
-                          else next.delete(tagId)
-                          onPatch({ [f.key]: Array.from(next) })
-                        }}
-                      />
-                      {fmtTag(tagId, advanced)}
-                    </span>
-                  )
-                })}
-              </div>
+              <Checkbox.Group
+                value={selected}
+                options={ds.enums.tags.map((tagId) => ({
+                  label: fmtTag(tagId, advanced),
+                  value: tagId,
+                }))}
+                onChange={(vals) => onPatch({ [f.key]: vals })}
+              />
             </div>
           )
         }
@@ -694,8 +666,7 @@ function renderSchema(
         return (
           <div className="field" key={f.key}>
             {label}
-            <input
-              className="input"
+            <Input
               value={String(v ?? '')}
               onChange={(e) => onPatch({ [f.key]: e.target.value })}
               placeholder={f.placeholder}
@@ -715,9 +686,12 @@ function App() {
   const [newEffectKind, setNewEffectKind] = useState<string>('modifier')
   const [newTriggerActionKind, setNewTriggerActionKind] = useState<string>('HEAL')
   const [advanced, setAdvanced] = useState<boolean>(false)
+  const [showIssues, setShowIssues] = useState<boolean>(false)
 
   const issues = useMemo(() => computeIssues(ds), [ds])
   const ok = issues.every((i) => i.severity !== 'error')
+  const errorCount = issues.filter((i) => i.severity === 'error').length
+  const warnCount = issues.filter((i) => i.severity === 'warn').length
 
   const filteredStats = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -902,38 +876,35 @@ function App() {
               e.currentTarget.value = ''
             }}
           />
-          <button className="btn" onClick={onImportClick} type="button">
-            导入
-          </button>
-          <button className="btn btnPrimary" onClick={onExportClick} type="button">
+          <Button onClick={onImportClick}>导入</Button>
+          <Button type="primary" onClick={onExportClick}>
             导出
-          </button>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => setAdvanced((v) => !v)}
-            title="高级模式：显示英文 key/ID，适合程序与调试使用。"
-          >
-            {advanced ? '高级：开' : '高级：关'}
-          </button>
+          </Button>
+          <Tooltip title="高级模式：显示英文 key/ID，适合程序与调试使用。">
+            <Button onClick={() => setAdvanced((v) => !v)}>{advanced ? '高级：开' : '高级：关'}</Button>
+          </Tooltip>
+          <Tooltip title="点击展开/收起右侧校验结果面板">
+            <Button onClick={() => setShowIssues((v) => !v)}>
+              校验结果{' '}
+              <Badge
+                count={`${errorCount}E/${warnCount}W`}
+                style={{ backgroundColor: errorCount > 0 ? '#ff4d6d' : warnCount > 0 ? '#ffbe0b' : '#41f3b4' }}
+              />
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
-      <div className="layout">
+      <div className={`layout ${showIssues ? 'layoutIssuesOpen' : ''}`}>
         <aside className="sidebar">
           <div className="panelHeader">
             <h2>导航树</h2>
-            <button className="btn" type="button" onClick={addNewBuff} title="新建一个 Buff（自动分配 buff_id 与 buff_key）">
+            <Button size="small" onClick={addNewBuff} title="新建一个 Buff（自动分配 buff_id 与 buff_key）">
               + Buff
-            </button>
+            </Button>
           </div>
           <div style={{ padding: 12 }}>
-            <input
-              className="search"
-              value={search}
-              placeholder="搜索 stat / buff…"
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <Input value={search} placeholder="搜索 stat / buff…" onChange={(e) => setSearch(e.target.value)} allowClear />
           </div>
           <div className="scroll">
             <div className="tree">
@@ -987,8 +958,7 @@ function App() {
                         <label>Dataset 名称</label>
                         <span className="hint">manifest.name</span>
                       </div>
-                      <input
-                        className="input"
+                      <Input
                         value={ds.manifest.name}
                         onChange={(e) => setDs((p) => ({ ...p, manifest: { ...p.manifest, name: e.target.value } }))}
                       />
@@ -998,8 +968,7 @@ function App() {
                         <label>Dataset ID</label>
                         <span className="hint">manifest.id</span>
                       </div>
-                      <input
-                        className="input"
+                      <Input
                         value={ds.manifest.id}
                         onChange={(e) => setDs((p) => ({ ...p, manifest: { ...p.manifest, id: e.target.value } }))}
                       />
@@ -1021,7 +990,7 @@ function App() {
                         <label>Tags</label>
                         <span className="hint">enums.tags</span>
                       </div>
-                      <textarea
+                      <Input.TextArea
                         className="textarea"
                         value={ds.enums.tags.join('\n')}
                         onChange={(e) =>
@@ -1039,18 +1008,17 @@ function App() {
                         <label>Stat ID</label>
                         <span className="hint">id</span>
                       </div>
-                      <input className="input" value={selectedStat.id} readOnly />
+                      <Input value={selectedStat.id} readOnly />
                     </div>
                     <div className="field">
                       <div className="labelRow">
                         <label>默认值</label>
                         <span className="hint">default</span>
                       </div>
-                      <input
-                        className="input"
-                        type="number"
+                      <InputNumber
+                        style={{ width: '100%' }}
                         value={selectedStat.default}
-                        onChange={(e) => updateStat({ default: Number(e.target.value) })}
+                        onChange={(val) => updateStat({ default: Number(val ?? 0) })}
                       />
                     </div>
                     <div className="field">
@@ -1058,21 +1026,29 @@ function App() {
                         <label>min</label>
                         <span className="hint">min</span>
                       </div>
-                      <input className="input" type="number" value={selectedStat.min} onChange={(e) => updateStat({ min: Number(e.target.value) })} />
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        value={selectedStat.min}
+                        onChange={(val) => updateStat({ min: Number(val ?? 0) })}
+                      />
                     </div>
                     <div className="field">
                       <div className="labelRow">
                         <label>max</label>
                         <span className="hint">max</span>
                       </div>
-                      <input className="input" type="number" value={selectedStat.max} onChange={(e) => updateStat({ max: Number(e.target.value) })} />
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        value={selectedStat.max}
+                        onChange={(val) => updateStat({ max: Number(val ?? 0) })}
+                      />
                     </div>
                     <div className="field row2">
                       <div className="labelRow">
                         <label>derived（LINEAR）</label>
                         <span className="hint">derived</span>
                       </div>
-                      <textarea
+                      <Input.TextArea
                         className="textarea"
                         value={JSON.stringify(selectedStat.derived ?? null, null, 2)}
                         onChange={(e) => {
@@ -1095,7 +1071,7 @@ function App() {
                         <label>Buff ID（只读）</label>
                         <span className="hint">{advanced ? 'buff_id' : ''}</span>
                       </div>
-                      <input className="input" value={String(selectedBuff.buff_id)} readOnly />
+                      <Input value={String(selectedBuff.buff_id)} readOnly />
                     </div>
                     <div className="field">
                       <div className="labelRow">
@@ -1103,21 +1079,15 @@ function App() {
                         <span className="hint">{advanced ? 'buff_key' : ''}</span>
                       </div>
                       <div className="inline">
-                        <input
-                          className="input"
+                        <Input
                           value={selectedBuff.buff_key}
                           onChange={(e) => updateBuff({ buff_key: snakeCase(e.target.value) })}
                           placeholder="snake_case"
                           style={{ flex: 1, minWidth: 220 }}
                         />
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => updateBuff({ buff_key: generateBuffKey(selectedBuff) })}
-                          title="基于当前 effects/duration 自动生成一个可读的 snake_case key"
-                        >
+                        <Button onClick={() => updateBuff({ buff_key: generateBuffKey(selectedBuff) })}>
                           重新生成
-                        </button>
+                        </Button>
                       </div>
                       <div className="miniNote">默认会自动生成；建议保持稳定，避免随意改名导致引用迁移成本。</div>
                     </div>
@@ -1126,33 +1096,18 @@ function App() {
                         <label>名称</label>
                         <span className="hint">{advanced ? 'name' : ''}</span>
                       </div>
-                      <input className="input" value={selectedBuff.name} onChange={(e) => updateBuff({ name: e.target.value })} />
+                      <Input value={selectedBuff.name} onChange={(e) => updateBuff({ name: e.target.value })} />
                     </div>
                     <div className="field">
                       <div className="labelRow">
                         <label>Tags</label>
                         <span className="hint">{advanced ? 'tags' : ''}</span>
                       </div>
-                      <div className="inline">
-                        {ds.enums.tags.map((tagId) => {
-                          const checked = selectedBuff.tags.includes(tagId)
-                          return (
-                            <span className="pill" key={tagId}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => {
-                                  const next = new Set(selectedBuff.tags)
-                                  if (e.target.checked) next.add(tagId)
-                                  else next.delete(tagId)
-                                  updateBuff({ tags: Array.from(next) })
-                                }}
-                              />
-                              {fmtTag(tagId, advanced)}
-                            </span>
-                          )
-                        })}
-                      </div>
+                      <Checkbox.Group
+                        value={selectedBuff.tags}
+                        options={ds.enums.tags.map((tagId) => ({ value: tagId, label: fmtTag(tagId, advanced) }))}
+                        onChange={(vals) => updateBuff({ tags: vals as string[] })}
+                      />
                     </div>
                     <div className="field">
                       <div className="labelRow">
@@ -1161,34 +1116,37 @@ function App() {
                       </div>
                       <div className="grid2">
                         <div className="inline">
-                          <select
-                            className="select"
-                            value={selectedBuff.duration.type}
-                            onChange={(e) => {
-                              const t = e.target.value as Dataset['buff_defs'][number]['duration']['type']
-                              if (t === 'PERMANENT') updateBuff({ duration: { type: 'PERMANENT' } })
-                              else updateBuff({ duration: { type: 'TURNS', turns: selectedBuff.duration.turns ?? 3 } })
-                            }}
-                          >
-                            <option value="PERMANENT">
-                              {advanced ? `${t('duration.PERMANENT', 'PERMANENT')} (PERMANENT)` : t('duration.PERMANENT', 'PERMANENT')}
-                            </option>
-                            <option value="TURNS">
-                              {advanced ? `${t('duration.TURNS', 'TURNS')} (TURNS)` : t('duration.TURNS', 'TURNS')}
-                            </option>
-                          </select>
-                          {selectedBuff.duration.type === 'TURNS' && (
-                            <input
-                              className="input"
-                              type="number"
-                              min={1}
-                              value={selectedBuff.duration.turns ?? 1}
-                              onChange={(e) =>
-                                updateBuff({ duration: { type: 'TURNS', turns: Math.max(1, Number(e.target.value)) } })
-                              }
-                              style={{ width: 120 }}
+                            <Select
+                              value={selectedBuff.duration.type}
+                              onChange={(val) => {
+                                const t = val as Dataset['buff_defs'][number]['duration']['type']
+                                if (t === 'PERMANENT') updateBuff({ duration: { type: 'PERMANENT' } })
+                                else updateBuff({ duration: { type: 'TURNS', turns: selectedBuff.duration.turns ?? 3 } })
+                              }}
+                              options={[
+                                {
+                                  value: 'PERMANENT',
+                                  label: advanced
+                                    ? `${t('duration.PERMANENT', 'PERMANENT')} (PERMANENT)`
+                                    : t('duration.PERMANENT', 'PERMANENT'),
+                                },
+                                {
+                                  value: 'TURNS',
+                                  label: advanced ? `${t('duration.TURNS', 'TURNS')} (TURNS)` : t('duration.TURNS', 'TURNS'),
+                                },
+                              ]}
+                              style={{ width: 220 }}
                             />
-                          )}
+                            {selectedBuff.duration.type === 'TURNS' && (
+                              <InputNumber
+                                min={1}
+                                value={selectedBuff.duration.turns ?? 1}
+                                onChange={(val) =>
+                                  updateBuff({ duration: { type: 'TURNS', turns: Math.max(1, Number(val ?? 1)) } })
+                                }
+                                style={{ width: 140 }}
+                              />
+                            )}
                         </div>
                         <div className="miniNote">
                           这是 mock：后续会做成更完整的模板（PERMANENT / TURNS / UNTIL_DISPEL 等）。
@@ -1212,21 +1170,18 @@ function App() {
                                   Effect #{idx + 1} · {tpl.label}
                                 </div>
                                 <div className="inline">
-                                  <select
-                                    className="select"
+                                  <Select
                                     value={kind}
-                                    onChange={(e) => setBuffEffectKind(idx, e.target.value)}
-                                    title="effect kind"
-                                  >
-                                    {Object.entries(EFFECT_TEMPLATES).map(([k, t]) => (
-                                      <option key={k} value={k}>
-                                        {t.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                <button className="iconBtn" type="button" onClick={() => removeBuffEffect(idx)}>
-                                  删除
-                                </button>
+                                    onChange={(val) => setBuffEffectKind(idx, String(val))}
+                                    options={Object.entries(EFFECT_TEMPLATES).map(([k, tpl]) => ({
+                                      value: k,
+                                      label: tpl.label,
+                                    }))}
+                                    style={{ width: 220 }}
+                                  />
+                                  <Button danger onClick={() => removeBuffEffect(idx)}>
+                                    删除
+                                  </Button>
                                 </div>
                               </div>
                               {renderSchema(ds, tpl.fields, effObj, (patch) => patchBuffEffect(idx, patch), advanced)}
@@ -1234,16 +1189,15 @@ function App() {
                           )
                         })}
                         <div className="inline">
-                          <select className="select" value={newEffectKind} onChange={(e) => setNewEffectKind(e.target.value)}>
-                            {Object.entries(EFFECT_TEMPLATES).map(([k, tpl]) => (
-                              <option key={k} value={k}>
-                                {tpl.label}
-                              </option>
-                            ))}
-                          </select>
-                          <button className="addRowBtn" type="button" onClick={() => addBuffEffect(newEffectKind)}>
+                          <Select
+                            value={newEffectKind}
+                            onChange={(val) => setNewEffectKind(String(val))}
+                            options={Object.entries(EFFECT_TEMPLATES).map(([k, tpl]) => ({ value: k, label: tpl.label }))}
+                            style={{ width: 220 }}
+                          />
+                          <Button type="primary" onClick={() => addBuffEffect(newEffectKind)}>
                             + 添加 Effect
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1261,51 +1215,44 @@ function App() {
                             <div className="listRow" key={`tr:${idx}`}>
                               <div className="rowHead">
                                 <div className="rowTitle">Trigger #{idx + 1}</div>
-                                <button className="iconBtn" type="button" onClick={() => removeBuffTrigger(idx)}>
+                                <Button danger onClick={() => removeBuffTrigger(idx)}>
                                   删除
-                                </button>
+                                </Button>
                               </div>
                               <div className="grid2">
                                 <div className="inline">
-                                  <select
-                                    className="select"
+                                  <Select
                                     value={tr.event_type}
-                                    onChange={(e) => {
-                                      const et = e.target.value
+                                    onChange={(val) => {
+                                      const et = String(val)
                                       const phases = EVENT_PHASE_BY_TYPE[et] ?? []
                                       const nextPhase = phases.includes(tr.event_phase) ? tr.event_phase : (phases[0] ?? tr.event_phase)
                                       patchBuffTrigger(idx, { event_type: et, event_phase: nextPhase })
                                     }}
-                                  >
-                                    {ds.enums.event_type.map((x) => (
-                                      <option key={x} value={x}>
-                                        {advanced ? `${t(`event_type.${x}`, x)} (${x})` : t(`event_type.${x}`, x)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    className="select"
+                                    options={ds.enums.event_type.map((x) => ({
+                                      value: x,
+                                      label: advanced ? `${t(`event_type.${x}`, x)} (${x})` : t(`event_type.${x}`, x),
+                                    }))}
+                                    style={{ width: 220 }}
+                                  />
+                                  <Select
                                     value={tr.event_phase}
-                                    onChange={(e) => patchBuffTrigger(idx, { event_phase: e.target.value })}
-                                    style={{ width: 200 }}
-                                  >
-                                    {(EVENT_PHASE_BY_TYPE[String(tr.event_type)] ?? []).map((p) => (
-                                      <option key={p} value={p}>
-                                        {advanced ? `${t(`event_phase.${p}`, p)} (${p})` : t(`event_phase.${p}`, p)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    className="select"
+                                    onChange={(val) => patchBuffTrigger(idx, { event_phase: String(val) })}
+                                    options={(EVENT_PHASE_BY_TYPE[String(tr.event_type)] ?? []).map((p) => ({
+                                      value: p,
+                                      label: advanced ? `${t(`event_phase.${p}`, p)} (${p})` : t(`event_phase.${p}`, p),
+                                    }))}
+                                    style={{ width: 220 }}
+                                  />
+                                  <Select
                                     value={tr.scope}
-                                    onChange={(e) => patchBuffTrigger(idx, { scope: e.target.value })}
-                                  >
-                                    {ds.enums.scope.map((x) => (
-                                      <option key={x} value={x}>
-                                        {advanced ? `${t(`scope.${x}`, x)} (${x})` : t(`scope.${x}`, x)}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    onChange={(val) => patchBuffTrigger(idx, { scope: String(val) })}
+                                    options={ds.enums.scope.map((x) => ({
+                                      value: x,
+                                      label: advanced ? `${t(`scope.${x}`, x)} (${x})` : t(`scope.${x}`, x),
+                                    }))}
+                                    style={{ width: 180 }}
+                                  />
                                 </div>
                                 <div className="miniNote">
                                   Filters/Action 将按 schema 渲染（event_type 与 action.kind 决定字段集）
@@ -1323,17 +1270,15 @@ function App() {
 
                               <div className="rowTitle" style={{ marginTop: 10 }}>Action</div>
                               <div className="inline" style={{ marginBottom: 10 }}>
-                                <select
-                                  className="select"
+                                <Select
                                   value={actionKind}
-                                  onChange={(e) => setTriggerActionKind(idx, e.target.value)}
-                                >
-                                  {ds.enums.action_kind.map((x) => (
-                                    <option key={x} value={x}>
-                                      {advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x)}
-                                    </option>
-                                  ))}
-                                </select>
+                                  onChange={(val) => setTriggerActionKind(idx, String(val))}
+                                  options={ds.enums.action_kind.map((x) => ({
+                                    value: x,
+                                    label: advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x),
+                                  }))}
+                                  style={{ width: 240 }}
+                                />
                                 <span className="miniNote">{actionTpl.label}</span>
                               </div>
                               {renderSchema(
@@ -1347,20 +1292,18 @@ function App() {
                           )
                         })}
                         <div className="inline">
-                          <select
-                            className="select"
+                          <Select
                             value={newTriggerActionKind}
-                            onChange={(e) => setNewTriggerActionKind(e.target.value)}
-                          >
-                            {ds.enums.action_kind.map((x) => (
-                              <option key={x} value={x}>
-                                {advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x)}
-                              </option>
-                            ))}
-                          </select>
-                          <button className="addRowBtn" type="button" onClick={() => addBuffTrigger(newTriggerActionKind)}>
+                            onChange={(val) => setNewTriggerActionKind(String(val))}
+                            options={ds.enums.action_kind.map((x) => ({
+                              value: x,
+                              label: advanced ? `${t(`action_kind.${x}`, x)} (${x})` : t(`action_kind.${x}`, x),
+                            }))}
+                            style={{ width: 240 }}
+                          />
+                          <Button type="primary" onClick={() => addBuffTrigger(newTriggerActionKind)}>
                             + 添加 Trigger
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1391,41 +1334,43 @@ function App() {
           </div>
         </main>
 
-        <aside className="rightbar">
-          <div className="panelHeader">
-            <h2>校验 / Issues</h2>
-            <span className="chip">
-              <span className="chipDot" style={{ background: ok ? 'var(--ok)' : 'var(--warn)' }} />
-              {issues.filter((i) => i.severity === 'error').length}E / {issues.filter((i) => i.severity === 'warn').length}W
-            </span>
-          </div>
-          <div className="scroll">
-            <div className="issues">
-              {issues.length === 0 ? (
-                <div className="issue" style={{ cursor: 'default' }}>
-                  <div className="issueMsg">看起来一切正常（Mock）</div>
-                  <div className="issueMeta">接下来：接入真实 validators → 输出 file/loc/path → 支持一键跳转</div>
-                </div>
-              ) : (
-                issues.map((iss, idx) => (
-                  <div
-                    key={`${iss.path}:${idx}`}
-                    className="issue"
-                    onClick={() => setSelected(iss.node)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="issueTop">
-                      <span className={`sev ${iss.severity === 'error' ? 'sevErr' : 'sevWarn'}`} />
-                      <div className="issueMsg">{iss.message}</div>
-                    </div>
-                    <div className="issueMeta">{iss.path}</div>
-                  </div>
-                ))
-              )}
+        {showIssues && (
+          <aside className="rightbar">
+            <div className="panelHeader">
+              <h2>校验 / Issues</h2>
+              <span className="chip">
+                <span className="chipDot" style={{ background: ok ? 'var(--ok)' : 'var(--warn)' }} />
+                {errorCount}E / {warnCount}W
+              </span>
             </div>
-          </div>
-        </aside>
+            <div className="scroll">
+              <div className="issues">
+                {issues.length === 0 ? (
+                  <div className="issue" style={{ cursor: 'default' }}>
+                    <div className="issueMsg">看起来一切正常（Mock）</div>
+                    <div className="issueMeta">接下来：接入真实 validators → 输出 file/loc/path → 支持一键跳转</div>
+                  </div>
+                ) : (
+                  issues.map((iss, idx) => (
+                    <div
+                      key={`${iss.path}:${idx}`}
+                      className="issue"
+                      onClick={() => setSelected(iss.node)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="issueTop">
+                        <span className={`sev ${iss.severity === 'error' ? 'sevErr' : 'sevWarn'}`} />
+                        <div className="issueMsg">{iss.message}</div>
+                      </div>
+                      <div className="issueMeta">{iss.path}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   )
