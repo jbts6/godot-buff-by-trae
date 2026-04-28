@@ -644,7 +644,7 @@ export default function App() {
                         </Space>
                       ),
                       children: (
-                        <Space direction="vertical" style={{ width: "100%" }}>
+                        <Space orientation="vertical" style={{ width: "100%" }}>
                           {(selectedBuff.effects ?? []).map((eff, idx) => {
                             const effObj = (eff ?? {}) as Record<string, unknown>;
                             const kind = String(effObj.kind ?? "modifier");
@@ -711,7 +711,7 @@ export default function App() {
                         </Space>
                       ),
                       children: (
-                        <Space direction="vertical" style={{ width: "100%" }}>
+                        <Space orientation="vertical" style={{ width: "100%" }}>
                           {(selectedBuff.triggers ?? []).map((tr, idx) => {
                             const tObj = tr as any;
                             const et = String(tObj.event_type ?? "DAMAGE");
@@ -868,7 +868,7 @@ export default function App() {
                   看起来一切正常。
                 </Typography.Paragraph>
               ) : (
-                <Space direction="vertical" style={{ width: "100%" }}>
+                <Space orientation="vertical" style={{ width: "100%" }}>
                   {issues.map((iss, idx) => (
                     <Card
                       key={`${iss.path}:${idx}`}
