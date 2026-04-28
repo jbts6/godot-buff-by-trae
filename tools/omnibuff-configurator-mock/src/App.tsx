@@ -15,7 +15,8 @@ type Dataset = {
     curve?: { type: 'NONE' | 'DR_SOFTCAP'; k?: number } | null
   }>
   buff_defs: Array<{
-    id: string
+    buff_id: number
+    buff_key: string
     name: string
     tags: string[]
     duration: { type: 'PERMANENT' | 'TURNS'; turns?: number }
@@ -38,7 +39,7 @@ type NodeRef =
   | { kind: 'stats_root' }
   | { kind: 'buffs_root' }
   | { kind: 'stat'; id: string }
-  | { kind: 'buff'; id: string }
+  | { kind: 'buff'; id: number }
 
 type Issue = {
   severity: 'error' | 'warn'
@@ -71,7 +72,8 @@ const SAMPLE: Dataset = {
   ],
   buff_defs: [
     {
-      id: 'buff_food_atk_20_5t',
+      buff_id: 100000,
+      buff_key: 'add_atk_20_t5',
       name: '战斗口粮',
       tags: ['BUFF'],
       duration: { type: 'TURNS', turns: 5 },
@@ -81,7 +83,8 @@ const SAMPLE: Dataset = {
       triggers: [],
     },
     {
-      id: 'buff_thorns_5',
+      buff_id: 100001,
+      buff_key: 'thorns_bonus_50',
       name: '荆棘',
       tags: ['BUFF'],
       duration: { type: 'PERMANENT' },
@@ -112,36 +115,194 @@ function downloadText(filename: string, text: string) {
   URL.revokeObjectURL(url)
 }
 
+function snakeCase(s: string) {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+}
+
+function nextBuffId(ds: Dataset) {
+  const ids = ds.buff_defs.map((b) => Number(b.buff_id)).filter((n) => Number.isFinite(n))
+  const max = ids.length ? Math.max(...ids) : 99999
+  return Math.max(100000, max + 1)
+}
+
+function effectSummary(buff: Dataset['buff_defs'][number]) {
+  const e0 = (buff.effects?.[0] ?? {}) as Record<string, unknown>
+  const kind = String(e0.kind ?? 'none')
+  const turns = buff.duration.type === 'TURNS' ? Number(buff.duration.turns ?? 0) : 0
+
+  if (kind === 'modifier') {
+    const stat = String(e0.stat ?? 'stat')
+    const op = String(e0.op ?? 'add').toLowerCase()
+    const phase = String(e0.phase ?? 'flat').toLowerCase()
+    const value = Number(e0.value ?? 0)
+    const base = `${op}_${stat}_${value}`.toLowerCase()
+    const p = phase === 'percent' ? 'pct' : phase === 'final' ? 'final' : 'flat'
+    const dur = turns > 0 ? `_t${turns}` : ''
+    return `${base}_${p}${dur}`
+  }
+
+  if (kind === 'dot') {
+    const dmg = Number(e0.damage ?? 0)
+    const interval = Number(e0.interval ?? 1)
+    const t = Number(e0.turns ?? turns ?? 0)
+    const dur = t > 0 ? `_t${t}` : ''
+    return `dot_dmg_${dmg}_int_${interval}${dur}`
+  }
+
+  if (kind === 'shield') {
+    const v = Number(e0.value ?? 0)
+    const dur = turns > 0 ? `_t${turns}` : ''
+    return `shield_${v}${dur}`
+  }
+
+  // fallback: based on tags + duration
+  const tag = (buff.tags?.[0] ?? 'buff').toString().toLowerCase()
+  const dur = turns > 0 ? `_t${turns}` : ''
+  return `${tag}${dur}`
+}
+
+function generateBuffKey(buff: Dataset['buff_defs'][number]) {
+  const core = snakeCase(effectSummary(buff))
+  return core ? core : `buff_${buff.buff_id}`
+}
+
+function normalizeDataset(input: any): Dataset {
+  const ds = input as Dataset
+  const out: Dataset = {
+    manifest: ds.manifest,
+    enums: ds.enums,
+    stat_defs: ds.stat_defs ?? [],
+    buff_defs: [],
+  }
+
+  let next = 100000
+  const seen = new Set<number>()
+
+  for (const raw of ds.buff_defs ?? []) {
+    const b: any = raw
+
+    // migrate old string id -> new buff_id/buff_key
+    const buff_id =
+      typeof b.buff_id === 'number'
+        ? b.buff_id
+        : typeof b.id === 'number'
+          ? b.id
+          : undefined
+
+    let idFinal = Number.isFinite(buff_id) ? Number(buff_id) : next++
+    while (seen.has(idFinal)) idFinal++
+    seen.add(idFinal)
+    next = Math.max(next, idFinal + 1)
+
+    const buff_key =
+      typeof b.buff_key === 'string'
+        ? b.buff_key
+        : typeof b.key === 'string'
+          ? b.key
+          : typeof b.id === 'string'
+            ? snakeCase(b.id)
+            : ''
+
+    const normalized: Dataset['buff_defs'][number] = {
+      buff_id: idFinal,
+      buff_key: buff_key || 'tmp',
+      name: String(b.name ?? '未命名 Buff'),
+      tags: Array.isArray(b.tags) ? b.tags : [],
+      duration: b.duration ?? { type: 'PERMANENT' },
+      stack: b.stack ?? { mode: 'REPLACE', max_stack: 1 },
+      notes: typeof b.notes === 'string' ? b.notes : undefined,
+      triggers: Array.isArray(b.triggers) ? b.triggers : [],
+      effects: Array.isArray(b.effects) ? b.effects : [],
+    }
+
+    if (!normalized.buff_key || normalized.buff_key === 'tmp') {
+      normalized.buff_key = generateBuffKey(normalized)
+    } else {
+      normalized.buff_key = snakeCase(normalized.buff_key)
+    }
+
+    out.buff_defs.push(normalized)
+  }
+
+  // ensure sequential-ish ids start at 100000 if empty
+  if (out.buff_defs.length === 0) out.buff_defs = []
+
+  return out
+}
+
 function computeIssues(ds: Dataset): Issue[] {
   const issues: Issue[] = []
   const statIds = new Set(ds.stat_defs.map((s) => s.id))
-  const buffIds = new Set<string>()
+  const buffIds = new Set<number>()
+  const buffKeys = new Set<string>()
 
   for (const b of ds.buff_defs) {
-    if (buffIds.has(b.id)) {
+    if (b.buff_id < 100000) {
       issues.push({
-        severity: 'error',
-        path: `$.buffs["${b.id}"].id`,
-        message: `重复的 buff id: ${b.id}`,
-        node: { kind: 'buff', id: b.id },
+        severity: 'warn',
+        path: `$.buffs[${b.buff_id}].buff_id`,
+        message: '建议 buff_id 从 100000 开始（便于与其它 ID 空间区分）',
+        node: { kind: 'buff', id: b.buff_id },
       })
     }
-    buffIds.add(b.id)
+    if (buffIds.has(b.buff_id)) {
+      issues.push({
+        severity: 'error',
+        path: `$.buffs[${b.buff_id}].buff_id`,
+        message: `重复的 buff_id: ${b.buff_id}`,
+        node: { kind: 'buff', id: b.buff_id },
+      })
+    }
+    buffIds.add(b.buff_id)
+
+    const key = String(b.buff_key ?? '').trim()
+    if (!key) {
+      issues.push({
+        severity: 'error',
+        path: `$.buffs[${b.buff_id}].buff_key`,
+        message: 'buff_key 不能为空',
+        node: { kind: 'buff', id: b.buff_id },
+      })
+    } else {
+      if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+        issues.push({
+          severity: 'error',
+          path: `$.buffs[${b.buff_id}].buff_key`,
+          message: 'buff_key 必须是 snake_case（小写字母/数字/下划线），且以字母开头',
+          node: { kind: 'buff', id: b.buff_id },
+        })
+      }
+      if (buffKeys.has(key)) {
+        issues.push({
+          severity: 'error',
+          path: `$.buffs[${b.buff_id}].buff_key`,
+          message: `重复的 buff_key: ${key}`,
+          node: { kind: 'buff', id: b.buff_id },
+        })
+      }
+      buffKeys.add(key)
+    }
+
     if (!b.tags.length) {
       issues.push({
         severity: 'warn',
-        path: `$.buffs["${b.id}"].tags`,
+        path: `$.buffs[${b.buff_id}].tags`,
         message: '建议至少设置一个 tag（例如 BUFF/DEBUFF）',
-        node: { kind: 'buff', id: b.id },
+        node: { kind: 'buff', id: b.buff_id },
       })
     }
     for (const t of b.triggers) {
       if (t.action?.['kind'] === 'BONUS_DAMAGE' && t.filters?.['require_not_bonus_damage'] !== true && t.action?.['require_not_bonus_damage'] !== true) {
         issues.push({
           severity: 'warn',
-          path: `$.buffs["${b.id}"].triggers[].filters.require_not_bonus_damage`,
+          path: `$.buffs[${b.buff_id}].triggers[].filters.require_not_bonus_damage`,
           message: 'BONUS_DAMAGE 建议加不递归 guard：require_not_bonus_damage=true',
-          node: { kind: 'buff', id: b.id },
+          node: { kind: 'buff', id: b.buff_id },
         })
       }
     }
@@ -193,9 +354,10 @@ function nodeLabel(n: NodeRef) {
 
 function nodeLabelWithName(ds: Dataset, n: NodeRef, advanced: boolean) {
   if (n.kind === 'buff') {
-    const b = ds.buff_defs.find((x) => x.id === n.id)
-    const name = b?.name?.trim() ? b.name.trim() : n.id
-    return advanced ? `${name} (${n.id})` : name
+    const b = ds.buff_defs.find((x) => x.buff_id === n.id)
+    const name = b?.name?.trim() ? b.name.trim() : `Buff ${n.id}`
+    const key = b?.buff_key?.trim() ? b.buff_key.trim() : `buff_${n.id}`
+    return advanced ? `${name} (${key}) [${n.id}]` : name
   }
   if (n.kind === 'stat') {
     const zh = t(`stat.${n.id}`, n.id)
@@ -320,7 +482,7 @@ const ACTION_TEMPLATES: Record<string, TemplateSchema> = {
   },
   APPLY_BUFF: {
     label: '施加 Buff（APPLY_BUFF）',
-    defaults: { kind: 'APPLY_BUFF', buff_id: 'buff_food_atk_20_5t', stacks: 1 },
+    defaults: { kind: 'APPLY_BUFF', buff_id: 100000, stacks: 1 },
     fields: [
       { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
       { key: 'stacks', label: '层数', type: 'number', hint: 'stacks' },
@@ -351,7 +513,7 @@ const ACTION_TEMPLATES: Record<string, TemplateSchema> = {
   },
   ADD_STACKS: {
     label: '增加层数（ADD_STACKS）',
-    defaults: { kind: 'ADD_STACKS', buff_id: 'buff_food_atk_20_5t', delta: 1, min_stack: 0, max_stack: 99 },
+    defaults: { kind: 'ADD_STACKS', buff_id: 100000, delta: 1, min_stack: 0, max_stack: 99 },
     fields: [
       { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
       { key: 'delta', label: '变化量（delta）', type: 'number', hint: 'delta' },
@@ -361,7 +523,7 @@ const ACTION_TEMPLATES: Record<string, TemplateSchema> = {
   },
   SET_STACKS: {
     label: '设定层数（SET_STACKS）',
-    defaults: { kind: 'SET_STACKS', buff_id: 'buff_food_atk_20_5t', value: 0, min_stack: 0, max_stack: 99 },
+    defaults: { kind: 'SET_STACKS', buff_id: 100000, value: 0, min_stack: 0, max_stack: 99 },
     fields: [
       { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
       { key: 'value', label: '目标层数（value）', type: 'number', hint: 'value' },
@@ -487,12 +649,12 @@ function renderSchema(
               {label}
               <select
                 className="select"
-                value={String(v ?? ds.buff_defs[0]?.id ?? '')}
-                onChange={(e) => onPatch({ [f.key]: e.target.value })}
+                value={String(v ?? ds.buff_defs[0]?.buff_id ?? '')}
+                onChange={(e) => onPatch({ [f.key]: Number(e.target.value) })}
               >
                 {ds.buff_defs.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {advanced ? `${b.name} (${b.id})` : b.name}
+                  <option key={b.buff_id} value={String(b.buff_id)}>
+                    {advanced ? `${b.name} (${b.buff_key}) [${b.buff_id}]` : b.name}
                   </option>
                 ))}
               </select>
@@ -547,7 +709,7 @@ function renderSchema(
 
 function App() {
   const [ds, setDs] = useState<Dataset>(SAMPLE)
-  const [selected, setSelected] = useState<NodeRef>({ kind: 'buff', id: SAMPLE.buff_defs[0].id })
+  const [selected, setSelected] = useState<NodeRef>({ kind: 'buff', id: SAMPLE.buff_defs[0].buff_id })
   const [search, setSearch] = useState('')
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [newEffectKind, setNewEffectKind] = useState<string>('modifier')
@@ -566,17 +728,22 @@ function App() {
   const filteredBuffs = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return ds.buff_defs
-    return ds.buff_defs.filter((b) => b.id.toLowerCase().includes(q) || b.name.toLowerCase().includes(q))
+    return ds.buff_defs.filter((b) => {
+      const idHit = String(b.buff_id).includes(q)
+      const keyHit = String(b.buff_key ?? '').toLowerCase().includes(q)
+      const nameHit = String(b.name ?? '').toLowerCase().includes(q)
+      return idHit || keyHit || nameHit
+    })
   }, [ds.buff_defs, search])
 
-  const selectedBuff = selected.kind === 'buff' ? ds.buff_defs.find((b) => b.id === selected.id) : null
+  const selectedBuff = selected.kind === 'buff' ? ds.buff_defs.find((b) => b.buff_id === selected.id) : null
   const selectedStat = selected.kind === 'stat' ? ds.stat_defs.find((s) => s.id === selected.id) : null
 
   function updateBuff(patch: Partial<Dataset['buff_defs'][number]>) {
     if (!selectedBuff) return
     setDs((prev) => ({
       ...prev,
-      buff_defs: prev.buff_defs.map((b) => (b.id === selectedBuff.id ? { ...b, ...patch } : b)),
+      buff_defs: prev.buff_defs.map((b) => (b.buff_id === selectedBuff.buff_id ? { ...b, ...patch } : b)),
     }))
   }
 
@@ -594,13 +761,38 @@ function App() {
 
   async function onFilePicked(file: File) {
     const text = await file.text()
-    const parsed = JSON.parse(text) as Dataset
+    const parsed = normalizeDataset(JSON.parse(text))
     setDs(parsed)
     setSelected({ kind: 'manifest' })
   }
 
   function onExportClick() {
-    downloadText(`${ds.manifest.id}.dataset.json`, JSON.stringify(ds, null, 2))
+    const sorted: Dataset = {
+      ...ds,
+      buff_defs: [...ds.buff_defs].sort((a, b) => a.buff_id - b.buff_id),
+    }
+    downloadText(`${ds.manifest.id}.dataset.json`, JSON.stringify(sorted, null, 2))
+  }
+
+  function addNewBuff() {
+    let created = 0
+    setDs((prev) => {
+      created = nextBuffId(prev)
+      const buff: Dataset['buff_defs'][number] = {
+        buff_id: created,
+        buff_key: 'tmp',
+        name: '新 Buff',
+        tags: ['BUFF'],
+        duration: { type: 'TURNS', turns: 3 },
+        stack: { mode: 'REPLACE', max_stack: 1 },
+        notes: '（可选）这里写给策划/程序看的备注。',
+        effects: [{ ...EFFECT_TEMPLATES.modifier.defaults }],
+        triggers: [],
+      }
+      buff.buff_key = generateBuffKey(buff)
+      return { ...prev, buff_defs: [...prev.buff_defs, buff] }
+    })
+    setSelected({ kind: 'buff', id: created })
   }
 
   function removeBuffEffect(index: number) {
@@ -731,6 +923,9 @@ function App() {
         <aside className="sidebar">
           <div className="panelHeader">
             <h2>导航树</h2>
+            <button className="btn" type="button" onClick={addNewBuff} title="新建一个 Buff（自动分配 buff_id 与 buff_key）">
+              + Buff
+            </button>
           </div>
           <div style={{ padding: 12 }}>
             <input
@@ -748,7 +943,7 @@ function App() {
                 { node: { kind: 'stats_root' } as NodeRef, meta: String(ds.stat_defs.length) },
                 ...filteredStats.map((s) => ({ node: { kind: 'stat', id: s.id } as NodeRef, meta: 'stat' })),
                 { node: { kind: 'buffs_root' } as NodeRef, meta: String(ds.buff_defs.length) },
-                ...filteredBuffs.map((b) => ({ node: { kind: 'buff', id: b.id } as NodeRef, meta: `${b.triggers.length}T` })),
+                ...filteredBuffs.map((b) => ({ node: { kind: 'buff', id: b.buff_id } as NodeRef, meta: `${b.triggers.length}T` })),
               ].map(({ node, meta }) => {
                 const active = JSON.stringify(node) === JSON.stringify(selected)
                 const dot =
@@ -897,22 +1092,46 @@ function App() {
                   <>
                     <div className="field">
                       <div className="labelRow">
-                        <label>Buff ID</label>
-                        <span className="hint">id</span>
+                        <label>Buff ID（只读）</label>
+                        <span className="hint">{advanced ? 'buff_id' : ''}</span>
                       </div>
-                      <input className="input" value={selectedBuff.id} readOnly />
+                      <input className="input" value={String(selectedBuff.buff_id)} readOnly />
+                    </div>
+                    <div className="field">
+                      <div className="labelRow">
+                        <label>英文 Key（可编辑）</label>
+                        <span className="hint">{advanced ? 'buff_key' : ''}</span>
+                      </div>
+                      <div className="inline">
+                        <input
+                          className="input"
+                          value={selectedBuff.buff_key}
+                          onChange={(e) => updateBuff({ buff_key: snakeCase(e.target.value) })}
+                          placeholder="snake_case"
+                          style={{ flex: 1, minWidth: 220 }}
+                        />
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => updateBuff({ buff_key: generateBuffKey(selectedBuff) })}
+                          title="基于当前 effects/duration 自动生成一个可读的 snake_case key"
+                        >
+                          重新生成
+                        </button>
+                      </div>
+                      <div className="miniNote">默认会自动生成；建议保持稳定，避免随意改名导致引用迁移成本。</div>
                     </div>
                     <div className="field">
                       <div className="labelRow">
                         <label>名称</label>
-                        <span className="hint">name</span>
+                        <span className="hint">{advanced ? 'name' : ''}</span>
                       </div>
                       <input className="input" value={selectedBuff.name} onChange={(e) => updateBuff({ name: e.target.value })} />
                     </div>
                     <div className="field">
                       <div className="labelRow">
                         <label>Tags</label>
-                        <span className="hint">tags</span>
+                        <span className="hint">{advanced ? 'tags' : ''}</span>
                       </div>
                       <div className="inline">
                         {ds.enums.tags.map((tagId) => {
