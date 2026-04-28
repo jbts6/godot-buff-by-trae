@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import './App.css'
+import { t } from './i18n/zh-CN'
 
 type Dataset = {
   manifest: { id: string; name: string; files: Array<{ type: string; path: string }> }
@@ -176,13 +177,13 @@ function computeIssues(ds: Dataset): Issue[] {
 function nodeLabel(n: NodeRef) {
   switch (n.kind) {
     case 'manifest':
-      return 'Manifest'
+      return t('nav.manifest', 'Manifest')
     case 'enums':
-      return 'Enums'
+      return t('nav.enums', 'Enums')
     case 'stats_root':
-      return 'Stats'
+      return t('nav.stats', 'Stats')
     case 'buffs_root':
-      return 'Buffs'
+      return t('nav.buffs', 'Buffs')
     case 'stat':
       return n.id
     case 'buff':
@@ -197,7 +198,7 @@ function nodeLabelWithName(ds: Dataset, n: NodeRef) {
     return `${name} (${n.id})`
   }
   if (n.kind === 'stat') {
-    return `${n.id} (${n.id})`
+    return `${t(`stat.${n.id}`, n.id)} (${n.id})`
   }
   return nodeLabel(n)
 }
@@ -228,6 +229,7 @@ type FieldSchema = {
   hint?: string
   placeholder?: string
   options?: (ds: Dataset) => string[]
+  i18nPrefix?: string
   showIf?: (ctx: { obj: Record<string, unknown>; ds: Dataset }) => boolean
 }
 
@@ -242,14 +244,14 @@ const EFFECT_TEMPLATES: Record<string, TemplateSchema> = {
     label: 'Modifier（属性修饰）',
     defaults: { kind: 'modifier', stat: 'ATK', op: 'ADD', phase: 'FLAT', priority: 100, value: 10 },
     fields: [
-      { key: 'stat', label: 'Stat', type: 'stat_ref', hint: 'stat' },
-      { key: 'op', label: 'Op', type: 'enum', options: () => ['ADD', 'MUL', 'OVERRIDE'] },
-      { key: 'phase', label: 'Phase', type: 'enum', options: () => ['FLAT', 'PERCENT', 'FINAL'] },
-      { key: 'value', label: 'Value', type: 'number' },
-      { key: 'priority', label: 'Priority', type: 'number' },
+      { key: 'stat', label: '属性', type: 'stat_ref', hint: 'stat_id' },
+      { key: 'op', label: '运算符', type: 'enum', options: () => ['ADD', 'MUL', 'OVERRIDE'], i18nPrefix: 'op' },
+      { key: 'phase', label: '阶段', type: 'enum', options: () => ['FLAT', 'PERCENT', 'FINAL'], i18nPrefix: 'phase' },
+      { key: 'value', label: '数值', type: 'number' },
+      { key: 'priority', label: '优先级', type: 'number' },
       {
         key: 'layer',
-        label: 'Layer（仅 PERCENT）',
+        label: '层级（仅 PERCENT）',
         type: 'number',
         showIf: ({ obj }) => String(obj.phase ?? 'FLAT') === 'PERCENT',
       },
@@ -258,86 +260,112 @@ const EFFECT_TEMPLATES: Record<string, TemplateSchema> = {
   shield: {
     label: 'Shield（加护盾）',
     defaults: { kind: 'shield', value: 20 },
-    fields: [{ key: 'value', label: 'Shield Value', type: 'number' }],
+    fields: [{ key: 'value', label: '护盾值', type: 'number' }],
   },
   dot: {
     label: 'DOT（周期伤害）',
     defaults: { kind: 'dot', damage: 5, interval: 1, turns: 5, stack_mode: 'ADD' },
     fields: [
-      { key: 'damage', label: 'Damage', type: 'number' },
-      { key: 'interval', label: 'Interval（秒）', type: 'number' },
-      { key: 'turns', label: 'Turns（回合）', type: 'number' },
-      { key: 'stack_mode', label: 'Stack Mode', type: 'enum', options: () => ['ADD', 'SET', 'MULTI_INSTANCE'] },
+      { key: 'damage', label: '每跳伤害', type: 'number' },
+      { key: 'interval', label: '间隔（秒）', type: 'number' },
+      { key: 'turns', label: '持续（回合）', type: 'number' },
+      { key: 'stack_mode', label: '叠加模式', type: 'enum', options: () => ['ADD', 'SET', 'MULTI_INSTANCE'] },
     ],
   },
 }
 
 const FILTER_SCHEMAS: Record<string, FieldSchema[]> = {
   DAMAGE: [
-    { key: 'require_hit', label: 'require_hit', type: 'boolean' },
-    { key: 'require_crit', label: 'require_crit', type: 'boolean' },
-    { key: 'require_not_bonus_damage', label: 'require_not_bonus_damage', type: 'boolean' },
-    { key: 'min_final_damage', label: 'min_final_damage', type: 'number' },
-    { key: 'tag_any', label: 'tag_any', type: 'tags', hint: '任意一个 tag 命中即通过' },
+    { key: 'require_hit', label: '必须命中', type: 'boolean', hint: 'require_hit' },
+    { key: 'require_crit', label: '必须暴击', type: 'boolean', hint: 'require_crit' },
+    {
+      key: 'require_not_bonus_damage',
+      label: '不递归追加伤害',
+      type: 'boolean',
+      hint: 'require_not_bonus_damage',
+    },
+    { key: 'min_final_damage', label: '最小最终伤害', type: 'number', hint: 'min_final_damage' },
+    { key: 'tag_any', label: '命中任意 Tag', type: 'tags', hint: 'tag_any' },
   ],
   LIFE: [
-    { key: 'actor_id', label: 'actor_id', type: 'number' },
-    { key: 'source_id', label: 'source_id', type: 'number' },
-    { key: 'tag_any', label: 'tag_any', type: 'tags' },
+    { key: 'actor_id', label: '事件主体 actor_id', type: 'number', hint: 'actor_id' },
+    { key: 'source_id', label: '来源 source_id', type: 'number', hint: 'source_id' },
+    { key: 'tag_any', label: '命中任意 Tag', type: 'tags', hint: 'tag_any' },
   ],
-  DOT: [{ key: 'tag_any', label: 'tag_any', type: 'tags' }],
-  COMMAND: [{ key: 'tag_any', label: 'tag_any', type: 'tags' }],
+  DOT: [{ key: 'tag_any', label: '命中任意 Tag', type: 'tags', hint: 'tag_any' }],
+  COMMAND: [{ key: 'tag_any', label: '命中任意 Tag', type: 'tags', hint: 'tag_any' }],
+}
+
+const EVENT_PHASE_BY_TYPE: Record<string, string[]> = {
+  DAMAGE: ['BUILD', 'BEFORE_DEAL', 'BEFORE_TAKE', 'RESOLVE', 'APPLY', 'AFTER_DEAL', 'AFTER_TAKE'],
+  DOT: ['TURN_START', 'TURN_END'],
+  LIFE: ['DEATH', 'REVIVE'],
+  COMMAND: ['BEFORE', 'AFTER'],
 }
 
 const ACTION_TEMPLATES: Record<string, TemplateSchema> = {
   HEAL: {
-    label: 'HEAL',
+    label: '治疗（HEAL）',
     defaults: { kind: 'HEAL', value: 5 },
-    fields: [{ key: 'value', label: 'value', type: 'number' }],
+    fields: [{ key: 'value', label: '治疗量', type: 'number', hint: 'value' }],
   },
   BONUS_DAMAGE: {
-    label: 'BONUS_DAMAGE',
+    label: '追加伤害（BONUS_DAMAGE）',
     defaults: { kind: 'BONUS_DAMAGE', ratio: 0.5, tags: ['BONUS_DAMAGE'] },
     fields: [
-      { key: 'ratio', label: 'ratio', type: 'number' },
-      { key: 'tags', label: 'tags（用于识别 bonus hit）', type: 'tags' },
+      { key: 'ratio', label: '倍率（ratio）', type: 'number', hint: 'ratio' },
+      { key: 'tags', label: 'Tags（识别 bonus hit）', type: 'tags', hint: 'tags' },
     ],
   },
   APPLY_BUFF: {
-    label: 'APPLY_BUFF',
+    label: '施加 Buff（APPLY_BUFF）',
     defaults: { kind: 'APPLY_BUFF', buff_id: 'buff_food_atk_20_5t', stacks: 1 },
     fields: [
-      { key: 'buff_id', label: 'buff_id', type: 'buff_ref' },
-      { key: 'stacks', label: 'stacks', type: 'number' },
+      { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
+      { key: 'stacks', label: '层数', type: 'number', hint: 'stacks' },
     ],
   },
   DISPEL: {
-    label: 'DISPEL',
+    label: '驱散（DISPEL）',
     defaults: { kind: 'DISPEL', mode: 'BY_TAG', tag: 'DEBUFF' },
     fields: [
-      { key: 'mode', label: 'mode', type: 'enum', options: () => ['BY_TAG', 'BY_ID', 'ALL'] },
-      { key: 'tag', label: 'tag（BY_TAG）', type: 'string', showIf: ({ obj }) => String(obj.mode) === 'BY_TAG' },
-      { key: 'buff_id', label: 'buff_id（BY_ID）', type: 'buff_ref', showIf: ({ obj }) => String(obj.mode) === 'BY_ID' },
+      { key: 'mode', label: '模式', type: 'enum', options: () => ['BY_TAG', 'BY_ID', 'ALL'], hint: 'mode' },
+      {
+        key: 'tag',
+        label: 'Tag（BY_TAG）',
+        type: 'enum',
+        options: (ds) => ds.enums.tags,
+        i18nPrefix: 'tag',
+        hint: 'tag',
+        showIf: ({ obj }) => String(obj.mode) === 'BY_TAG',
+      },
+      {
+        key: 'buff_id',
+        label: 'Buff（BY_ID）',
+        type: 'buff_ref',
+        hint: 'buff_id',
+        showIf: ({ obj }) => String(obj.mode) === 'BY_ID',
+      },
     ],
   },
   ADD_STACKS: {
-    label: 'ADD_STACKS',
+    label: '增加层数（ADD_STACKS）',
     defaults: { kind: 'ADD_STACKS', buff_id: 'buff_food_atk_20_5t', delta: 1, min_stack: 0, max_stack: 99 },
     fields: [
-      { key: 'buff_id', label: 'buff_id', type: 'buff_ref' },
-      { key: 'delta', label: 'delta', type: 'number' },
-      { key: 'min_stack', label: 'min_stack', type: 'number' },
-      { key: 'max_stack', label: 'max_stack', type: 'number' },
+      { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
+      { key: 'delta', label: '变化量（delta）', type: 'number', hint: 'delta' },
+      { key: 'min_stack', label: '最小层数', type: 'number', hint: 'min_stack' },
+      { key: 'max_stack', label: '最大层数', type: 'number', hint: 'max_stack' },
     ],
   },
   SET_STACKS: {
-    label: 'SET_STACKS',
+    label: '设定层数（SET_STACKS）',
     defaults: { kind: 'SET_STACKS', buff_id: 'buff_food_atk_20_5t', value: 0, min_stack: 0, max_stack: 99 },
     fields: [
-      { key: 'buff_id', label: 'buff_id', type: 'buff_ref' },
-      { key: 'value', label: 'value', type: 'number' },
-      { key: 'min_stack', label: 'min_stack', type: 'number' },
-      { key: 'max_stack', label: 'max_stack', type: 'number' },
+      { key: 'buff_id', label: '目标 Buff', type: 'buff_ref', hint: 'buff_id' },
+      { key: 'value', label: '目标层数（value）', type: 'number', hint: 'value' },
+      { key: 'min_stack', label: '最小层数', type: 'number', hint: 'min_stack' },
+      { key: 'max_stack', label: '最大层数', type: 'number', hint: 'max_stack' },
     ],
   },
 }
@@ -375,7 +403,7 @@ function renderSchema(
                   checked={Boolean(v ?? false)}
                   onChange={(e) => onPatch({ [f.key]: e.target.checked })}
                 />
-                {f.key}
+                {f.label}
               </span>
             </div>
           )
@@ -408,7 +436,7 @@ function renderSchema(
               >
                 {opts.map((o) => (
                   <option key={o} value={o}>
-                    {o}
+                    {f.i18nPrefix ? `${t(`${f.i18nPrefix}.${o}`, o)} (${o})` : o}
                   </option>
                 ))}
               </select>
@@ -427,7 +455,7 @@ function renderSchema(
               >
                 {ds.stat_defs.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id}
+                    {t(`stat.${s.id}`, s.id)} ({s.id})
                   </option>
                 ))}
               </select>
@@ -460,21 +488,21 @@ function renderSchema(
             <div className="field" key={f.key}>
               {label}
               <div className="inline">
-                {ds.enums.tags.map((t) => {
-                  const checked = selected.has(t)
+                {ds.enums.tags.map((tagId) => {
+                  const checked = selected.has(tagId)
                   return (
-                    <span className="pill" key={t}>
+                    <span className="pill" key={tagId}>
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={(e) => {
                           const next = new Set(selected)
-                          if (e.target.checked) next.add(t)
-                          else next.delete(t)
+                          if (e.target.checked) next.add(tagId)
+                          else next.delete(tagId)
                           onPatch({ [f.key]: Array.from(next) })
                         }}
                       />
-                      {t}
+                      {t(`tag.${tagId}`, tagId)} ({tagId})
                     </span>
                   )
                 })}
@@ -859,12 +887,26 @@ function App() {
                         <label>Tags</label>
                         <span className="hint">tags</span>
                       </div>
-                      <input
-                        className="input"
-                        value={selectedBuff.tags.join(', ')}
-                        onChange={(e) => updateBuff({ tags: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-                        placeholder="BUFF, DEBUFF, DOT…"
-                      />
+                      <div className="inline">
+                        {ds.enums.tags.map((tagId) => {
+                          const checked = selectedBuff.tags.includes(tagId)
+                          return (
+                            <span className="pill" key={tagId}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = new Set(selectedBuff.tags)
+                                  if (e.target.checked) next.add(tagId)
+                                  else next.delete(tagId)
+                                  updateBuff({ tags: Array.from(next) })
+                                }}
+                              />
+                              {t(`tag.${tagId}`, tagId)} ({tagId})
+                            </span>
+                          )
+                        })}
+                      </div>
                     </div>
                     <div className="field">
                       <div className="labelRow">
@@ -882,8 +924,8 @@ function App() {
                               else updateBuff({ duration: { type: 'TURNS', turns: selectedBuff.duration.turns ?? 3 } })
                             }}
                           >
-                            <option value="PERMANENT">PERMANENT</option>
-                            <option value="TURNS">TURNS</option>
+                            <option value="PERMANENT">{t('duration.PERMANENT', 'PERMANENT')} (PERMANENT)</option>
+                            <option value="TURNS">{t('duration.TURNS', 'TURNS')} (TURNS)</option>
                           </select>
                           {selectedBuff.duration.type === 'TURNS' && (
                             <input
@@ -978,21 +1020,31 @@ function App() {
                                   <select
                                     className="select"
                                     value={tr.event_type}
-                                    onChange={(e) => patchBuffTrigger(idx, { event_type: e.target.value })}
+                                    onChange={(e) => {
+                                      const et = e.target.value
+                                      const phases = EVENT_PHASE_BY_TYPE[et] ?? []
+                                      const nextPhase = phases.includes(tr.event_phase) ? tr.event_phase : (phases[0] ?? tr.event_phase)
+                                      patchBuffTrigger(idx, { event_type: et, event_phase: nextPhase })
+                                    }}
                                   >
                                     {ds.enums.event_type.map((x) => (
                                       <option key={x} value={x}>
-                                        {x}
+                                        {t(`event_type.${x}`, x)} ({x})
                                       </option>
                                     ))}
                                   </select>
-                                  <input
-                                    className="input"
+                                  <select
+                                    className="select"
                                     value={tr.event_phase}
                                     onChange={(e) => patchBuffTrigger(idx, { event_phase: e.target.value })}
-                                    style={{ width: 160 }}
-                                    placeholder="event_phase"
-                                  />
+                                    style={{ width: 200 }}
+                                  >
+                                    {(EVENT_PHASE_BY_TYPE[String(tr.event_type)] ?? []).map((p) => (
+                                      <option key={p} value={p}>
+                                        {t(`event_phase.${p}`, p)} ({p})
+                                      </option>
+                                    ))}
+                                  </select>
                                   <select
                                     className="select"
                                     value={tr.scope}
@@ -1000,7 +1052,7 @@ function App() {
                                   >
                                     {ds.enums.scope.map((x) => (
                                       <option key={x} value={x}>
-                                        {x}
+                                        {t(`scope.${x}`, x)} ({x})
                                       </option>
                                     ))}
                                   </select>
@@ -1024,7 +1076,7 @@ function App() {
                                 >
                                   {ds.enums.action_kind.map((x) => (
                                     <option key={x} value={x}>
-                                      {x}
+                                      {t(`action_kind.${x}`, x)} ({x})
                                     </option>
                                   ))}
                                 </select>
@@ -1044,7 +1096,7 @@ function App() {
                           >
                             {ds.enums.action_kind.map((x) => (
                               <option key={x} value={x}>
-                                {x}
+                                {t(`action_kind.${x}`, x)} ({x})
                               </option>
                             ))}
                           </select>
