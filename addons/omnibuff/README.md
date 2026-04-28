@@ -1,7 +1,7 @@
-# OmniBuff（Godot 4.7）— “万物皆 Buff” 的回合制 Buff/Stat/DamagePipeline
+# OmniBuff（Godot 4.7）— "万物皆 Buff" 的回合制 Buff/Stat/DamagePipeline
 
-> 当前仓库状态：可运行 demo + GUT 自动化测试（包含整回合脚本式集成测试）。
-> 目标：**性能硬约束**（StatCache + EventIndex）+ **数据驱动**（manifest/enums/defs → validate → compile）+ **可回归**（GUT）。
+> 当前仓库状态：可运行 demo + GUT 自动化测试（包含整回合脚本式集成测试 + 压力基准测试）。
+> 目标：**性能硬约束**（StatCache + EventIndex + Precompiled BuffDef）+ **数据驱动**（manifest/enums/defs → validate → compile）+ **可回归**（GUT）+ **可扩展**（Mod Override）。
 
 ## 1. 安装与启用
 
@@ -31,16 +31,26 @@ res://addons/omnibuff/
 
 ## 2. 如何在代码里调用（关键：OmniBuff 命名空间式入口）
 
-启用插件后，你可以把 `OmniBuff` 当作“命名空间入口”来用，它暴露的都是 **Script 资源（preload 的类）**：
+启用插件后，你可以把 `OmniBuff` 当作"命名空间入口"来用，它暴露的都是 **Script 资源（preload 的类）**：
 
 - `OmniBuff.Replay`
 - `OmniBuff.DamagePipeline`
 - `OmniBuff.BuffCore`
+- `OmniBuff.StatsCore`
 - `OmniBuff.StatsComponent`
 - `OmniBuff.TurnComponent`
 - `OmniBuff.ManifestLoader`
 - `OmniBuff.DatasetCompiler`
 - `OmniBuff.EnumsRuntime`
+- `OmniBuff.CompiledDataset`
+- `OmniBuff.BattleExecutor`
+- `OmniBuff.EventIndex`
+- `OmniBuff.CommandContext`
+- `OmniBuff.ExprContext`
+- `OmniBuff.Validate`
+- `OmniBuff.Migrate`
+- `OmniBuff.Json`
+- `OmniBuff.Csv`
 
 入口脚本：`res://addons/omnibuff/runtime/omnibuff_singleton.gd`
 
@@ -49,16 +59,22 @@ res://addons/omnibuff/
 ## 2.1 Public API / Stable API（TL;DR）
 
 - **不要依赖 `class_name` 标识符**（例如 `OmniExprContext`），业务代码里建议用 `OmniBuff.Xxx` / preload 引用脚本，避免脚本解析时机导致编译问题。
-- 伤害结算如果你更在意“插件升级兼容性”，建议优先使用：`DamagePipeline.deal_damage_v1(...)`（旧签名兼容层）。
+- 伤害结算如果你更在意"插件升级兼容性"，建议优先使用：`DamagePipeline.deal_damage_v1(...)`（旧签名兼容层）。新签名 `deal_damage_v2(...)` 使用 `DamageRequest` 结构体传参，支持确定性 RNG seed。
 - BONUS_DAMAGE（追加伤害）需要不递归 guard：`filters.require_not_bonus_damage=true`，并建议用 tag `BONUS_DAMAGE` 识别 bonus hit（不要依赖 trace 顺序）。
+- **Mod Override**：manifest 中声明 `mods[]` 可实现数据热覆盖（`last_wins_by_id` 策略），详见 §6.8。
+- **Precompiled BuffDef**：运行时使用 `ds.buff_defs_compiled[bdid]` 替代 `ds.buff_defs[bdid]` 字典查找，详见 §6.7。
+- **Event Trace Hook**：`BuffCore.event_trace_fn` 可挂载 HUD 事件追踪回调，详见 §6.10。
 
 文档导航（建议按顺序阅读）：
 - Tutorial（从零理解设计原理/思想/用法）：`res://addons/omnibuff/tutorial/00_index.md`
 - ModiBuff Tutorial（第三方参考 + 对比）：`res://addons/omnibuff/tutorial_modibuff/00_index.md`
 - 接入主线（战斗系统如何对接）：`res://addons/omnibuff/docs/integrator_guide.md`
 - 数据协议速查 + 常见配方：`res://addons/omnibuff/docs/schema_reference.md`
+- 设计师配方指南（18 种配方 + 排错表）：`res://addons/omnibuff/docs/designer_guide.md`
 - 调试与回归（UI demo / HUD / tests）：`res://addons/omnibuff/docs/debug_and_qa.md`
 - API 契约（contract）：`res://addons/omnibuff/docs/api.md`
+- 变更日志：`res://addons/omnibuff/docs/changelog.md`
+- 迁移指南（版本升级 breaking changes）：`res://addons/omnibuff/docs/migration_guide.md`
 
 ---
 
@@ -147,6 +163,8 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - `ADD/FLAT`（平铺加成）
 - `MUL/PERCENT`（百分比加成）
   公式：`final = (base + flat) * (1 + pct)`
+- **整数比较优化**：`recompute()` 使用 `op_int`/`phase_int` 替代字符串比较（热路径零分配）
+- **预编译派生属性**：`derived_from_int[]`/`derived_ratio[]` 替代运行时 `stat_id()` 查找
 
 ### 6.2 伤害流水线（DamagePipeline）
 - 固定骨架：BUILD → BEFORE_DEAL → BEFORE_TAKE → RESOLVE → APPLY → AFTER_DEAL → AFTER_TAKE
@@ -154,6 +172,7 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - 命中/暴击（确定性 RNG）：仅在数据集中存在 `HIT_RATE/EVADE` 时启用
 - 减伤：`DMG_REDUCE`（resolve 后、apply 前生效）
 - 护盾：`SHIELD` 先吸收、剩余再扣 HP
+- `deal_damage_v2(DamageRequest)`：结构体传参，支持确定性 RNG seed（xorshift32）
 
 ### 6.3 事件系统（EventIndex）
 - `ADD_BASE_DAMAGE`
@@ -184,17 +203,27 @@ turn.on_turn_start(ids, buff_by_entity, stats_by_entity, pipe, ds, replay)
 - UI demo（推荐）：`res://addons/omnibuff/demo/buff_ui_demo.tscn`
   - 支持切换数据集：`base_demo` / `rpg_tests`
   - 以 Scenario 形式覆盖 `tests/rpg` 的主要能力点
+- ScenarioRunner：`res://addons/omnibuff/demo/scenario_runner.gd`
+  - 从 JSON 文件或内联 Dictionary 加载场景脚本
+  - 自动执行 setup → steps → verify 流程
+  - 支持 `assert_stat`、`apply_buff`、`deal_damage`、`turn_start`、`turn_end` 等步骤类型
 
-### 6.6 调试工作流（Phase 0 / Demo-only）
+### 6.6 调试工作流（Debug HUD — 交互增强版）
 
 推荐工作流（适合提 issue / 远程协作定位）：
 
 1) 打开 `buff_ui_demo.tscn`，选择 dataset（通常 `rpg_tests`），运行能复现问题的 scenario
-2) 打开 **Debug HUD**：
-   - `Dots`：查看 DOT 的 turns/stacks（权威来自 DotInstance）
-   - `Listeners`：查看有哪些监听者、最近一次触发命中了哪些 inst
-   - `StatMods`：查看某个 stat 的 modifier 贡献项（可反查到 buff_id）
-3) 点击 “复制日志” 和 “复制 dump”，将两段文本粘贴到 issue
+2) 打开 **Debug HUD**（三标签页）：
+   - **Stats 标签**：
+     - `StatsEditArea`：SpinBox 直接编辑 stat base 值（实时生效）
+     - `StatsScroll`：只读 stat 最终值展示
+   - **Buffs 标签**：
+     - `BuffsToolbar`：输入 buff_id 施加 / 输入 inst_id 移除
+     - `BuffsScroll`：当前 buff 实例列表
+   - **Timeline 标签**：
+     - 事件时间线（最多 500 条），记录 entity_id、event_type、phase、hit_inst_ids
+     - `BtnClearTimeline` 清空时间线
+3) 点击 "复制日志" 和 "复制 dump"，将两段文本粘贴到 issue
 
 dump 建议格式（节选，真实内容会更长）：
 ```
@@ -209,6 +238,65 @@ dump 建议格式（节选，真实内容会更长）：
 
 [Listeners] ...
 ```
+
+### 6.7 BuffDef 预编译（Precompiled BuffDef）
+
+编译阶段将 `buff_defs[]`（Dictionary）转换为 `buff_defs_compiled[]`（强类型 RefCounted），运行时零字典查找：
+
+- `BuffDefCompiled`：包含 `buff_type_int`、`tag_mask`、`duration_turns`、`undispellable` 等预计算字段
+- `EffectCompiled`：包含 `op_str`/`phase_str`（缓存字符串）+ `op_int`/`phase_int`（整数比较）
+- `TriggerCompiled`/`FilterCompiled`/`ActionCompiled`/`ConditionCompiled`/`DotCompiled`：同上策略
+
+源码：`res://addons/omnibuff/runtime/core/compiled_buff_def.gd`
+
+### 6.8 Mod Override 系统
+
+manifest.json 中声明 `mods[]` 可实现数据热覆盖（无需修改基础数据集）：
+
+```json
+{
+  "files": [...],
+  "mods": [
+    { "dir": "../mods/my_mod" }
+  ]
+}
+```
+
+- 策略：`last_wins_by_id`（同 id 的定义，后加载的覆盖先加载的）
+- 冲突记录：`Result.mod_conflicts[]` 记录所有被覆盖的 id
+- 支持类型：buff_defs、stat_defs、skill_defs、equipment_defs、set_bonus_defs
+
+### 6.9 EnumsRuntime 反向查找
+
+`EnumsRuntime.reverse_name(enum_name, int_code)` 可将运行时整数编码还原为配置层字符串：
+
+```gdscript
+var op_name: String = enums_rt.reverse_name("op_type", modifier.op_int)
+```
+
+### 6.10 Event Trace Hook
+
+`BuffCore.event_trace_fn: Callable` 可挂载 HUD 事件追踪回调：
+
+```gdscript
+buffs.event_trace_fn = _on_event_trace.bind(entity_id)
+
+func _on_event_trace(entity_id: int, event_type: int, phase: int, hit_inst_ids: PackedInt32Array) -> void:
+    _event_traces.append({"eid": entity_id, "et": event_type, "phase": phase, "hits": hit_inst_ids})
+```
+
+- 默认为空 Callable（无开销）
+- Debug HUD 使用此钩子实现 Timeline 标签页
+
+### 6.11 性能优化摘要
+
+| 优化项 | 方法 | 效果 |
+|--------|------|------|
+| StatsCore recompute | `op_int`/`phase_int` 整数比较替代字符串比较 | 热路径零分配 |
+| 派生属性计算 | `derived_from_int[]`/`derived_ratio[]` 预编译数组 | 消除运行时 `stat_id()` 查找 |
+| BuffDef 查找 | `buff_defs_compiled[]` 强类型替代 `buff_defs[]` Dictionary | 零字典查找 |
+| ModifierRef | `op_int`/`phase_int` 缓存 | 避免热路径 `reverse_name()` |
+| Dataset 指纹 | SHA-256 fingerprint 缓存失效 | 避免重复编译 |
 
 ---
 
@@ -267,27 +355,60 @@ addons/omnibuff/
   runtime/
 	omnibuff_singleton.gd        # Autoload 单例：OmniBuff（命名空间入口）
 	core/
-	  stats_core.gd              # StatCache/Dirty + modifiers 聚合
-	  buff_core.gd               # Buff 实例、事件索引、DOT、驱散
-	  damage_pipeline.gd         # 固定阶段伤害骨架（护盾/减伤/命中/暴击）
+	  stats_core.gd              # StatCache/Dirty + modifiers 聚合（整数比较优化）
+	  buff_core.gd               # Buff 实例、事件索引、DOT、驱散、event_trace_fn
+	  damage_pipeline.gd         # 固定阶段伤害骨架（护盾/减伤/命中/暴击/v2 RNG）
 	  replay.gd                  # DamageTrace/DotTrace
+	  compiled_data.gd           # CompiledDataset（含 buff_defs_compiled/derived_from_int/derived_ratio）
+	  compiled_buff_def.gd       # BuffDefCompiled/EffectCompiled/TriggerCompiled 等预编译类型
+	  enums_runtime.gd           # 枚举映射 + reverse_name() 反向查找
+	  battle_executor.gd         # BattleExecutor（从 ds 读取 skill 数据）
+	  event_index.gd             # 事件索引
+	  expr_context.gd            # 表达式求值上下文
+	  command_context.gd         # 命令上下文
+	  life_context.gd            # 生命周期上下文
 	components/
 	  stats_component.gd
 	  turn_component.gd
+  config/
+	manifest_loader.gd           # Manifest 加载 + Mod Override（last_wins_by_id）
+	parsers/
+	  csv_reader.gd              # RFC 4180 CSV 解析器
+	  json_reader.gd             # JSON 加载工具
+	compiler/
+	  dataset_compiler.gd        # 数据集编译（含 BuffDef 预编译 + 派生属性预编译）
+	  validators.gd              # 数据校验（condition_type 等扩展验证）
+	  migrate.gd                 # Schema 迁移
   demo/
 	demo_scene.tscn
 	demo_runner.gd
 	buff_ui_demo.tscn
 	buff_ui_demo.gd
+	debug_hud.tscn               # Debug HUD（Stats/Buffs/Timeline 三标签页）
+	debug_hud.gd                 # 交互式 HUD（stat 编辑/buff 施加移除/事件追踪）
+	scenario_runner.gd           # Scenario 脚本执行器
   tests/
 	base/
-	helpers/
+	  helpers/
 	rpg/
-	  test_*.gd
+	  test_*.gd                  # 含 test_compiled_buff_def/test_mod_override/test_stress_benchmark 等
+  docs/
+	integrator_guide.md
+	schema_reference.md
+	debug_and_qa.md
+	api.md
+	designer_guide.md            # 设计师配方指南（18 种配方 + 排错表）
+	changelog.md                 # 变更日志
+	migration_guide.md           # 迁移指南
+  schemas/
+	*.schema.json                # 7 个 JSON Schema（manifest/enums/buff_defs/stat_defs/skill_defs/set_bonus/damage_pipeline）
 
 data/
   base_demo/                     # demo 数据集
   rpg_tests/                     # 更复杂测试数据集（不污染 demo）
+	mods/                        # Mod Override 测试数据
+	  test_mod/
+	scenarios/                   # Scenario JSON 测试脚本
 ```
 
 ---
@@ -295,12 +416,24 @@ data/
 ## 9. 常见问题（FAQ）
 
 ### Q1：为什么推荐用 `OmniBuff.Xxx`，而不是直接 `class_name Xxx`？
-因为 Godot 的全局类表/缓存有时会出现“解析期不可见”的问题（尤其是切分支/CI/headless/编辑器缓存不刷新）。
+因为 Godot 的全局类表/缓存有时会出现"解析期不可见"的问题（尤其是切分支/CI/headless/编辑器缓存不刷新）。
 `OmniBuff` 入口通过 `preload("res://...")` 暴露 Script 资源，引用更稳定。
 
 ### Q2：为什么有些地方不建议用 `:=`？
 当变量类型是 `RefCounted` 或动态对象时，Godot 4 的静态分析可能无法推断 `:=` 的结果类型，导致解析期报错。
 建议显式标注类型或直接用 `var x = ...`（不做推断约束）。
+
+### Q3：如何使用 Mod Override 覆盖已有数据？
+在 manifest.json 中添加 `"mods": [{"dir": "../mods/your_mod"}]`，mod 目录下的 JSON 文件会按 `last_wins_by_id` 策略合并到基础数据集。冲突记录在 `Result.mod_conflicts[]`。
+
+### Q4：`buff_defs_compiled` 和 `buff_defs` 有什么区别？
+`buff_defs[]` 是原始 Dictionary 数组（配置层格式），`buff_defs_compiled[]` 是编译阶段生成的强类型 RefCounted 数组（运行时优化格式）。推荐运行时使用 `buff_defs_compiled` 以获得更好的性能。
+
+### Q5：如何追踪 Buff 事件？
+设置 `BuffCore.event_trace_fn` 回调即可。HUD 的 Timeline 标签页就是通过此钩子实现的。回调签名：`(event_type: int, phase: int, hit_inst_ids: PackedInt32Array)`。
+
+### Q6：`deal_damage_v1` 和 `deal_damage_v2` 有什么区别？
+`v1` 是旧签名兼容层（位置参数），`v2` 使用 `DamageRequest` 结构体传参，支持确定性 RNG seed。新代码建议使用 `v2`。
 
 ---
 

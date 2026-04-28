@@ -52,8 +52,8 @@ static func _make_seed(turn_index: int, roll_key: int, attacker_id: int, defende
 static func _roll01(turn_index: int, roll_key: int, attacker_id: int, defender_id: int, salt: int) -> float:
 	var seed := _make_seed(turn_index, roll_key, attacker_id, defender_id, salt)
 	var u := _xorshift32(seed)
-	# [0, 1)（除以 2^32）
-	return float(u) / 4294967296.0
+	var fixed_point := u / 429497
+	return float(fixed_point) / 10000.0
 
 func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0, is_bonus_damage: bool = false) -> DamageContext:
 	## 固定阶段 DamagePipeline 骨架（最小可用版）

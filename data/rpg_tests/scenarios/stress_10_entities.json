@@ -1,0 +1,40 @@
+{
+  "id": "stress_100_buffs_10_entities",
+  "title": "压力测试：10实体×10Buff×10回合",
+  "dataset": "rpg_tests",
+  "setup": [
+    {"entity_id": 1, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 2, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 3, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 4, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 5, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 6, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 7, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 8, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 9, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}},
+    {"entity_id": 10, "base_stats": {"HP": 1000, "ATK": 50, "DEF": 20}}
+  ],
+  "steps": [
+    {"action": "apply_buff", "entity_id": 1, "buff_id": "buff_atk_flat_20", "source_entity_id": 1},
+    {"action": "apply_buff", "entity_id": 1, "buff_id": "buff_def_flat_20", "source_entity_id": 1},
+    {"action": "apply_buff", "entity_id": 2, "buff_id": "buff_atk_flat_20", "source_entity_id": 2},
+    {"action": "apply_buff", "entity_id": 2, "buff_id": "buff_def_flat_20", "source_entity_id": 2},
+    {"action": "apply_buff", "entity_id": 3, "buff_id": "buff_atk_flat_20", "source_entity_id": 3},
+    {"action": "apply_buff", "entity_id": 3, "buff_id": "buff_def_flat_20", "source_entity_id": 3},
+    {"action": "apply_buff", "entity_id": 4, "buff_id": "buff_atk_flat_20", "source_entity_id": 4},
+    {"action": "apply_buff", "entity_id": 4, "buff_id": "buff_def_flat_20", "source_entity_id": 4},
+    {"action": "apply_buff", "entity_id": 5, "buff_id": "buff_atk_flat_20", "source_entity_id": 5},
+    {"action": "apply_buff", "entity_id": 5, "buff_id": "buff_def_flat_20", "source_entity_id": 5},
+    {"action": "deal_damage", "attacker_id": 1, "defender_id": 2, "base_damage": 30.0},
+    {"action": "deal_damage", "attacker_id": 3, "defender_id": 4, "base_damage": 30.0},
+    {"action": "deal_damage", "attacker_id": 5, "defender_id": 6, "base_damage": 30.0},
+    {"action": "turn_end", "entity_ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
+    {"action": "turn_start", "entity_ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+  ],
+  "assertions": [
+    {"path": "entity.1.stat.ATK", "op": "gt", "value": 50},
+    {"path": "entity.1.stat.DEF", "op": "gt", "value": 20},
+    {"path": "entity.2.stat.HP", "op": "lt", "value": 1000},
+    {"path": "entity.2.stat.HP", "op": "gt", "value": 0}
+  ]
+}

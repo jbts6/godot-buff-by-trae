@@ -23,25 +23,15 @@ const ExprContextScript := preload("res://addons/omnibuff/runtime/core/expr_cont
 ##   - tick 时动态读取来源 StatCache（禁止遍历来源buff）
 
 class OmniModifierRef:
-	## 目标 stat（编译后 int 索引）
 	var stat_id: int
-	## modifier op（如 "ADD"/"MUL"）
 	var op: String = ""
-	## modifier phase（如 "FLAT"/"PERCENT"）
 	var phase: String = ""
-	## percent layers：当 op=MUL 且 phase=PERCENT 时生效；用于 (base+flat)*Π(1+pct_layer)
-	## - 默认 0（兼容旧数据）
-	## - 值越大越靠后乘（运行时按 layer 升序执行）
+	var op_int: int = 0
+	var phase_int: int = 0
 	var layer: int = 0
-	## modifier priority（用于 OVERRIDE 等冲突裁决；数值越大越靠后/越优先）
 	var priority: int = 0
-	## modifier 原始值（与配置 value 一致；例如 20.0 / 0.05）
 	var value: float = 0.0
-	## 兼容字段：平铺加成值（旧实现只读取 add_value）
-	## - 当 op=ADD 且 phase=FLAT 时，add_value=value
-	## - 其他组合下为 0（避免旧逻辑误用）
 	var add_value: float = 0.0
-	## 来源 BuffInstance 的 inst_id（用于追帧/撤销/调试）
 	var source_inst_id: int
 
 class BuffInst:
@@ -112,6 +102,9 @@ var next_dot_inst_id := 1
 
 ## 最近一次 emit_event 命中的 buff inst_id 列表（用于追帧/调试）
 var _triggered_inst_ids_last_emit: PackedInt32Array = PackedInt32Array()
+
+## 事件追踪回调（HUD注入；默认空Callable不触发）
+var event_trace_fn: Callable = Callable()
 
 ## DOT池：target_entity_id -> Array[DotInstance]
 ## 注意：本最小实现将DOT存放在“目标实体的 BuffCore”中（最贴近逻辑归属）。
@@ -387,21 +380,13 @@ func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id
 	next_inst_id += 1
 	inst.ownership_key = ownership_key
 	inst.buff_def_id = bdid
-	inst.buff_type = String(ds.buff_defs[bdid].get("buff_type", ""))
+	var cbd = ds.buff_defs_compiled[bdid]
+	inst.buff_type = String(enums_rt.reverse_name("buff_type", int(cbd.buff_type_int)))
 	inst.source_entity_id = source_entity_id
 	inst.stacks = 1
-	inst.remaining_turns = int(ds.buff_defs[bdid].get("duration", {}).get("turns", -1))
-	# tags -> bitmask（用于驱散与 filters）
-	if enums_rt != null:
-		inst.tag_mask = enums_rt.tag_mask(ds.buff_defs[bdid].get("tags", []))
-	else:
-		inst.tag_mask = 0
-
-	# dispel语义（最小实现）：
-	# - 若配置存在 dispel.dispellable=false，则视为不可驱散
-	var dispel_def: Dictionary = ds.buff_defs[bdid].get("dispel", {})
-	if not dispel_def.is_empty():
-		inst.undispellable = (bool(dispel_def.get("dispellable", true)) == false)
+	inst.remaining_turns = int(cbd.duration_turns)
+	inst.tag_mask = int(cbd.tag_mask)
+	inst.undispellable = bool(cbd.undispellable)
 
 	# 绑定 BuffCore 的归属实体（用于 tick）
 	if owner_entity_id < 0:
@@ -418,11 +403,10 @@ func _create_new_instance(stats: OmniStatsComponent, bdid: int, source_entity_id
 	_rebuild_instance_modifiers(stats, inst.inst_id)
 
 	# === triggers -> EventIndex（事件型：变动时注册监听）===
-	_register_triggers_for_instance(inst, ds.buff_defs[bdid])
+	_register_triggers_for_instance(inst, ds.buff_defs[bdid], cbd)
 
-	# A4：创建后立即评估 while-condition；不满足则 deactivate（但保留实例 + DOT实例）
 	var def: Dictionary = ds.buff_defs[bdid]
-	if not _conditions_satisfied(stats, def):
+	if not _conditions_satisfied_compiled(stats, cbd):
 		_deactivate_instance(stats, inst)
 
 	return inst.inst_id
@@ -453,6 +437,27 @@ func _conditions_satisfied(stats: OmniStatsComponent, def: Dictionary) -> bool:
 			return false
 	return true
 
+func _conditions_satisfied_compiled(stats: OmniStatsComponent, cbd) -> bool:
+	if cbd.conditions.is_empty():
+		return true
+	for cc in cbd.conditions:
+		var stat_id: int = int(cc.stat_int)
+		if stat_id < 0:
+			continue
+		var op := String(cc.op)
+		var rhs := float(cc.value)
+		var lhs := float(stats.get_final(stat_id))
+		var ok := true
+		match op:
+			"LE": ok = lhs <= rhs
+			"LT": ok = lhs < rhs
+			"GE": ok = lhs >= rhs
+			"GT": ok = lhs > rhs
+			_: ok = true
+		if not ok:
+			return false
+	return true
+
 func _deactivate_instance(stats: OmniStatsComponent, inst: BuffInst) -> void:
 	# A4：撤销 modifiers + 注销 triggers，保留实例（用于到期/驱散）
 	if inst == null:
@@ -471,7 +476,7 @@ func _activate_instance(stats: OmniStatsComponent, inst: BuffInst, def: Dictiona
 	_register_triggers_for_instance(inst, def)
 	inst.active = true
 
-func _register_triggers_for_instance(inst: BuffInst, def: Dictionary) -> void:
+func _register_triggers_for_instance(inst: BuffInst, def: Dictionary, cbd = null) -> void:
 	# 内部：从 buff_def 注册 triggers（供 create/activate 复用）
 	if inst == null:
 		return
@@ -642,46 +647,38 @@ func _remove_modifiers_for_inst(stats: OmniStatsComponent, inst: BuffInst) -> vo
 	inst.modifier_refs = []
 
 func _rebuild_instance_modifiers(stats: OmniStatsComponent, inst_id: int) -> void:
-	# 内部：按当前 stacks 重建该实例注入的 modifiers（线性叠加：value * stacks）
 	var inst: BuffInst = instances_by_id.get(inst_id, null)
 	if inst == null:
 		return
 	_remove_modifiers_for_inst(stats, inst)
 
 	var bdid := int(inst.buff_def_id)
-	var def: Dictionary = ds.buff_defs[bdid]
-	var effects: Array = def.get("effects", [])
-	for e in effects:
-		if String(e.get("kind", "")) != "modifier":
-			continue
-		var op := String(e.get("op", ""))
-		var phase := String(e.get("phase", ""))
-		# 当前运行时支持（C plan Task4）：
-		# - ADD/FLAT（平铺加成）
-		# - MUL/PERCENT（百分比加成：最终值按 (base+flat)*(1+pct) 计算）
-		# - ADD/FINAL（最终加成：在 OVERRIDE 裁决后再叠加）
-		# - OVERRIDE/FINAL（最终覆盖：按 priority/后施加胜）
-		var supported := (op == "ADD" and (phase == "FLAT" or phase == "FINAL")) \
-			or (op == "MUL" and phase == "PERCENT") \
-			or (op == "OVERRIDE" and phase == "FINAL")
+	var cbd = ds.buff_defs_compiled[bdid]
+	for ce in cbd.effects:
+		var op_int: int = int(ce.op_int)
+		var phase_int: int = int(ce.phase_int)
+		var supported := (op_int == 0 and (phase_int == 2 or phase_int == 4)) \
+			or (op_int == 1 and phase_int == 3) \
+			or (op_int == 2 and phase_int == 4)
 		if not supported:
 			continue
 
-		var stat_id := ds.stat_id(String(e.get("stat", "")))
+		var stat_id: int = int(ce.stat_int)
 		if stat_id < 0:
-			push_error("[Buff] unknown stat in effect: " + str(e))
 			continue
-		var base_v := float(e.get("value", 0.0))
+		var base_v := float(ce.value)
 		var v := base_v * float(max(1, int(inst.stacks)))
 
 		var mr := OmniModifierRef.new()
 		mr.stat_id = stat_id
-		mr.op = op
-		mr.phase = phase
-		mr.layer = int(e.get("layer", 0))
-		mr.priority = int(e.get("priority", 0))
+		mr.op = String(ce.op_str)
+		mr.phase = String(ce.phase_str)
+		mr.op_int = op_int
+		mr.phase_int = phase_int
+		mr.layer = int(ce.layer)
+		mr.priority = int(ce.priority)
 		mr.value = v
-		if op == "ADD" and phase == "FLAT":
+		if op_int == 0 and (phase_int == 2 or phase_int == 4):
 			mr.add_value = v
 		else:
 			mr.add_value = 0.0
@@ -1230,11 +1227,12 @@ func _eval_while_conditions_and_toggle_active(stats_by_entity: Dictionary) -> vo
 		var inst: BuffInst = instances_by_id.get(int(inst_id), null)
 		if inst == null:
 			continue
-		var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
-		var want_active := _conditions_satisfied(owner_stats, def)
+		var cbd = ds.buff_defs_compiled[int(inst.buff_def_id)]
+		var want_active := _conditions_satisfied_compiled(owner_stats, cbd)
 		if want_active == inst.active:
 			continue
 		if want_active:
+			var def: Dictionary = ds.buff_defs[int(inst.buff_def_id)]
 			_activate_instance(owner_stats, inst, def)
 		else:
 			_deactivate_instance(owner_stats, inst)
@@ -1449,6 +1447,8 @@ func emit_event(event_type: String, phase: String, ctx: RefCounted) -> void:
 				_apply_dot_action_from_event(l, ctx)
 			_:
 				pass
+	if event_trace_fn.is_valid():
+		event_trace_fn.call(event_type, phase, _triggered_inst_ids_last_emit)
 
 func get_triggered_inst_ids_last_emit() -> PackedInt32Array:
 	## 返回最近一次 emit_event 命中的 buff inst_id 列表（按触发顺序）

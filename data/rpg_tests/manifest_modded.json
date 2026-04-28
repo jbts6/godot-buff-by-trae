@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dataset_id": "rpg_tests_modded",
+  "load_order": [
+    "enums",
+    "stat_defs",
+    "buff_defs",
+    "skill_defs",
+    "damage_pipeline"
+  ],
+  "build": {
+    "fingerprint": {
+      "method": "content_hash",
+      "include": ["manifest", "enums", "stat_defs", "buff_defs", "skill_defs", "damage_pipeline"]
+    }
+  },
+  "files": [
+    {"id": "manifest", "type": "manifest", "path": "manifest.json", "format": "json", "required": true},
+    {"id": "enums", "type": "enums", "path": "../base_demo/enums.json", "format": "json", "required": true},
+    {"id": "stat_defs", "type": "stat_defs", "path": "../rpg_tests/stat_defs.json", "format": "json", "required": true},
+    {"id": "buff_defs", "type": "buff_defs", "path": "../rpg_tests/buff_defs.json", "format": "json", "required": true},
+    {"id": "skill_defs", "type": "skill_defs", "path": "../rpg_tests/skill_defs.json", "format": "json", "required": true},
+    {"id": "damage_pipeline", "type": "damage_pipeline", "path": "../rpg_tests/damage_pipeline.json", "format": "json", "required": true}
+  ],
+  "mod_overrides": {
+    "policy": "last_wins_by_id",
+    "report_conflicts": true
+  },
+  "mods": [
+    {"dir": "../rpg_tests/mods/test_mod"}
+  ]
+}

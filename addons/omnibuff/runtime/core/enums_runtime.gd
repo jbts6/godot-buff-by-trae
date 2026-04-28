@@ -12,10 +12,10 @@ extends RefCounted
 ## 枚举表：enum_name -> { "VALUE_STR": int_code }
 var enum_tables: Dictionary = {}
 
-## Tag编码：tag_id -> int_code（bit index）
+var _reverse_tables: Dictionary = {}
+
 var tag_code_by_id: Dictionary = {}
 
-## Tag位掩码：tag_id -> (1<<code)
 var tag_mask_by_id: Dictionary = {}
 
 static func from_enums_json(enums_obj: Dictionary) -> OmniEnumsRuntime:
@@ -25,9 +25,12 @@ static func from_enums_json(enums_obj: Dictionary) -> OmniEnumsRuntime:
 	for k in enums.keys():
 		var arr: Array = enums[k]
 		var map := {}
+		var rev := {}
 		for i in range(arr.size()):
 			map[String(arr[i])] = i
+			rev[i] = String(arr[i])
 		rt.enum_tables[k] = map
+		rt._reverse_tables[k] = rev
 
 	var tags: Array = enums_obj.get("tags", [])
 	for t in tags:
@@ -39,9 +42,12 @@ static func from_enums_json(enums_obj: Dictionary) -> OmniEnumsRuntime:
 	return rt
 
 func enum_int(enum_name: String, value: String) -> int:
-	# 将字符串枚举映射为 int code；找不到返回 -1（交给校验器在加载期处理）
 	var m: Dictionary = enum_tables.get(enum_name, {})
 	return int(m.get(value, -1))
+
+func reverse_name(enum_name: String, code: int) -> String:
+	var rev: Dictionary = _reverse_tables.get(enum_name, {})
+	return String(rev.get(code, ""))
 
 func enum_count(enum_name: String) -> int:
 	# 返回某枚举集合的大小（用于分配 EventIndex 等结构）

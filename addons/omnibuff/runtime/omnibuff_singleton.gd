@@ -46,5 +46,4 @@ const ManifestLoader := preload("res://addons/omnibuff/config/manifest_loader.gd
 const DatasetCompiler := preload("res://addons/omnibuff/config/compiler/dataset_compiler.gd")
 
 func _ready() -> void:
-	# 单例不承载逻辑，仅作为“命名空间入口”。
-	pass
+	print("[OmniBuff] singleton ready — all scripts preloaded")

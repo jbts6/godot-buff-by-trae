@@ -7,6 +7,7 @@ extends Window
 ##   runtime = { "stats_by_entity": {eid:StatsComponent}, "buff_by_entity": {eid:BuffCore} }
 
 const DUMP_MAX_CHARS := 20000
+const MAX_EVENT_TRACES := 500
 
 @onready var entity_select: OptionButton = %EntitySelect
 @onready var stats_box: RichTextLabel = %StatsBox
@@ -16,11 +17,21 @@ const DUMP_MAX_CHARS := 20000
 @onready var stat_mods_box: RichTextLabel = %StatModsBox
 @onready var btn_copy_dump: Button = %BtnCopyDump
 @onready var btn_close: Button = %BtnClose
+@onready var stats_edit_area: GridContainer = %StatsEditArea
+@onready var buff_id_input: LineEdit = %BuffIdInput
+@onready var btn_apply_buff: Button = %BtnApplyBuff
+@onready var inst_id_input: SpinBox = %InstIdInput
+@onready var btn_remove_buff: Button = %BtnRemoveBuff
+@onready var timeline_box: RichTextLabel = %TimelineBox
+@onready var btn_clear_timeline: Button = %BtnClearTimeline
+@onready var timeline_count: Label = %TimelineCount
 
 var _runtime: Dictionary = {}
 var _selected_eid: int = -1
 var _preferred_attacker: int = -1
 var _preferred_defender: int = -1
+var _stat_spinboxes: Dictionary = {}
+var _event_traces: Array = []
 
 
 func _ready() -> void:
@@ -30,6 +41,9 @@ func _ready() -> void:
 		var eid: int = int(entity_select.get_item_metadata(entity_select.selected))
 		set_selected_entity(eid)
 	)
+	btn_apply_buff.pressed.connect(_on_apply_buff)
+	btn_remove_buff.pressed.connect(_on_remove_buff)
+	btn_clear_timeline.pressed.connect(_on_clear_timeline)
 
 
 func clear() -> void:
@@ -43,12 +57,17 @@ func clear() -> void:
 	dots_box.text = ""
 	listeners_box.text = ""
 	stat_mods_box.text = ""
+	_stat_spinboxes = {}
+	for c in stats_edit_area.get_children():
+		c.queue_free()
+	_event_traces = []
+	timeline_box.text = ""
+	timeline_count.text = "0 events"
 
 
 func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
 	_preferred_attacker = attacker_id
 	_preferred_defender = defender_id
-	# 若 runtime 已加载，则立即刷新 entity 列表并默认选中 preferred_attacker
 	if not _runtime.is_empty():
 		_refresh_entity_list()
 
@@ -56,11 +75,183 @@ func set_preferred_entities(attacker_id: int, defender_id: int) -> void:
 func set_runtime(runtime: Dictionary) -> void:
 	_runtime = runtime
 	_refresh_entity_list()
+	_install_event_trace_hooks()
 
 
 func set_selected_entity(entity_id: int) -> void:
 	_selected_eid = entity_id
+	_rebuild_stat_spinboxes()
 	_refresh_views()
+
+
+func apply_buff_by_id(buff_id_str: String, source_entity_id: int) -> void:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return
+	var ds = _runtime.get("ds", null)
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
+	var buffs = buffs_by_entity.get(_selected_eid, null)
+	var stats = stats_by_entity.get(_selected_eid, null)
+	if buffs == null or stats == null or ds == null:
+		return
+	if not ds.has_method("buff_id"):
+		return
+	buffs.apply_buff(stats, buff_id_str, source_entity_id)
+	_refresh_views()
+
+
+func remove_buff_by_inst_id(inst_id: int) -> void:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return
+	var ds = _runtime.get("ds", null)
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
+	var buffs = buffs_by_entity.get(_selected_eid, null)
+	var stats = stats_by_entity.get(_selected_eid, null)
+	if buffs == null or stats == null or ds == null:
+		return
+	var inst = buffs.instances_by_id.get(inst_id, null)
+	if inst == null:
+		return
+	buffs.remove_buff(stats, inst_id)
+	_refresh_views()
+
+
+func set_stat_base(stat_name: String, value: float) -> void:
+	if _runtime.is_empty() or _selected_eid < 0:
+		return
+	var ds = _runtime.get("ds", null)
+	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
+	var stats = stats_by_entity.get(_selected_eid, null)
+	if stats == null or ds == null:
+		return
+	if not ds.has_method("stat_id"):
+		return
+	var sid: int = ds.stat_id(stat_name)
+	if sid < 0:
+		return
+	stats.core.set_base(sid, value)
+	_refresh_views()
+
+
+func _install_event_trace_hooks() -> void:
+	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+	for eid in buffs_by_entity:
+		var buffs = buffs_by_entity.get(eid, null)
+		if buffs != null and buffs.has_method("set"):
+			buffs.event_trace_fn = _on_event_trace.bind(eid)
+
+
+func _on_event_trace(event_type: String, phase: String, hit_inst_ids: PackedInt32Array, entity_id: int) -> void:
+	var trace = {
+		"entity_id": entity_id,
+		"event_type": event_type,
+		"phase": phase,
+		"hit_inst_ids": hit_inst_ids,
+	}
+	_event_traces.append(trace)
+	if _event_traces.size() > MAX_EVENT_TRACES:
+		_event_traces = _event_traces.slice(_event_traces.size() - MAX_EVENT_TRACES)
+	timeline_count.text = "%d events" % _event_traces.size()
+	_refresh_timeline()
+
+
+func _on_clear_timeline() -> void:
+	_event_traces = []
+	timeline_box.text = ""
+	timeline_count.text = "0 events"
+
+
+func _refresh_timeline() -> void:
+	var lines: Array[String] = []
+	var enums_rt: Variant = _runtime.get("enums_rt", null)
+	for i in range(_event_traces.size()):
+		var t = _event_traces[i]
+		var et_name: String = String(t.get("event_type", "?"))
+		var ph_name: String = String(t.get("phase", "?"))
+		var eid: int = int(t.get("entity_id", -1))
+		var hit_ids: PackedInt32Array = t.get("hit_inst_ids", PackedInt32Array())
+		var hit_str := str(hit_ids)
+		if enums_rt != null and enums_rt is OmniEnumsRuntime:
+			var et_int: int = int(enums_rt.enum_int("event_type", et_name))
+			var ph_int: int = int(enums_rt.enum_int("event_phase", ph_name))
+			if et_int >= 0:
+				et_name = enums_rt.reverse_name("event_type", et_int)
+			if ph_int >= 0:
+				ph_name = enums_rt.reverse_name("event_phase", ph_int)
+		var action_summaries: Array[String] = []
+		var ds = _runtime.get("ds", null)
+		var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
+		var buffs = buffs_by_entity.get(eid, null)
+		if buffs != null and ds != null and ds.has_method("buff_id"):
+			for iid in hit_ids:
+				var inst = buffs.instances_by_id.get(int(iid), null)
+				if inst != null:
+					var bdid: int = int(inst.buff_def_id)
+					if bdid >= 0 and bdid < ds.buff_defs.size():
+						var def: Dictionary = ds.buff_defs[bdid]
+						action_summaries.append(String(def.get("id", "?")))
+		var actions_str := ""
+		if not action_summaries.is_empty():
+			actions_str = " actions=" + str(action_summaries)
+		lines.append("[%s] eid=%s %s/%s hit=%s%s" % [
+			i + 1, eid, et_name, ph_name, hit_str, actions_str
+		])
+	timeline_box.text = "\n".join(lines)
+
+
+func _rebuild_stat_spinboxes() -> void:
+	for c in stats_edit_area.get_children():
+		c.queue_free()
+	_stat_spinboxes = {}
+	if _runtime.is_empty() or _selected_eid < 0:
+		return
+	var ds = _runtime.get("ds", null)
+	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
+	var stats = stats_by_entity.get(_selected_eid, null)
+	if stats == null or ds == null or not ds.has_method("stat_id"):
+		return
+	var names := ["ATK", "DEF", "HP", "SHIELD", "HIT_RATE", "EVADE", "CRIT_RATE", "CRIT_DMG", "DMG_REDUCE"]
+	for n in names:
+		var sid: int = ds.stat_id(String(n))
+		if sid < 0:
+			continue
+		var lbl = Label.new()
+		lbl.text = String(n)
+		stats_edit_area.add_child(lbl)
+		var spin = SpinBox.new()
+		spin.min_value = -99999.0
+		spin.max_value = 99999.0
+		spin.step = 1.0
+		spin.value = float(stats.core.base_values[sid])
+		spin.suffix = " (base)"
+		spin.custom_minimum_size = Vector2(120, 0)
+		var stat_name := String(n)
+		spin.value_changed.connect(func(val: float):
+			set_stat_base(stat_name, val)
+		)
+		stats_edit_area.add_child(spin)
+		_stat_spinboxes[n] = spin
+
+
+func _on_apply_buff() -> void:
+	var bid := buff_id_input.text.strip_edges()
+	if bid == "":
+		return
+	var ds = _runtime.get("ds", null)
+	if ds == null or not ds.has_method("buff_id"):
+		return
+	if ds.buff_id(bid) < 0:
+		buffs_box.text = "[Error] buff_id '%s' not found in dataset" % bid
+		return
+	apply_buff_by_id(bid, _selected_eid)
+
+
+func _on_remove_buff() -> void:
+	var iid: int = int(inst_id_input.value)
+	if iid < 0:
+		return
+	remove_buff_by_inst_id(iid)
 
 
 func _refresh_entity_list() -> void:
@@ -75,7 +266,6 @@ func _refresh_entity_list() -> void:
 		entity_select.add_item(str(eid))
 		entity_select.set_item_metadata(entity_select.item_count - 1, eid)
 
-	# 默认选中：preferred_attacker > 最小 id
 	var default_eid: int = -1
 	if _preferred_attacker >= 0 and stats_by_entity.has(_preferred_attacker):
 		default_eid = _preferred_attacker
@@ -102,12 +292,11 @@ func _format_stats() -> String:
 	if _runtime.is_empty() or _selected_eid < 0:
 		return ""
 	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
-	var ds = _runtime.get("ds", null) # optional
+	var ds = _runtime.get("ds", null)
 	var stats = stats_by_entity.get(_selected_eid, null)
 	if stats == null:
 		return ""
 
-	# 仅展示常用 stat；若 ds 提供则用 stat_id 判断是否存在
 	var names := ["ATK", "DEF", "HP", "SHIELD", "HIT_RATE", "EVADE", "CRIT_RATE", "CRIT_DMG", "DMG_REDUCE"]
 	var lines: Array[String] = []
 	lines.append("[Stats] entity_id=%s" % [_selected_eid])
@@ -118,9 +307,10 @@ func _format_stats() -> String:
 			if sid < 0:
 				continue
 		else:
-			# 无 ds 时退化：直接跳过
 			continue
-		lines.append("%s = %s" % [String(n), float(stats.get_final(sid))])
+		var base_v := float(stats.core.base_values[sid])
+		var final_v := float(stats.get_final(sid))
+		lines.append("%s = %s  (base=%s)" % [String(n), final_v, base_v])
 	return "\n".join(lines)
 
 
@@ -128,7 +318,7 @@ func _format_buffs() -> String:
 	if _runtime.is_empty() or _selected_eid < 0:
 		return ""
 	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
-	var ds = _runtime.get("ds", null) # optional
+	var ds = _runtime.get("ds", null)
 	var buffs = buffs_by_entity.get(_selected_eid, null)
 	if buffs == null:
 		return ""
@@ -142,15 +332,12 @@ func _format_buffs() -> String:
 		var buff_id_str := "?"
 		var buff_type := String(inst.buff_type)
 		var tags := []
-		# ds 为 OmniCompiledDataset（RefCounted）；不能用 Dictionary.has。
-		# 只要提供 ds（且包含 buff_defs 数组），就反查 buff_id/tags 以便显示。
 		if ds != null and ds.has_method("buff_id"):
 			var bdid: int = int(inst.buff_def_id)
 			if bdid >= 0 and bdid < ds.buff_defs.size():
 				var def: Dictionary = ds.buff_defs[bdid]
 				buff_id_str = String(def.get("id", buff_id_str))
 				tags = def.get("tags", [])
-		# 注意：DOT 的 remaining_turns/stacks 以 DotInstance 为准；这里显示的是 BuffInst.remaining_turns（对 DOT 不权威）
 		var turns_str := str(int(inst.remaining_turns))
 		if ds != null and ds.has_method("buff_id"):
 			var bdid: int = int(inst.buff_def_id)
@@ -160,7 +347,8 @@ func _format_buffs() -> String:
 				if not dot_def.is_empty():
 					turns_str = "N/A(DOT)"
 
-		lines.append("- %s type=%s src=%s stacks=%s turns=%s active=%s tags=%s" % [
+		lines.append("- inst=%s %s type=%s src=%s stacks=%s turns=%s active=%s tags=%s" % [
+			int(inst.inst_id),
 			buff_id_str,
 			buff_type,
 			int(inst.source_entity_id),
@@ -175,7 +363,7 @@ func _format_dots() -> String:
 	if _runtime.is_empty() or _selected_eid < 0:
 		return ""
 	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
-	var ds = _runtime.get("ds", null) # optional
+	var ds = _runtime.get("ds", null)
 	var buffs = buffs_by_entity.get(_selected_eid, null)
 	if buffs == null:
 		return ""
@@ -189,7 +377,6 @@ func _format_dots() -> String:
 
 	var lines: Array[String] = []
 	lines.append("[Dots] count=%s (DotInstance is authoritative for DOT turns/stacks)" % [dots.size()])
-	# 稳定输出：dot_inst_id 升序
 	dots.sort_custom(func(a, b): return int(a.dot_inst_id) < int(b.dot_inst_id))
 	for x in dots:
 		var d = x
@@ -214,15 +401,13 @@ func _format_dots() -> String:
 	return "\n".join(lines)
 
 func _enum_name_from_int(enums_rt: Variant, enum_name: String, code: int) -> String:
-	# OmniEnumsRuntime 当前只有 enum_int，没有反查；HUD 用 O(N) 扫描做调试输出。
 	if enums_rt == null:
 		return str(code)
 	if not (enums_rt is OmniEnumsRuntime):
 		return str(code)
-	var table: Dictionary = enums_rt.enum_tables.get(enum_name, {})
-	for k in table.keys():
-		if int(table.get(k, -99999)) == code:
-			return String(k)
+	var name := enums_rt.reverse_name(enum_name, code)
+	if name != "":
+		return name
 	return str(code)
 
 func _enum_names_from_mask(enums_rt: Variant, enum_name: String, mask: int) -> Array[String]:
@@ -244,7 +429,7 @@ func _format_listeners() -> String:
 	if _runtime.is_empty() or _selected_eid < 0:
 		return ""
 	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
-	var ds = _runtime.get("ds", null) # optional
+	var ds = _runtime.get("ds", null)
 	var buffs = buffs_by_entity.get(_selected_eid, null)
 	if buffs == null:
 		return "[Listeners] none"
@@ -261,7 +446,6 @@ func _format_listeners() -> String:
 		out.append("[Listeners] none")
 		return "\n".join(out)
 
-	# enums_rt 优先从 HUD runtime 注入（由 demo 填充）；缺失则降级输出 int key/mask
 	var enums_rt: Variant = _runtime.get("enums_rt", null)
 
 	var phase_count: int = 16
@@ -294,7 +478,6 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 	var active: bool = bool(l.active)
 	var scope: String = String(l.scope)
 
-	# inst_id -> buff_id
 	var buff_id_str := "?"
 	if ds != null and ds.has_method("buff_id"):
 		var inst = buffs.instances_by_id.get(inst_id, null)
@@ -303,7 +486,6 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 			if bdid >= 0 and bdid < ds.buff_defs.size():
 				buff_id_str = String((ds.buff_defs[bdid] as Dictionary).get("id", buff_id_str))
 
-	# filters
 	var filter_parts: Array[String] = []
 	var mask: int = int(l.filter_tag_mask)
 	if mask != 0:
@@ -348,7 +530,6 @@ func _format_one_listener(buffs: Variant, ds: Variant, enums_rt: Variant, l: Var
 	if not filter_parts.is_empty():
 		filters_str = ", ".join(filter_parts)
 
-	# action
 	var ak := String(l.action_kind)
 	var action_str := ak
 	match ak:
@@ -419,7 +600,7 @@ func _format_stat_mods() -> String:
 		return ""
 	var stats_by_entity: Dictionary = _runtime.get("stats_by_entity", {})
 	var buffs_by_entity: Dictionary = _runtime.get("buff_by_entity", {})
-	var ds = _runtime.get("ds", null) # required for stat_id/name
+	var ds = _runtime.get("ds", null)
 	var stats = stats_by_entity.get(_selected_eid, null)
 	var buffs = buffs_by_entity.get(_selected_eid, null)
 	if stats == null or ds == null:
@@ -451,7 +632,6 @@ func _format_stat_mods() -> String:
 			out.append("- (no modifiers)")
 			continue
 
-		# 稳定排序：按 source_inst_id 升序
 		mods.sort_custom(func(a, b):
 			if a == null or b == null:
 				return false
@@ -484,7 +664,6 @@ func _make_dump() -> String:
 	var parts: Array[String] = []
 	var sections: Array[String] = []
 	sections.append("[OmniBuffDebugHUD]")
-	# 固定顺序：Stats → StatMods → Buffs → Dots → Listeners
 	sections.append(_format_stats())
 	sections.append(_format_stat_mods())
 	sections.append(_format_buffs())

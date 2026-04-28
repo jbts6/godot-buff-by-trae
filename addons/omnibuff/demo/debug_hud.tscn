@@ -36,11 +36,19 @@ layout_mode = 2
 size_flags_vertical = 3
 current_tab = 0
 
-[node name="Stats" type="ScrollContainer" parent="VBox/Tabs" unique_id=2082183531]
+[node name="Stats" type="VBoxContainer" parent="VBox/Tabs" unique_id=2082183531]
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="StatsBox" type="RichTextLabel" parent="VBox/Tabs/Stats" unique_id=1993993356]
+[node name="StatsEditArea" type="GridContainer" parent="VBox/Tabs/Stats"]
+layout_mode = 2
+columns = 2
+
+[node name="StatsScroll" type="ScrollContainer" parent="VBox/Tabs/Stats"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="StatsBox" type="RichTextLabel" parent="VBox/Tabs/Stats/StatsScroll" unique_id=1993993356]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -49,11 +57,49 @@ focus_mode = 2
 fit_content = true
 selection_enabled = true
 
-[node name="Buffs" type="ScrollContainer" parent="VBox/Tabs" unique_id=1633439186]
+[node name="Buffs" type="VBoxContainer" parent="VBox/Tabs" unique_id=1633439186]
 layout_mode = 2
 metadata/_tab_index = 1
 
-[node name="BuffsBox" type="RichTextLabel" parent="VBox/Tabs/Buffs" unique_id=961453637]
+[node name="BuffsToolbar" type="HBoxContainer" parent="VBox/Tabs/Buffs"]
+layout_mode = 2
+
+[node name="BuffIdLabel" type="Label" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+layout_mode = 2
+text = "buff_id:"
+
+[node name="BuffIdInput" type="LineEdit" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(140, 0)
+placeholder_text = "buff_atk_flat_20"
+
+[node name="BtnApplyBuff" type="Button" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Apply Buff"
+
+[node name="InstIdLabel" type="Label" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+layout_mode = 2
+text = "inst_id:"
+
+[node name="InstIdInput" type="SpinBox" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = -1.0
+max_value = 99999.0
+value = -1.0
+
+[node name="BtnRemoveBuff" type="Button" parent="VBox/Tabs/Buffs/BuffsToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Remove"
+
+[node name="BuffsScroll" type="ScrollContainer" parent="VBox/Tabs/Buffs"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BuffsBox" type="RichTextLabel" parent="VBox/Tabs/Buffs/BuffsScroll" unique_id=961453637]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -93,6 +139,36 @@ layout_mode = 2
 metadata/_tab_index = 4
 
 [node name="StatModsBox" type="RichTextLabel" parent="VBox/Tabs/StatMods"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+focus_mode = 2
+fit_content = true
+selection_enabled = true
+
+[node name="Timeline" type="VBoxContainer" parent="VBox/Tabs"]
+layout_mode = 2
+metadata/_tab_index = 5
+
+[node name="TimelineToolbar" type="HBoxContainer" parent="VBox/Tabs/Timeline"]
+layout_mode = 2
+
+[node name="BtnClearTimeline" type="Button" parent="VBox/Tabs/Timeline/TimelineToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "清空"
+
+[node name="TimelineCount" type="Label" parent="VBox/Tabs/Timeline/TimelineToolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0 events"
+
+[node name="TimelineScroll" type="ScrollContainer" parent="VBox/Tabs/Timeline"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TimelineBox" type="RichTextLabel" parent="VBox/Tabs/Timeline/TimelineScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3

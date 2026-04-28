@@ -1,34 +1,15 @@
 class_name OmniManifestLoader
 extends RefCounted
 
-## manifest.json 入口加载器（最小可用版）
-##
-## 职责：
-## - 读取 manifest.json（权威入口）
-## - 找到并加载 enums.json（required=true，必须最先成功）
-## - 返回 issues（包含 strict/lenient 的错误等级）
-##
-## 注意：本文件只做“入口与enums”的最小校验；
-## 后续会扩展为：按 load_order 收集所有文件、计算 fingerprint、合并 base+mods 等。
-
 class Result:
-	## manifest 原始字典（Schema绑定层：仅 Parser/Compiler 可读字段名）
 	var manifest: Dictionary
-	## enums.json 原始字典（用于生成 OmniEnumsRuntime）
 	var enums: Dictionary
-	## 解析后的源文件内容（Schema绑定层）
-	## key 建议使用 manifest.files[].type（例如 "stat_defs"/"buff_defs"/"equipment"）
 	var sources: Dictionary = {}
-	## 解析时的源文件路径（用于错误定位与调试）
-	## key 同 sources
 	var source_paths: Dictionary = {}
-	## 加载与校验问题列表（Error/Warning/Info）
 	var issues: Array[OmniValidate.Issue] = []
+	var mod_conflicts: Array = []
 
 static func load_dataset(manifest_path: String, strict: bool) -> Result:
-	## 加载数据集入口（当前阶段只读取 manifest + enums）
-	## - strict=true：缺字段/非法结构作为 Error（阻断）
-	## - strict=false：缺字段作为 Warning（允许继续，但运行结果不保证）
 	var res := Result.new()
 	res.manifest = OmniJson.load_dict(manifest_path)
 	if res.manifest.is_empty():
@@ -64,16 +45,8 @@ static func load_dataset(manifest_path: String, strict: bool) -> Result:
 	return res
 
 static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
-	## 加载数据集入口（完整版，M9）
-	## - 读取 manifest + enums
-	## - 按 manifest.files 加载全部 CSV/JSON 源文件
-	## - 运行 OmniValidate.validate_all 做工程化校验（>=12条）
 	var res := load_dataset(manifest_path, strict)
-	if not res.issues.is_empty():
-		# 若 manifest/enums 已经报错，仍继续尝试加载（便于输出更多定位信息）
-		pass
 
-	# 读取全部源文件
 	if res.manifest.has("files"):
 		var files: Array = res.manifest["files"]
 		var load_order: Array = res.manifest.get("load_order", [])
@@ -85,7 +58,6 @@ static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
 			var rel := String(f.get("path", ""))
 			if f_type == "" or rel == "":
 				continue
-			# manifest/enums 已在 load_dataset 处理过
 			if f_type == "manifest" or f_type == "enums":
 				continue
 
@@ -104,12 +76,121 @@ static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
 				else:
 					res.issues.append(OmniValidate.warning(p, "root", "", "unknown format=" + fmt))
 
-	# 统一校验
+	_apply_mod_overrides(manifest_path, res, strict)
+
 	var extra := OmniValidate.validate_all(manifest_path, res.manifest, res.enums, res.sources, strict)
 	for i in extra:
 		res.issues.append(i)
 
 	return res
+
+static func _apply_mod_overrides(manifest_path: String, res: Result, strict: bool) -> void:
+	var mod_cfg: Dictionary = res.manifest.get("mod_overrides", {})
+	if mod_cfg.is_empty():
+		return
+	var mods: Array = res.manifest.get("mods", [])
+	if mods.is_empty():
+		return
+	var policy := String(mod_cfg.get("policy", "last_wins_by_id"))
+	var report_conflicts: bool = bool(mod_cfg.get("report_conflicts", true))
+
+	for mod_entry in mods:
+		var mod_dir := String(mod_entry.get("dir", ""))
+		if mod_dir == "":
+			continue
+		var mod_path := _resolve_relative(manifest_path, mod_dir)
+		var da = DirAccess.open(mod_path)
+		if da == null:
+			res.issues.append(OmniValidate.warning(mod_path, "root", "", "mod directory not found"))
+			continue
+		da.list_dir_begin()
+		var fn := da.get_next()
+		while fn != "":
+			if fn.ends_with(".json"):
+				var full_path := mod_path.path_join(fn)
+				var mod_data: Dictionary = OmniJson.load_dict(full_path)
+				if mod_data.is_empty():
+					fn = da.get_next()
+					continue
+				var mod_type := String(mod_data.get("type", ""))
+				if mod_type == "":
+					fn = da.get_next()
+					continue
+				if not res.sources.has(mod_type):
+					res.sources[mod_type] = _empty_source_for_type(mod_type)
+					res.source_paths[mod_type] = full_path
+				_merge_mod_into_source(res, mod_type, mod_data, full_path, policy, report_conflicts)
+			fn = da.get_next()
+		da.list_dir_end()
+
+static func _empty_source_for_type(mod_type: String) -> Variant:
+	match mod_type:
+		"buff_defs":
+			return {"buffs": []}
+		"skill_defs":
+			return {"skills": []}
+		"stat_defs":
+			return {"stats": []}
+		"damage_pipeline":
+			return {"pipeline": []}
+		"set_bonus":
+			return {"sets": []}
+		_:
+			return {}
+
+static func _merge_mod_into_source(res: Result, mod_type: String, mod_data: Dictionary, mod_path: String, policy: String, report_conflicts: bool) -> void:
+	var list_key := _list_key_for_type(mod_type)
+	if list_key == "":
+		return
+	var base_src = res.sources.get(mod_type, {})
+	var base_list: Array = base_src.get(list_key, []) if base_src is Dictionary else []
+	var mod_list: Array = mod_data.get(list_key, []) if mod_data is Dictionary else []
+	if mod_list.is_empty():
+		return
+	if policy == "last_wins_by_id":
+		var id_set: Dictionary = {}
+		for i in range(base_list.size()):
+			var entry = base_list[i]
+			if entry is Dictionary and entry.has("id"):
+				id_set[String(entry.get("id", ""))] = i
+		for mod_entry in mod_list:
+			if not (mod_entry is Dictionary and mod_entry.has("id")):
+				continue
+			var entry_id := String(mod_entry.get("id", ""))
+			if id_set.has(entry_id):
+				var base_idx: int = int(id_set[entry_id])
+				if report_conflicts:
+					var base_entry = base_list[base_idx]
+					res.mod_conflicts.append({
+						"type": mod_type,
+						"id": entry_id,
+						"base_index": base_idx,
+						"mod_path": mod_path,
+						"action": "replace"
+					})
+				base_list[base_idx] = mod_entry
+			else:
+				base_list.append(mod_entry)
+				id_set[entry_id] = base_list.size() - 1
+		if base_src is Dictionary:
+			base_src[list_key] = base_list
+
+static func _list_key_for_type(mod_type: String) -> String:
+	match mod_type:
+		"buff_defs":
+			return "buffs"
+		"skill_defs":
+			return "skills"
+		"stat_defs":
+			return "stats"
+		"damage_pipeline":
+			return "pipeline"
+		"set_bonus":
+			return "sets"
+		"equipment":
+			return "rows"
+		_:
+			return ""
 
 static func _resolve_relative(base_file: String, rel: String) -> String:
 	var base_dir := base_file.get_base_dir()

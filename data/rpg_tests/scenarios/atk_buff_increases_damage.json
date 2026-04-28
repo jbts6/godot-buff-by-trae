@@ -1,0 +1,17 @@
+{
+  "id": "atk_buff_increases_damage",
+  "title": "ATK flat buff increases damage output",
+  "dataset": "rpg_tests",
+  "setup": [
+    {"entity_id": 101, "base_stats": {"HP": 200, "ATK": 10, "DEF": 5}},
+    {"entity_id": 202, "base_stats": {"HP": 200, "ATK": 5, "DEF": 5}}
+  ],
+  "steps": [
+    {"action": "apply_buff", "entity_id": 101, "buff_id": "buff_atk_flat_20", "source_entity_id": 101},
+    {"action": "deal_damage", "attacker_id": 101, "defender_id": 202, "base_damage": 20.0}
+  ],
+  "assertions": [
+    {"path": "entity.202.stat.HP", "op": "lt", "value": 200},
+    {"path": "entity.202.stat.HP", "op": "gt", "value": 0}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "dot_tick_at_turn_start",
+  "title": "DOT ticks at TURN_START and reduces HP",
+  "dataset": "rpg_tests",
+  "setup": [
+    {"entity_id": 101, "base_stats": {"HP": 200, "ATK": 10, "DEF": 5}},
+    {"entity_id": 202, "base_stats": {"HP": 200, "ATK": 5, "DEF": 5}}
+  ],
+  "steps": [
+    {"action": "deal_damage", "attacker_id": 101, "defender_id": 202, "base_damage": 20.0, "tags": ["DOT"]},
+    {"action": "turn_end", "entity_ids": [101, 202]},
+    {"action": "turn_start", "entity_ids": [101, 202]}
+  ],
+  "assertions": [
+    {"path": "entity.202.stat.HP", "op": "lt", "value": 200}
+  ]
+}
