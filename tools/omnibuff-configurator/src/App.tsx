@@ -518,6 +518,8 @@ export default function App() {
                   count={`${errorCount}E/${warnCount}W`}
                   style={{
                     backgroundColor: errorCount > 0 ? "#ff4d6d" : warnCount > 0 ? "#ffbe0b" : "#41f3b4",
+                    // 亮底徽标用深色字，避免在 darkmode 下发灰看不清
+                    color: "#06110f",
                   }}
                 />
               </Button>
@@ -629,7 +631,18 @@ export default function App() {
                   items={[
                     {
                       key: "effects",
-                      label: "Effects",
+                      label: (
+                        <Space size={8}>
+                          <span>Effects</span>
+                          {(selectedBuff.effects?.length ?? 0) > 0 && (
+                            <Badge
+                              count={selectedBuff.effects.length}
+                              style={{ backgroundColor: "#41f3b4", color: "#06110f" }}
+                              overflowCount={99}
+                            />
+                          )}
+                        </Space>
+                      ),
                       children: (
                         <Space direction="vertical" style={{ width: "100%" }}>
                           {(selectedBuff.effects ?? []).map((eff, idx) => {
@@ -685,7 +698,18 @@ export default function App() {
                     },
                     {
                       key: "triggers",
-                      label: "Triggers",
+                      label: (
+                        <Space size={8}>
+                          <span>Triggers</span>
+                          {(selectedBuff.triggers?.length ?? 0) > 0 && (
+                            <Badge
+                              count={selectedBuff.triggers.length}
+                              style={{ backgroundColor: "#41f3b4", color: "#06110f" }}
+                              overflowCount={99}
+                            />
+                          )}
+                        </Space>
+                      ),
                       children: (
                         <Space direction="vertical" style={{ width: "100%" }}>
                           {(selectedBuff.triggers ?? []).map((tr, idx) => {
