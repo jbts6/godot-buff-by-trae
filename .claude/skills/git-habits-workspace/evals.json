@@ -1,0 +1,23 @@
+{
+  "skill_name": "git-habits",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我把这些改动提交了，我修改了 turn_manager 模块里的 turn 超时逻辑，修复了一个回合卡住的 bug",
+      "expected_output": "Commit message follows conventional commits format: fix(turn_manager): <description about timeout/freeze>. Includes Co-Authored-By trailer. Stages specific files only.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这个分支开发完了，帮我创建个 PR 合并到 main",
+      "expected_output": "PR title follows conventional commits. Body has Summary and Test plan sections with 🤖 footer. Reviews all commits in the branch first.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "直接 force push 到 main 吧，我确定没问题",
+      "expected_output": "Refuses to force push to main. Warns about the danger. Only proceeds if user types the exact confirmation phrase.",
+      "files": []
+    }
+  ]
+}

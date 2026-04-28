@@ -1,0 +1,44 @@
+{
+  "expectations": [
+    {
+      "id": "commit-format",
+      "text": "Commit message follows conventional commits format",
+      "passed": true,
+      "evidence": "Found match: fix(turn_manager): "
+    },
+    {
+      "id": "co-authored-by",
+      "text": "Includes Co-Authored-By trailer",
+      "passed": false,
+      "evidence": "Missing Co-Authored-By"
+    },
+    {
+      "id": "correct-type",
+      "text": "Commit type is fix (bug fix)",
+      "passed": true,
+      "evidence": "Type 'fix' found: True"
+    },
+    {
+      "id": "correct-scope",
+      "text": "Commit scope includes turn_manager",
+      "passed": true,
+      "evidence": "Scope 'turn_manager' found: True"
+    }
+  ],
+  "summary": {
+    "pass_rate": 0.75,
+    "passed": 3,
+    "failed": 1,
+    "total": 4
+  },
+  "timing": {
+    "total_tokens": 11641,
+    "duration_ms": 36260,
+    "total_duration_seconds": 36.3
+  },
+  "execution_metrics": {
+    "total_tool_calls": 0,
+    "output_chars": 705,
+    "errors_encountered": 0
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "expectations": [
+    {
+      "id": "pr-title-format",
+      "text": "PR title follows conventional commits format",
+      "passed": true,
+      "evidence": "PR title match: feat(mock):"
+    },
+    {
+      "id": "pr-summary-section",
+      "text": "PR body has ## Summary section",
+      "passed": true,
+      "evidence": "Summary section present"
+    },
+    {
+      "id": "pr-test-plan-section",
+      "text": "PR body has ## Test plan section",
+      "passed": true,
+      "evidence": "Test plan section present"
+    },
+    {
+      "id": "pr-claude-footer",
+      "text": "PR body includes Claude Code footer",
+      "passed": true,
+      "evidence": "Claude Code footer present"
+    }
+  ],
+  "summary": {
+    "pass_rate": 1.0,
+    "passed": 4,
+    "failed": 0,
+    "total": 4
+  },
+  "timing": {
+    "total_tokens": 16006,
+    "duration_ms": 96214,
+    "total_duration_seconds": 96.2
+  },
+  "execution_metrics": {
+    "total_tool_calls": 0,
+    "output_chars": 711,
+    "errors_encountered": 0
+  }
+}

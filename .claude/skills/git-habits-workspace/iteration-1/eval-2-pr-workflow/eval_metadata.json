@@ -1,0 +1,23 @@
+{
+  "eval_id": 2,
+  "eval_name": "pr-workflow",
+  "prompt": "这个分支开发完了，帮我创建个 PR 合并到 main",
+  "assertions": [
+    {
+      "id": "pr-title-format",
+      "description": "PR title follows conventional commits format"
+    },
+    {
+      "id": "pr-summary-section",
+      "description": "PR body includes '## Summary' section"
+    },
+    {
+      "id": "pr-test-plan-section",
+      "description": "PR body includes '## Test plan' section"
+    },
+    {
+      "id": "pr-claude-footer",
+      "description": "PR body includes Claude Code footer"
+    }
+  ]
+}

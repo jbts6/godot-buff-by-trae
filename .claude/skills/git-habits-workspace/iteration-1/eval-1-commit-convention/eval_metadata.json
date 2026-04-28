@@ -1,0 +1,23 @@
+{
+  "eval_id": 1,
+  "eval_name": "commit-convention",
+  "prompt": "帮我把这些改动提交了，我修改了 turn_manager 模块里的 turn 超时逻辑，修复了一个回合卡住的 bug",
+  "assertions": [
+    {
+      "id": "commit-format",
+      "description": "Commit message follows conventional commits format: type(scope): description"
+    },
+    {
+      "id": "co-authored-by",
+      "description": "Commit message includes Co-Authored-By: Claude Opus 4.7 trailer"
+    },
+    {
+      "id": "correct-type",
+      "description": "Commit type is 'fix' (bug fix, not feat)"
+    },
+    {
+      "id": "correct-scope",
+      "description": "Commit scope includes 'turn_manager'"
+    }
+  ]
+}
