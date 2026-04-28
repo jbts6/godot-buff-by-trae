@@ -3,20 +3,22 @@ class_name OmniBuffAdapter
 
 ## OmniBuff 集成适配层：
 ## - 所有 buff/伤害相关调用都从这里走
-## - damage 必须走 OmniBuff.DamagePipeline（优先 deal_damage，必要时兜底 deal_damage_v1）
+## - damage 优先 deal_damage_v2（确定性 RNG），兜底 deal_damage，最终兜底 deal_damage_v1
 ## - simulate_* 不落地，仅返回预测描述
 
 var ds = null
 var enums_rt = null
 var runtime_dict: Dictionary = {}
+var mod_conflicts: Array = []
 
 var pipe = null
 var replay = null
 
-func setup(dataset, enums_runtime, runtime: Dictionary) -> void:
+func setup(dataset, enums_runtime, runtime: Dictionary, conflicts: Array = []) -> void:
 	ds = dataset
 	enums_rt = enums_runtime
 	runtime_dict = runtime
+	mod_conflicts = conflicts
 	pipe = OmniDamagePipeline.new()
 	replay = OmniReplay.new()
 
@@ -31,11 +33,9 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 	var damage_type := int(ctx.get("damage_type", 0))
 	var element := int(ctx.get("element", 0))
 	var is_bonus_damage := bool(ctx.get("is_bonus_damage", false))
-
-	# 约定：skill_id_int 可由上层传入；缺失时使用 -1（omnibuff 内部允许）
 	var skill_id_int := int(ctx.get("skill_id_int", -1))
+	var rng_seed := int(ctx.get("rng_seed", 0))
 
-	# 将字符串枚举映射为 int（若 enums_rt 可用）
 	if enums_rt != null:
 		var dt = ctx.get("damage_type", 0)
 		if typeof(dt) == TYPE_STRING:
@@ -47,11 +47,47 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 		if typeof(tags) == TYPE_ARRAY:
 			tags_mask = int(enums_rt.tag_mask(tags))
 
-	# Stats/Buffs 取自 Unit 字段契约
 	var attacker_stats = caster.stats
 	var defender_stats = target.stats
 	var buff_attacker = caster.buffs
 	var buff_defender = target.buffs
+
+	if pipe.has_method("deal_damage_v2"):
+		var req := {
+			"attacker": attacker_stats,
+			"defender": defender_stats,
+			"buff_attacker": buff_attacker,
+			"buff_defender": buff_defender,
+			"ds": ds,
+			"base_damage": base_damage,
+			"replay": replay,
+			"turn_index": turn_index,
+			"tags_mask": tags_mask,
+			"runtime": runtime_dict,
+			"roll_key": roll_key,
+			"skill_id": skill_id_int,
+			"damage_type": damage_type,
+			"element": element,
+			"is_bonus_damage": is_bonus_damage,
+			"rng_seed": rng_seed,
+		}
+		var dctx = pipe.deal_damage_v2(req)
+		if dctx != null:
+			return {
+				"ok": true,
+				"final_damage": float(dctx.final_damage),
+				"meta": {
+					"used": "deal_damage_v2",
+					"turn_index": turn_index,
+					"roll_key": roll_key,
+					"tags_mask": tags_mask,
+					"damage_type": damage_type,
+					"element": element,
+					"is_bonus_damage": is_bonus_damage,
+					"skill_id_int": skill_id_int,
+					"rng_seed": rng_seed,
+				}
+			}
 
 	if pipe.has_method("deal_damage"):
 		var dctx = pipe.deal_damage(
@@ -72,8 +108,8 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 			is_bonus_damage
 		)
 		return {
-			"ok": true, 
-			"final_damage": float(dctx.final_damage), 
+			"ok": true,
+			"final_damage": float(dctx.final_damage),
 			"meta": {
 				"used": "deal_damage",
 				"turn_index": turn_index,
@@ -86,7 +122,6 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 			}
 		}
 
-	# 兜底：旧签名（不含 is_bonus_damage）
 	if pipe.has_method("deal_damage_v1"):
 		var dctx_v1 = pipe.deal_damage_v1(
 			attacker_stats,
@@ -105,8 +140,8 @@ func deal_damage(caster, target, base_damage: float, ctx: Dictionary) -> Diction
 			element
 		)
 		return {
-			"ok": true, 
-			"final_damage": float(dctx_v1.final_damage), 
+			"ok": true,
+			"final_damage": float(dctx_v1.final_damage),
 			"meta": {
 				"used": "deal_damage_v1",
 				"turn_index": turn_index,
@@ -128,7 +163,12 @@ func apply_buff(target_unit, buff_id: String, source_unit) -> Dictionary:
 	var inst_id := int(target_unit.buffs.apply_buff(target_unit.stats, buff_id, int(source_unit.entity_id)))
 	if inst_id < 0:
 		return {"ok": false, "error": "apply_buff_failed", "inst_id": inst_id}
-	return {"ok": true, "inst_id": inst_id, "buff_id": buff_id}
+	var mod_overridden := false
+	for c in mod_conflicts:
+		if typeof(c) == TYPE_DICTIONARY and String(c.get("id", "")) == buff_id:
+			mod_overridden = true
+			break
+	return {"ok": true, "inst_id": inst_id, "buff_id": buff_id, "mod_overridden": mod_overridden}
 
 
 func remove_buff(target_unit, buff_id: String, source_unit, remove_scope := "ALL") -> Dictionary:

@@ -61,6 +61,9 @@ func setup(context: BattleContext, units: Array[Node]) -> void:
 				_context.runtime_dict["stats_by_entity"][eid] = u.get("stats")
 			if u.get("buffs"):
 				_context.runtime_dict["buff_by_entity"][eid] = u.get("buffs")
+				var buffs = u.get("buffs")
+				if buffs.has_method("set") or _has_callable_property(buffs, "event_trace_fn"):
+					buffs.set("event_trace_fn", _on_buff_event_trace.bind(int(eid)))
 				
 		u.set_meta("spawn_index", spawn_index)
 		spawn_index += 1
@@ -547,3 +550,26 @@ func _clean_up_dead() -> void:
 		if is_instance_valid(u) and not is_dead(u):
 			new_q.append(u)
 	_turn_queue = new_q
+
+
+func _on_buff_event_trace(entity_id: int, event_type: int, phase: int, hit_inst_ids: PackedInt32Array) -> void:
+	if _context == null:
+		return
+	if _context.event_traces.size() < 500:
+		_context.event_traces.append({
+			"entity_id": entity_id,
+			"event_type": event_type,
+			"phase": phase,
+			"hit_inst_ids": hit_inst_ids,
+		})
+
+
+static func _has_callable_property(obj, prop_name: String) -> bool:
+	if obj == null:
+		return false
+	if not (obj is Object):
+		return false
+	for p in obj.get_property_list():
+		if String(p.get("name", "")) == prop_name:
+			return true
+	return false

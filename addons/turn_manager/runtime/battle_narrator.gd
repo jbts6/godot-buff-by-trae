@@ -356,7 +356,16 @@ func _skill_name(skill_id: String) -> String:
 func _buff_name(buff_id: String) -> String:
 	if buff_id == "":
 		return "?"
-	# 若 dataset 可反查 buff.name，则优先用 name；否则退化 buff_id
+	if _ds != null and _ds.has_method("buff_id"):
+		var bdid = int(_ds.buff_id(buff_id))
+		if bdid >= 0:
+			var defs_any: Variant = _ds.get("buff_defs")
+			if typeof(defs_any) == TYPE_ARRAY and bdid < defs_any.size():
+				var d_any = defs_any[bdid]
+				if typeof(d_any) == TYPE_DICTIONARY:
+					var n = String(d_any.get("name", ""))
+					if n != "":
+						return n
 	if _ds != null and "buff_defs" in _ds:
 		var defs_any: Variant = _ds.get("buff_defs")
 		if typeof(defs_any) == TYPE_ARRAY:

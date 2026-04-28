@@ -1,10 +1,8 @@
 class_name BattleContext
 extends RefCounted
 
-## 必需字段
 var grid: Object
 var event_bus: Object
-# OmniBuff 的编译产物/运行时映射是 RefCounted（不是 Resource）
 var dataset: RefCounted
 var enums_rt: RefCounted
 var runtime_dict: Dictionary
@@ -13,8 +11,8 @@ var omnibuff_adapter: Object
 var passive_manager: Object
 var aura_manager: Object
 var battle_item_system: Object
+var event_traces: Array = []
 
-## 可选字段
 var pipeline: Object
 var replay: Object
 

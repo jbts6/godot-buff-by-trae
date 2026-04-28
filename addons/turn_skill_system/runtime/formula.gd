@@ -77,7 +77,6 @@ static func _collect_pretty_vars(expr: String, ctx: Dictionary) -> Dictionary:
 
 
 static func _lookup_stat(ctx: Dictionary, who: String, stat: String) -> float:
-	# 只允许从纯数据取值：优先 ctx.a_stats / ctx.t_stats（Dictionary），否则尝试从单位的 stats 读取（扩展点）
 	var stats_key = "a_stats" if who == "a" else "t_stats"
 	if ctx.has(stats_key) and typeof(ctx[stats_key]) == TYPE_DICTIONARY:
 		var sd: Dictionary = ctx[stats_key]
@@ -90,8 +89,11 @@ static func _lookup_stat(ctx: Dictionary, who: String, stat: String) -> float:
 		if u.has_method("get_stat"):
 			return float(u.get_stat(stat))
 		if _has_property(u, "stats") and u.stats != null and u.stats.has_method("get_final"):
-			# 若上层提供了 ds 与 stat_id，可在 ctx 里放一个映射（扩展点）。
-			pass
+			var dataset = ctx.get("dataset")
+			if dataset != null and dataset.has_method("stat_id"):
+				var sid = int(dataset.stat_id(stat))
+				if sid >= 0:
+					return float(u.stats.get_final(sid))
 	return 0.0
 
 

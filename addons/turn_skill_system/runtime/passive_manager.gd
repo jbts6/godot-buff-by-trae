@@ -1,10 +1,8 @@
 extends RefCounted
 class_name PassiveManager
 
-## 被动技能管理器（最小闭环）：
-## - register_unit_passives(unit, [skill_id...])
-## - bind(event_bus, db, effects, omnibuff, grid)
-## - 监听 event_bus.event_emitted，根据 triggers 执行 effects（目前仅支持 chance 与无条件）
+const _U32_MASK := 0xFFFFFFFF
+const _PASSIVE_SALT := 0xD7E8F9A0
 
 var _event_bus = null
 var _db = null
@@ -12,7 +10,9 @@ var _effects = null
 var _omnibuff = null
 var _grid = null
 
-var _passives_by_owner: Dictionary = {} # owner_id -> Array[Dictionary] (skill dict)
+var _passives_by_owner: Dictionary = {}
+var _roll_key_counter: int = 0
+
 
 func bind(event_bus, db, effects, omnibuff, grid) -> void:
 	_event_bus = event_bus
@@ -54,8 +54,11 @@ func _on_event_emitted(event_type: String, data: Dictionary) -> void:
 					continue
 				var chance := float(trig.get("chance", 1.0))
 				if chance < 1.0:
-					# 最小实现：不做可回放 rng；后续可用 rng_seed + roll_key
-					if randf() > chance:
+					var turn_index := int(data.get("turn_index", 0))
+					var rng_seed := int(data.get("rng_seed", 0))
+					var roll := _roll01_deterministic(turn_index, _roll_key_counter, int(owner_id), rng_seed)
+					_roll_key_counter += 1
+					if roll > chance:
 						continue
 				var effects_arr: Array = trig.get("effects", [])
 				for e in effects_arr:
@@ -79,6 +82,28 @@ func _on_event_emitted(event_type: String, data: Dictionary) -> void:
 						"t_stats": {},
 					}
 					_effects.apply_effect(e, ctx, false)
+
+
+static func _xorshift32(x: int) -> int:
+	x = int(x) & _U32_MASK
+	x = int(x ^ ((x << 13) & _U32_MASK)) & _U32_MASK
+	x = int(x ^ ((x >> 17) & _U32_MASK)) & _U32_MASK
+	x = int(x ^ ((x << 5) & _U32_MASK)) & _U32_MASK
+	return x & _U32_MASK
+
+
+static func _roll01_deterministic(turn_index: int, roll_key: int, owner_id: int, rng_seed: int) -> float:
+	var x := 0x9E3779B9
+	x = int((x + (turn_index * 1103515245)) & _U32_MASK)
+	x = int((x ^ (roll_key * 2246822519)) & _U32_MASK)
+	x = int((x ^ (owner_id * 2654435761)) & _U32_MASK)
+	x = int((x ^ rng_seed) & _U32_MASK)
+	x = int((x ^ _PASSIVE_SALT) & _U32_MASK)
+	if x == 0:
+		x = 1
+	var u := _xorshift32(x)
+	var fixed_point := u / 429497
+	return float(fixed_point) / 10000.0
 
 
 func _find_unit_by_id(entity_id: int):

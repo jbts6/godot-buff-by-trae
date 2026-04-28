@@ -160,7 +160,6 @@ static func _cast_internal(simulation: bool, skill_id: String, caster, primary_c
 
 
 static func _make_ctx(skill: Dictionary, skill_id: String, caster, target, rt: Dictionary, extra: Dictionary, rng_seed: int) -> Dictionary:
-	# 公式上下文（a/t）只暴露纯数据（默认空），由上层填充 extra.a_stats/extra.t_stats
 	return {
 		"skill_id": skill_id,
 		"skill": skill,
@@ -180,6 +179,7 @@ static func _make_ctx(skill: Dictionary, skill_id: String, caster, target, rt: D
 		"skill_id_int": int(extra.get("skill_id_int", -1)),
 		"a_stats": extra.get("a_stats", {}),
 		"t_stats": extra.get("t_stats", {}),
+		"dataset": extra.get("dataset", null),
 	}
 
 
