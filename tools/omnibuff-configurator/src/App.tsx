@@ -19,18 +19,15 @@ import {
   Typography,
 } from "antd";
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
 
 import { t } from "./i18n/zh-CN";
 import {
-  exportSortedDataset,
   generateBuffKey,
   nextBuffId,
-  normalizeDataset,
   snakeCase,
   type Dataset,
 } from "./lib/dataset";
+import { exportDatasetAuto, importDatasetAuto } from "./lib/fileio";
 
 import "./App.css";
 
@@ -467,17 +464,10 @@ export default function App() {
 
   async function onImport() {
     try {
-      const picked = await open({
-        multiple: false,
-        filters: [{ name: "OmniBuff Dataset", extensions: ["json"] }],
-      });
-      if (!picked || Array.isArray(picked)) return;
-
-      const text = (await invoke("read_text_file", { path: picked })) as string;
-      const parsed = JSON.parse(text);
-      const normalized = normalizeDataset(parsed);
-      setDs(normalized);
-      setCurrentPath(picked);
+      const res = await importDatasetAuto();
+      if (!res) return;
+      setDs(res.dataset);
+      setCurrentPath(res.sourceLabel);
       setSelected({ kind: "manifest" });
       message.success("导入成功");
     } catch (e: any) {
@@ -487,14 +477,9 @@ export default function App() {
 
   async function onExport() {
     try {
-      const sorted = exportSortedDataset(ds);
-      const path = await save({
-        defaultPath: `${ds.manifest.id}.dataset.json`,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
-      if (!path) return;
-      await invoke("write_text_file", { path, contents: JSON.stringify(sorted, null, 2) });
-      setCurrentPath(path);
+      const res = await exportDatasetAuto(ds);
+      if (!res) return;
+      setCurrentPath(res.targetLabel);
       message.success("导出成功");
     } catch (e: any) {
       message.error(`导出失败：${String(e?.message ?? e)}`);
