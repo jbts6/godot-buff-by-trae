@@ -1,0 +1,118 @@
+﻿{
+    "title":  "OmniBuff Stat Definitions",
+    "description":  "Defines all stats used in the system with their default values, bounds, and optional derived/curve configs.",
+    "type":  "object",
+    "required":  [
+                     "stats"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "stats":  {
+                                     "type":  "array",
+                                     "items":  {
+                                                   "type":  "object",
+                                                   "required":  [
+                                                                    "id",
+                                                                    "default"
+                                                                ],
+                                                   "additionalProperties":  false,
+                                                   "properties":  {
+                                                                      "id":  {
+                                                                                 "type":  "string",
+                                                                                 "minLength":  1
+                                                                             },
+                                                                      "default":  {
+                                                                                      "type":  "number"
+                                                                                  },
+                                                                      "min":  {
+                                                                                  "type":  "number"
+                                                                              },
+                                                                      "max":  {
+                                                                                  "type":  "number"
+                                                                              },
+                                                                      "clamp":  {
+                                                                                    "oneOf": [
+                                                                                        { "type": "boolean" },
+                                                                                        {
+                                                                                            "type": "array",
+                                                                                            "items": { "type": "number" },
+                                                                                            "minItems": 2,
+                                                                                            "maxItems": 2
+                                                                                        }
+                                                                                    ]
+                                                                                },
+                                                                      "derived":  {
+                                                                                      "type":  "object",
+                                                                                      "required":  [
+                                                                                                       "type"
+                                                                                                   ],
+                                                                                      "properties":  {
+                                                                                                         "type":  {
+                                                                                                                      "type":  "string",
+                                                                                                                      "enum":  [
+                                                                                                                                   "LINEAR",
+                                                                                                                                   "EXPR"
+                                                                                                                               ]
+                                                                                                                  },
+                                                                                                         "from":  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                         "coefficient":  {
+                                                                                                                             "type":  "number"
+                                                                                                                         },
+                                                                                                         "offset":  {
+                                                                                                                        "type":  "number"
+                                                                                                                    },
+                                                                                                         "inputs":  {
+                                                                                                                        "type":  "array",
+                                                                                                                        "items":  {
+                                                                                                                                      "type":  "string"
+                                                                                                                                  }
+                                                                                                                    },
+                                                                                                         "expr":  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                         "apply_at":  {
+                                                                                                                          "type":  "string",
+                                                                                                                          "enum":  [
+                                                                                                                                       "POST_FINAL"
+                                                                                                                                   ]
+                                                                                                                      }
+                                                                                                     }
+                                                                                  },
+                                                                      "curve":  {
+                                                                                    "type":  "object",
+                                                                                    "required":  [
+                                                                                                     "type"
+                                                                                                 ],
+                                                                                    "properties":  {
+                                                                                                       "type":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "enum":  [
+                                                                                                                                 "DR_SOFTCAP",
+                                                                                                                                 "EXP",
+                                                                                                                                 "LOG"
+                                                                                                                             ]
+                                                                                                                },
+                                                                                                       "threshold":  {
+                                                                                                                         "type":  "number"
+                                                                                                                     },
+                                                                                                       "factor":  {
+                                                                                                                      "type":  "number"
+                                                                                                                  },
+                                                                                                       "base":  {
+                                                                                                                    "type":  "number"
+                                                                                                                },
+                                                                                                       "apply_at":  {
+                                                                                                                        "type":  "string",
+                                                                                                                        "enum":  [
+                                                                                                                                     "POST_FINAL"
+                                                                                                                                 ]
+                                                                                                                    }
+                                                                                                   }
+                                                                                }
+                                                                  }
+                                               }
+                                 }
+                   }
+}

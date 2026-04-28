@@ -223,8 +223,40 @@ func deal_damage(attacker: OmniStatsComponent, defender: OmniStatsComponent, buf
 
 
 func deal_damage_v1(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, replay: RefCounted = null, turn_index: int = 0, tags_mask: int = 0, runtime: Dictionary = {}, roll_key: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
-	## 对外稳定兼容入口（旧签名）：不包含 is_bonus_damage 参数
 	return deal_damage(attacker, defender, buff_attacker, buff_defender, ds, base_damage, replay, turn_index, tags_mask, runtime, roll_key, skill_id, damage_type, element, false)
+
+func deal_damage_v2(req: Dictionary) -> DamageContext:
+	var a: OmniStatsComponent = req.get("attacker", null)
+	var d: OmniStatsComponent = req.get("defender", null)
+	var ba: OmniBuffCore = req.get("buff_attacker", null)
+	var bd: OmniBuffCore = req.get("buff_defender", null)
+	var ds: OmniCompiledDataset = req.get("ds", null)
+	if a == null or d == null or ba == null or bd == null or ds == null:
+		push_error("[DamagePipeline] deal_damage_v2: missing required fields (attacker/defender/buff_attacker/buff_defender/ds)")
+		return null
+	return deal_damage(
+		a, d, ba, bd, ds,
+		float(req.get("base_damage", 0.0)),
+		req.get("replay", null),
+		int(req.get("turn_index", 0)),
+		int(req.get("tags_mask", 0)),
+		req.get("runtime", {}),
+		int(req.get("roll_key", 0)),
+		int(req.get("skill_id", -1)),
+		int(req.get("damage_type", 0)),
+		int(req.get("element", 0)),
+		bool(req.get("is_bonus_damage", false))
+	)
+
+static func make_request(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float) -> Dictionary:
+	return {
+		"attacker": attacker,
+		"defender": defender,
+		"buff_attacker": buff_attacker,
+		"buff_defender": buff_defender,
+		"ds": ds,
+		"base_damage": base_damage,
+	}
 
 func deal_damage_with_tags(attacker: OmniStatsComponent, defender: OmniStatsComponent, buff_attacker: OmniBuffCore, buff_defender: OmniBuffCore, ds: OmniCompiledDataset, base_damage: float, tags_mask: int, replay: RefCounted = null, turn_index: int = 0, skill_id: int = -1, damage_type: int = 0, element: int = 0) -> DamageContext:
 	## 与 deal_damage 相同，但允许外部指定 ctx.tags_mask（用于 filters 与追帧）

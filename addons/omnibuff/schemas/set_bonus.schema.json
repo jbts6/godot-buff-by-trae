@@ -1,0 +1,52 @@
+﻿{
+    "title":  "OmniBuff Set Bonus Definitions",
+    "description":  "Defines equipment sets and their threshold-based bonus buffs.",
+    "type":  "object",
+    "required":  [
+                     "sets"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "sets":  {
+                                    "type":  "array",
+                                    "items":  {
+                                                  "type":  "object",
+                                                  "required":  [
+                                                                   "id",
+                                                                   "name",
+                                                                   "bonuses"
+                                                               ],
+                                                  "additionalProperties":  false,
+                                                  "properties":  {
+                                                                     "id":  {
+                                                                                "type":  "string",
+                                                                                "minLength":  1
+                                                                            },
+                                                                     "name":  {
+                                                                                  "type":  "string"
+                                                                              },
+                                                                     "bonuses":  {
+                                                                                     "type":  "array",
+                                                                                     "items":  {
+                                                                                                   "type":  "object",
+                                                                                                   "required":  [
+                                                                                                                    "count",
+                                                                                                                    "apply_buff_id"
+                                                                                                                ],
+                                                                                                   "additionalProperties":  false,
+                                                                                                   "properties":  {
+                                                                                                                      "count":  {
+                                                                                                                                    "type":  "integer",
+                                                                                                                                    "minimum":  1
+                                                                                                                                },
+                                                                                                                      "apply_buff_id":  {
+                                                                                                                                            "type":  "string"
+                                                                                                                                        }
+                                                                                                                  }
+                                                                                               }
+                                                                                 }
+                                                                 }
+                                              }
+                                }
+                   }
+}

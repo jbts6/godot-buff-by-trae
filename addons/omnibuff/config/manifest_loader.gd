@@ -75,7 +75,12 @@ static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
 
 	# 读取全部源文件
 	if res.manifest.has("files"):
-		for f in res.manifest["files"]:
+		var files: Array = res.manifest["files"]
+		var load_order: Array = res.manifest.get("load_order", [])
+		var sorted_files: Array = files
+		if not load_order.is_empty():
+			sorted_files = _sort_by_load_order(files, load_order)
+		for f in sorted_files:
 			var f_type := String(f.get("type", ""))
 			var rel := String(f.get("path", ""))
 			if f_type == "" or rel == "":
@@ -107,6 +112,21 @@ static func load_dataset_full(manifest_path: String, strict: bool) -> Result:
 	return res
 
 static func _resolve_relative(base_file: String, rel: String) -> String:
-	# 将 manifest 内的相对路径解析为绝对资源路径
 	var base_dir := base_file.get_base_dir()
 	return base_dir.path_join(rel)
+
+static func _sort_by_load_order(files: Array, load_order: Array) -> Array:
+	var order_map := {}
+	for i in range(load_order.size()):
+		order_map[String(load_order[i])] = i
+	var sorted := files.duplicate()
+	sorted.sort_custom(func(a, b) -> bool:
+		var ta := String(a.get("type", ""))
+		var tb := String(b.get("type", ""))
+		var oa := int(order_map.get(ta, 999))
+		var ob := int(order_map.get(tb, 999))
+		if oa != ob:
+			return oa < ob
+		return ta < tb
+	)
+	return sorted
