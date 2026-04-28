@@ -1,0 +1,102 @@
+﻿{
+    "title":  "OmniBuff Manifest",
+    "description":  "Root entry point for an OmniBuff dataset. Declares files, load order, build config, and mod overrides.",
+    "type":  "object",
+    "required":  [
+                     "schema_version",
+                     "dataset_id",
+                     "files"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "schema_version":  {
+                                              "type":  "integer",
+                                              "const":  1
+                                          },
+                       "dataset_id":  {
+                                          "type":  "string",
+                                          "minLength":  1
+                                      },
+                       "load_order":  {
+                                          "type":  "array",
+                                          "items":  {
+                                                        "type":  "string"
+                                                    },
+                                          "description":  "Ordered list of file types determining load sequence."
+                                      },
+                       "build":  {
+                                     "type":  "object",
+                                     "properties":  {
+                                                        "fingerprint":  {
+                                                                            "type":  "object",
+                                                                            "required":  [
+                                                                                             "method"
+                                                                                         ],
+                                                                            "properties":  {
+                                                                                               "method":  {
+                                                                                                              "type":  "string",
+                                                                                                              "enum":  [
+                                                                                                                           "content_hash"
+                                                                                                                       ]
+                                                                                                          },
+                                                                                               "files":  {
+                                                                                                             "type":  "array",
+                                                                                                             "items":  {
+                                                                                                                           "type":  "string"
+                                                                                                                       }
+                                                                                                         }
+                                                                                           }
+                                                                        }
+                                                    }
+                                 },
+                       "mod_overrides":  {
+                                             "type":  "object",
+                                             "properties":  {
+                                                                "policy":  {
+                                                                               "type":  "string",
+                                                                               "enum":  [
+                                                                                            "last_wins_by_id"
+                                                                                        ]
+                                                                           },
+                                                                "report_conflicts":  {
+                                                                                         "type":  "boolean"
+                                                                                     }
+                                                            }
+                                         },
+                       "files":  {
+                                     "type":  "array",
+                                     "items":  {
+                                                   "type":  "object",
+                                                   "required":  [
+                                                                    "id",
+                                                                    "type",
+                                                                    "path",
+                                                                    "format"
+                                                                ],
+                                                   "additionalProperties":  false,
+                                                   "properties":  {
+                                                                      "id":  {
+                                                                                 "type":  "string"
+                                                                             },
+                                                                      "type":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                      "path":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                      "format":  {
+                                                                                     "type":  "string",
+                                                                                     "enum":  [
+                                                                                                  "json",
+                                                                                                  "csv"
+                                                                                              ]
+                                                                                 },
+                                                                      "required":  {
+                                                                                       "type":  "boolean",
+                                                                                       "default":  true
+                                                                                   }
+                                                                  }
+                                               }
+                                 }
+                   }
+}

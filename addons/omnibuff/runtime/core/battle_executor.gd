@@ -1,13 +1,6 @@
 class_name OmniBattleExecutor
 extends RefCounted
 
-## 回合制 BattleExecutor（最小可用版）
-##
-## 职责：
-## - 执行 OmniCommandContext（ATTACK/CAST_SKILL/USE_ITEM/DEFEND/ESCAPE）
-## - 在执行前后触发 COMMAND 事件（允许 CANCEL_COMMAND 等干预）
-## - 对攻击/技能通过 DamagePipeline 走 DAMAGE 事件链
-
 class ExecuteResult:
 	extends RefCounted
 	var canceled: bool = false
@@ -22,7 +15,7 @@ func execute_command(
 	ds: OmniCompiledDataset,
 	enums_rt: OmniEnumsRuntime,
 	pipeline: OmniDamagePipeline,
-	sources: Dictionary,
+	sources: Dictionary = {},
 	replay: RefCounted = null
 ) -> ExecuteResult:
 	var res := ExecuteResult.new()
@@ -33,7 +26,6 @@ func execute_command(
 		res.canceled = true
 		return res
 
-	# runtime 约定：{stats_by_entity, buff_by_entity}
 	var stats_by_entity: Dictionary = runtime.get("stats_by_entity", {})
 	var buff_by_entity: Dictionary = runtime.get("buff_by_entity", {})
 
@@ -51,7 +43,6 @@ func execute_command(
 		res.canceled = true
 		return res
 
-	# 给 BuffCore actions 提供 runtime 入口
 	var runtime2 := {
 		"stats_by_entity": stats_by_entity,
 		"buff_by_entity": buff_by_entity,
@@ -63,7 +54,6 @@ func execute_command(
 	}
 	ctx.set_meta("runtime", runtime2)
 
-	# === COMMAND/CMD_BEFORE ===
 	actor_buffs.emit_event("COMMAND", "CMD_BEFORE", ctx)
 	var cancel_v: Variant = ctx.get("cancel")
 	if cancel_v != null and bool(cancel_v):
@@ -73,19 +63,16 @@ func execute_command(
 	var kind := String(ctx.get("command_kind")).to_upper()
 	match kind:
 		"ATTACK", "CAST_SKILL":
-			_execute_skill(turn_index, ctx, actor_id, actor_stats, actor_buffs, stats_by_entity, buff_by_entity, ds, enums_rt, pipeline, sources, replay, res)
+			_execute_skill(turn_index, ctx, actor_id, actor_stats, actor_buffs, stats_by_entity, buff_by_entity, ds, enums_rt, pipeline, replay, res)
 		"USE_ITEM":
 			_execute_item(ctx, actor_id, actor_stats, actor_buffs, stats_by_entity, ds)
 		"DEFEND":
-			# 最小：挂一个 1 回合防御 buff
 			actor_buffs.apply_buff(actor_stats, "buff_defend_1t", actor_id)
 		"ESCAPE":
 			res.escaped = true
 		_:
-			# 未知指令：视为 no-op（不 cancel）
 			pass
 
-	# === COMMAND/CMD_AFTER（仅在未 cancel 时触发）===
 	actor_buffs.emit_event("COMMAND", "CMD_AFTER", ctx)
 	return res
 
@@ -96,7 +83,6 @@ func _execute_item(ctx: RefCounted, actor_id: int, actor_stats: OmniStatsCompone
 	if item_id_v != null:
 		item_id = int(item_id_v)
 
-	# 默认目标：SELF；若提供 targets[0] 则为 targets[0]
 	var target_id := actor_id
 	var tv: Variant = ctx.get("targets")
 	if tv != null and typeof(tv) == TYPE_PACKED_INT32_ARRAY:
@@ -109,12 +95,10 @@ func _execute_item(ctx: RefCounted, actor_id: int, actor_stats: OmniStatsCompone
 		return
 
 	if item_id == 2001:
-		# 小治疗
 		var hp_id := ds.stat_id("HP")
 		if hp_id >= 0:
 			target_stats.add_base(hp_id, 30.0)
 	elif item_id == 2002:
-		# 小护盾
 		var shield_id := ds.stat_id("SHIELD")
 		if shield_id >= 0:
 			target_stats.add_base(shield_id, 50.0)
@@ -133,7 +117,6 @@ func _execute_skill(
 	ds: OmniCompiledDataset,
 	enums_rt: OmniEnumsRuntime,
 	pipeline: OmniDamagePipeline,
-	sources: Dictionary,
 	replay: RefCounted,
 	out_res: ExecuteResult
 ) -> void:
@@ -144,7 +127,6 @@ func _execute_skill(
 	if targets.is_empty():
 		return
 
-	# 最小实现：skill_id 作为 skill_defs.skills 的索引
 	var skill_idx_v: Variant = ctx.get("skill_id")
 	var skill_idx := -1
 	if skill_idx_v != null:
@@ -159,9 +141,8 @@ func _execute_skill(
 	var dmg_type := 0
 	var element := 0
 
-	var skills: Array = sources.get("skill_defs", {}).get("skills", [])
-	if skill_idx >= 0 and skill_idx < skills.size():
-		var skill: Dictionary = skills[skill_idx]
+	if skill_idx >= 0 and skill_idx < ds.skill_defs.size():
+		var skill: Dictionary = ds.skill_defs[skill_idx]
 		skill_id_str = String(skill.get("id", ""))
 		tags = skill.get("tags", [])
 		if skill.has("base_damage"):
@@ -177,16 +158,12 @@ func _execute_skill(
 		dmg_type = int(enums_rt.enum_int("damage_type", dt_str))
 		element = int(enums_rt.enum_int("element", el_str))
 
-	# tags_mask：供 COMMAND 与 DAMAGE filters 使用（例如 BASIC_ATTACK）
 	var tags_mask := int(enums_rt.tag_mask(tags))
 	ctx.set("tags_mask", tags_mask)
 
-	# 回放：最小仅记录“cast skill”
 	if replay != null and replay.has_method("record_cast_skill"):
 		replay.record_cast_skill(turn_index, actor_id, skill_id_str, targets, 0)
 
-	# 追加伤害等事件动作需要 pipeline/ds 等运行时依赖，因此这里必须把“扩展 runtime”继续传进 deal_damage，
-	# 让 DamageContext.meta["runtime"] 包含这些字段。
 	var rt2: Dictionary = {"stats_by_entity": stats_by_entity, "buff_by_entity": buff_by_entity}
 	if ctx.has_meta("runtime"):
 		var rv: Variant = ctx.get_meta("runtime")
@@ -196,7 +173,6 @@ func _execute_skill(
 	if hit_count < 1:
 		hit_count = 1
 
-	# 目标列表：FIRST = targets[0]；ALL = targets 全部（稳定排序）
 	var targets_sorted := PackedInt32Array()
 	if targeting == "ALL":
 		targets_sorted = targets.duplicate()

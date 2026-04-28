@@ -1,0 +1,69 @@
+﻿{
+    "title":  "OmniBuff Skill Definitions",
+    "description":  "Defines skills with damage, multi-hit, targeting, and cast/hit callbacks.",
+    "type":  "object",
+    "required":  [
+                     "skills"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "skills":  {
+                                      "type":  "array",
+                                      "items":  {
+                                                    "type":  "object",
+                                                    "required":  [
+                                                                     "id",
+                                                                     "base_damage"
+                                                                 ],
+                                                    "additionalProperties":  false,
+                                                    "properties":  {
+                                                                       "id":  {
+                                                                                  "type":  "string",
+                                                                                  "minLength":  1
+                                                                              },
+                                                                       "name":  {
+                                                                                    "type":  "string"
+                                                                                },
+                                                                       "damage_type":  {
+                                                                                           "type":  "string"
+                                                                                       },
+                                                                       "element":  {
+                                                                                       "type":  "string"
+                                                                                   },
+                                                                       "base_damage":  {
+                                                                                           "type":  "number"
+                                                                                       },
+                                                                       "tags":  {
+                                                                                    "type":  "array",
+                                                                                    "items":  {
+                                                                                                  "type":  "string"
+                                                                                              }
+                                                                                },
+                                                                       "hit_count":  {
+                                                                                         "type":  "integer",
+                                                                                         "minimum":  1
+                                                                                     },
+                                                                       "hit_base_damage":  {
+                                                                                               "type":  "array",
+                                                                                               "items":  {
+                                                                                                             "type":  "number"
+                                                                                                         }
+                                                                                           },
+                                                                       "targeting":  {
+                                                                                         "type":  "string",
+                                                                                         "enum":  [
+                                                                                                      "FIRST",
+                                                                                                      "ALL"
+                                                                                                  ]
+                                                                                     },
+                                                                       "on_cast":  {
+                                                                                       "type":  "array"
+                                                                                   },
+                                                                       "on_hit":  {
+                                                                                      "type":  "array"
+                                                                                  }
+                                                                   }
+                                                }
+                                  }
+                   }
+}

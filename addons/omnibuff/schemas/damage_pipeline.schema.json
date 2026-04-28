@@ -1,0 +1,23 @@
+﻿{
+    "title": "OmniBuff Damage Pipeline Stages",
+    "description": "Defines the ordered stages of the damage pipeline.",
+    "type": "object",
+    "required": ["pipeline"],
+    "additionalProperties": false,
+    "properties": {
+        "pipeline": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["stage"],
+                "additionalProperties": false,
+                "properties": {
+                    "stage": { "type": "string" },
+                    "emit_event": { "type": "string" },
+                    "phase": { "type": "string" },
+                    "side": { "type": "string" }
+                }
+            }
+        }
+    }
+}

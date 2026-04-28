@@ -2,26 +2,14 @@ class_name OmniDatasetCompiler
 extends RefCounted
 
 static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: Dictionary) -> OmniCompiledDataset:
-	## 编译 raw defs -> CompiledDataset（最小可用版）
-	##
-	## 约束：
-	## - 这里是“Schema字段名”允许出现的边界（Parser/Compiler 层）
-	## - 运行时核心（Stats/Buff/Damage）只允许读 OmniCompiledDataset
-	##
-	## 当前版本只编译：
-	## - stat_defs.stats[] -> stat_id 映射 + defs数组
-	## - buff_defs.buffs[] -> buff_id 映射 + defs数组
 	var ds := OmniCompiledDataset.new()
 
-	# stats
-	# 注意：这里不要用 `:=` 让编译器推断类型；默认空数组 `[]` 会导致推断失败。
 	var stat_defs: Array = sources.get("stat_defs", {}).get("stats", [])
 	for i in range(stat_defs.size()):
 		var s: Dictionary = stat_defs[i]
 		ds.stat_id_to_int[String(s["id"])] = i
 		ds.stat_defs.append(s)
 
-	# Phase 2：derived graph compile（最小实现：以 stat_defs 的 derived 字段生成依赖图与 topo_order）
 	var n := ds.stat_defs.size()
 	ds.derived_defs_by_stat.resize(n)
 	ds.derived_inputs_by_stat.resize(n)
@@ -61,7 +49,6 @@ static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: D
 			arr_dep.append(int(sid))
 			ds.derived_dependents_by_stat[int(dep)] = arr_dep
 
-	# topo sort (Kahn) + cycle detect
 	var indeg := PackedInt32Array()
 	indeg.resize(n)
 	for sid in range(n):
@@ -84,15 +71,68 @@ static func compile(manifest: Dictionary, enums_rt: OmniEnumsRuntime, sources: D
 			if indeg[int(nxt)] == 0:
 				q.append(int(nxt))
 	if order.size() != n:
-		# 循环依赖：留空 topo_order（validators 应阻断）
 		order = PackedInt32Array()
 	ds.derived_topo_order = order
 
-	# buffs
 	var buff_defs: Array = sources.get("buff_defs", {}).get("buffs", [])
 	for i in range(buff_defs.size()):
 		var b: Dictionary = buff_defs[i]
 		ds.buff_id_to_int[String(b["id"])] = i
 		ds.buff_defs.append(b)
 
+	var skill_defs: Array = sources.get("skill_defs", {}).get("skills", [])
+	for i in range(skill_defs.size()):
+		var sk: Dictionary = skill_defs[i]
+		ds.skill_id_to_int[String(sk.get("id", ""))] = i
+		ds.skill_defs.append(sk)
+
+	var equip_raw = sources.get("equipment", [])
+	var equip_rows: Array = []
+	if not equip_raw is Array:
+		equip_raw = []
+	if equip_raw.size() > 0:
+		var first = equip_raw[0]
+		if first is OmniCsv.Row:
+			var header: PackedStringArray = first.cols
+			for ri in range(1, equip_raw.size()):
+				var row: OmniCsv.Row = equip_raw[ri]
+				var d := {}
+				for ci in range(header.size()):
+					if ci < row.cols.size():
+						d[String(header[ci])] = String(row.cols[ci])
+				equip_rows.append(d)
+		else:
+			equip_rows = equip_raw
+	for i in range(equip_rows.size()):
+		var eq: Dictionary = equip_rows[i]
+		var eid := String(eq.get("id", ""))
+		if eid != "":
+			ds.equipment_id_to_int[eid] = i
+		ds.equipment_defs.append(eq)
+
+	var sb_obj: Dictionary = sources.get("set_bonus", {})
+	var sets: Array = sb_obj.get("sets", [])
+	for i in range(sets.size()):
+		ds.set_bonus_defs.append(sets[i])
+
+	var pipe_obj: Dictionary = sources.get("damage_pipeline", {})
+	var stages: Array = pipe_obj.get("pipeline", [])
+	for i in range(stages.size()):
+		ds.pipeline_stages.append(stages[i])
+
+	ds.fingerprint = _compute_fingerprint(sources)
+
 	return ds
+
+
+static func _compute_fingerprint(sources: Dictionary) -> String:
+	var hasher := HashingContext.new()
+	hasher.start(HashingContext.HASH_SHA256)
+	var keys: Array = sources.keys()
+	keys.sort()
+	for k in keys:
+		var v = sources[k]
+		var json_str := JSON.stringify(v, "", false)
+		hasher.update(json_str.to_utf8_buffer())
+	var digest := hasher.finish()
+	return digest.hex_encode()

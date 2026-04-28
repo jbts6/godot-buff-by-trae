@@ -1,0 +1,252 @@
+﻿{
+    "title":  "OmniBuff Enums Definition",
+    "description":  "Enumerations and tags registry for OmniBuff. Enums are plugin contracts 鈥?mods cannot add new values.",
+    "type":  "object",
+    "required":  [
+                     "schema_version",
+                     "enums",
+                     "tags"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "schema_version":  {
+                                              "type":  "integer",
+                                              "const":  1
+                                          },
+                       "enums":  {
+                                     "type":  "object",
+                                     "required":  [
+                                                      "op_type",
+                                                      "apply_phase",
+                                                      "duration_type",
+                                                      "stack_mode",
+                                                      "refresh_policy",
+                                                      "buff_type",
+                                                      "event_type",
+                                                      "event_phase",
+                                                      "damage_type",
+                                                      "element",
+                                                      "condition_type",
+                                                      "ownership_mode",
+                                                      "dispel_scope",
+                                                      "action_kind"
+                                                  ],
+                                     "additionalProperties":  false,
+                                     "properties":  {
+                                                        "op_type":  {
+                                                                        "type":  "array",
+                                                                        "items":  {
+                                                                                      "type":  "string",
+                                                                                      "enum":  [
+                                                                                                   "ADD",
+                                                                                                   "MUL",
+                                                                                                   "OVERRIDE",
+                                                                                                   "CLAMP",
+                                                                                                   "FORMULA"
+                                                                                               ]
+                                                                                  }
+                                                                    },
+                                                        "apply_phase":  {
+                                                                            "type":  "array",
+                                                                            "items":  {
+                                                                                          "type":  "string",
+                                                                                          "enum":  [
+                                                                                                       "BASE",
+                                                                                                       "CONVERT",
+                                                                                                       "FLAT",
+                                                                                                       "PERCENT",
+                                                                                                       "FINAL",
+                                                                                                       "CLAMP"
+                                                                                                   ]
+                                                                                      }
+                                                                        },
+                                                        "duration_type":  {
+                                                                              "type":  "array",
+                                                                              "items":  {
+                                                                                            "type":  "string",
+                                                                                            "enum":  [
+                                                                                                         "PERMANENT",
+                                                                                                         "TURNS",
+                                                                                                         "UNTIL_TURN_END",
+                                                                                                         "CHARGES",
+                                                                                                         "WHILE_CONDITION"
+                                                                                                     ]
+                                                                                        }
+                                                                          },
+                                                        "stack_mode":  {
+                                                                           "type":  "array",
+                                                                           "items":  {
+                                                                                         "type":  "string",
+                                                                                         "enum":  [
+                                                                                                      "REPLACE",
+                                                                                                      "ADD_STACK",
+                                                                                                      "MULTI_INSTANCE"
+                                                                                                  ]
+                                                                                     }
+                                                                       },
+                                                        "refresh_policy":  {
+                                                                               "type":  "array",
+                                                                               "items":  {
+                                                                                             "type":  "string",
+                                                                                             "enum":  [
+                                                                                                          "RESET_TO_MAX",
+                                                                                                          "KEEP_MAX",
+                                                                                                          "NONE"
+                                                                                                      ]
+                                                                                         }
+                                                                           },
+                                                        "buff_type":  {
+                                                                          "type":  "array",
+                                                                          "items":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "EXPLICIT",
+                                                                                                     "IMPLICIT",
+                                                                                                     "PASSIVE",
+                                                                                                     "AURA"
+                                                                                                 ]
+                                                                                    }
+                                                                      },
+                                                        "event_type":  {
+                                                                           "type":  "array",
+                                                                           "items":  {
+                                                                                         "type":  "string",
+                                                                                         "enum":  [
+                                                                                                      "DAMAGE",
+                                                                                                      "TURN_TICK",
+                                                                                                      "BUFF_APPLY",
+                                                                                                      "BUFF_REMOVE",
+                                                                                                      "DEATH",
+                                                                                                      "COMMAND",
+                                                                                                      "LIFE"
+                                                                                                  ]
+                                                                                     }
+                                                                       },
+                                                        "event_phase":  {
+                                                                            "type":  "array",
+                                                                            "items":  {
+                                                                                          "type":  "string",
+                                                                                          "enum":  [
+                                                                                                       "BUILD",
+                                                                                                       "BEFORE_DEAL",
+                                                                                                       "BEFORE_TAKE",
+                                                                                                       "RESOLVE",
+                                                                                                       "APPLY",
+                                                                                                       "AFTER_DEAL",
+                                                                                                       "AFTER_TAKE",
+                                                                                                       "CMD_BEFORE",
+                                                                                                       "CMD_AFTER",
+                                                                                                       "DEATH",
+                                                                                                       "REVIVE"
+                                                                                                   ]
+                                                                                      }
+                                                                        },
+                                                        "damage_type":  {
+                                                                            "type":  "array",
+                                                                            "items":  {
+                                                                                          "type":  "string",
+                                                                                          "enum":  [
+                                                                                                       "PHYSICAL",
+                                                                                                       "MAGIC",
+                                                                                                       "TRUE"
+                                                                                                   ]
+                                                                                      }
+                                                                        },
+                                                        "element":  {
+                                                                        "type":  "array",
+                                                                        "items":  {
+                                                                                      "type":  "string",
+                                                                                      "enum":  [
+                                                                                                   "NONE",
+                                                                                                   "FIRE",
+                                                                                                   "ICE",
+                                                                                                   "LIGHTNING",
+                                                                                                   "POISON"
+                                                                                               ]
+                                                                                  }
+                                                                    },
+                                                        "condition_type":  {
+                                                                               "type":  "array",
+                                                                               "items":  {
+                                                                                             "type":  "string",
+                                                                                             "enum":  [
+                                                                                                          "STAT_THRESHOLD",
+                                                                                                          "EQUIP_SET_COUNT_GE",
+                                                                                                          "HAS_TAG",
+                                                                                                          "STAT_GE"
+                                                                                                      ]
+                                                                                         }
+                                                                           },
+                                                        "ownership_mode":  {
+                                                                               "type":  "array",
+                                                                               "items":  {
+                                                                                             "type":  "string",
+                                                                                             "enum":  [
+                                                                                                          "GLOBAL",
+                                                                                                          "BY_SOURCE",
+                                                                                                          "BY_SOURCE_INSTANCE"
+                                                                                                      ]
+                                                                                         }
+                                                                           },
+                                                        "dispel_scope":  {
+                                                                             "type":  "array",
+                                                                             "items":  {
+                                                                                           "type":  "string",
+                                                                                           "enum":  [
+                                                                                                        "ALL",
+                                                                                                        "BY_TAG",
+                                                                                                        "BY_SOURCE",
+                                                                                                        "BY_TYPE"
+                                                                                                    ]
+                                                                                       }
+                                                                         },
+                                                        "action_kind":  {
+                                                                            "type":  "array",
+                                                                            "items":  {
+                                                                                          "type":  "string",
+                                                                                          "enum":  [
+                                                                                                       "ADD_BASE_DAMAGE",
+                                                                                                       "APPLY_BUFF",
+                                                                                                       "CHANCE_APPLY_BUFF",
+                                                                                                       "SET_STAT_FINAL",
+                                                                                                       "SET_SHIELD_TO_FINAL_DAMAGE",
+                                                                                                       "ADD_SHIELD",
+                                                                                                       "HEAL",
+                                                                                                       "DISPEL",
+                                                                                                       "LIFESTEAL",
+                                                                                                       "REFLECT_DAMAGE",
+                                                                                                       "CANCEL_COMMAND",
+                                                                                                       "BONUS_DAMAGE",
+                                                                                                       "ADD_STACKS",
+                                                                                                       "SET_STACKS",
+                                                                                                       "DOT_MUL_STACKS",
+                                                                                                       "DOT_ADD_STACKS",
+                                                                                                       "DOT_SET_STACKS",
+                                                                                                       "DOT_CLEAR"
+                                                                                                   ]
+                                                                                      }
+                                                                        }
+                                                    }
+                                 },
+                       "tags":  {
+                                    "type":  "array",
+                                    "items":  {
+                                                  "type":  "object",
+                                                  "required":  [
+                                                                   "id",
+                                                                   "code"
+                                                               ],
+                                                  "additionalProperties":  false,
+                                                  "properties":  {
+                                                                     "id":  {
+                                                                                "type":  "string"
+                                                                            },
+                                                                     "code":  {
+                                                                                  "type":  "integer",
+                                                                                  "minimum":  0
+                                                                              }
+                                                                 }
+                                              }
+                                }
+                   }
+}

@@ -11,7 +11,7 @@
 	"event_phase": ["BUILD", "BEFORE_DEAL", "BEFORE_TAKE", "RESOLVE", "APPLY", "AFTER_DEAL", "AFTER_TAKE", "CMD_BEFORE", "CMD_AFTER", "DEATH", "REVIVE"],
 	"damage_type": ["PHYSICAL", "MAGIC", "TRUE"],
 	"element": ["NONE", "FIRE", "ICE", "LIGHTNING", "POISON"],
-	"condition_type": ["HAS_TAG", "STAT_GE", "EQUIP_SET_COUNT_GE"],
+	"condition_type": ["STAT_THRESHOLD", "EQUIP_SET_COUNT_GE", "HAS_TAG", "STAT_GE"],
 	"ownership_mode": ["GLOBAL", "BY_SOURCE", "BY_SOURCE_INSTANCE"],
 	"dispel_scope": ["ALL", "BY_TAG", "BY_SOURCE", "BY_TYPE"],
 	"action_kind": [

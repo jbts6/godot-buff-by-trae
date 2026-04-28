@@ -782,12 +782,15 @@ static func _validate_buff_defs(file: String, obj: Dictionary, enums: Dictionary
 		if not dispel.is_empty() and typeof(dispel) == TYPE_DICTIONARY:
 			_unknown_fields(file, p + ".dispel", id, dispel, allowed_dispel, strict, issues)
 
-		# conditions：未知字段治理（本demo未实现条件系统，但协议仍要治理）
+		# conditions：未知字段治理 + condition_type 枚举合法性校验
 		var conds: Array = b.get("conditions", [])
 		for ci in range(conds.size()):
 			var cnd: Dictionary = conds[ci]
 			if typeof(cnd) == TYPE_DICTIONARY:
 				_unknown_fields(file, p + ".conditions[%s]" % ci, id, cnd, allowed_condition, strict, issues)
+				var ct := String(cnd.get("condition_type", cnd.get("type", "")))
+				if ct != "" and not _enum_has(enums, "condition_type", ct):
+					_add_issue(issues, error(file, "path=" + p + ".conditions[%s].condition_type" % ci, id, "unknown condition_type: " + ct), strict)
 
 # -----------------------------------------------------------------------------
 # 规则 12：skill_defs 校验（引用buff、枚举合法、chance范围）

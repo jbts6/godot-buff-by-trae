@@ -1,0 +1,370 @@
+﻿{
+    "title":  "OmniBuff Buff Definitions",
+    "description":  "Defines all buff types including effects, triggers, conditions, and DOT configs.",
+    "type":  "object",
+    "required":  [
+                     "buffs"
+                 ],
+    "additionalProperties":  false,
+    "properties":  {
+                       "buffs":  {
+                                     "type":  "array",
+                                     "items":  {
+                                                   "type":  "object",
+                                                   "required":  [
+                                                                    "id",
+                                                                    "buff_type",
+                                                                    "tags",
+                                                                    "duration",
+                                                                    "stack",
+                                                                    "effects"
+                                                                ],
+                                                   "additionalProperties":  false,
+                                                   "properties":  {
+                                                                      "id":  {
+                                                                                 "type":  "string",
+                                                                                 "minLength":  1
+                                                                             },
+                                                                      "name":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                      "buff_type":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "EXPLICIT",
+                                                                                                     "IMPLICIT",
+                                                                                                     "PASSIVE",
+                                                                                                     "AURA"
+                                                                                                 ]
+                                                                                    },
+                                                                      "tags":  {
+                                                                                   "type":  "array",
+                                                                                   "items":  {
+                                                                                                 "type":  "string"
+                                                                                             }
+                                                                               },
+                                                                      "duration":  {
+                                                                                       "type":  "object",
+                                                                                       "required":  [
+                                                                                                        "type"
+                                                                                                    ],
+                                                                                       "properties":  {
+                                                                                                          "type":  {
+                                                                                                                       "type":  "string",
+                                                                                                                       "enum":  [
+                                                                                                                                    "PERMANENT",
+                                                                                                                                    "TURNS",
+                                                                                                                                    "UNTIL_TURN_END",
+                                                                                                                                    "CHARGES",
+                                                                                                                                    "WHILE_CONDITION"
+                                                                                                                                ]
+                                                                                                                   },
+                                                                                                          "turns":  {
+                                                                                                                        "type":  "integer",
+                                                                                                                        "minimum":  1
+                                                                                                                    },
+                                                                                                          "tick_phase":  {
+                                                                                                                             "type":  "string"
+                                                                                                                         },
+                                                                                                          "policy":  {
+                                                                                                                         "type":  "string"
+                                                                                                                     }
+                                                                                                      }
+                                                                                   },
+                                                                      "stack":  {
+                                                                                    "type":  "object",
+                                                                                    "required":  [
+                                                                                                     "mode",
+                                                                                                     "max_stack"
+                                                                                                 ],
+                                                                                    "properties":  {
+                                                                                                       "mode":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "enum":  [
+                                                                                                                                 "REPLACE",
+                                                                                                                                 "ADD_STACK",
+                                                                                                                                 "MULTI_INSTANCE"
+                                                                                                                             ]
+                                                                                                                },
+                                                                                                       "max_stack":  {
+                                                                                                                         "type":  "integer",
+                                                                                                                         "minimum":  1
+                                                                                                                     },
+                                                                                                       "refresh_policy":  {
+                                                                                                                              "type":  "string",
+                                                                                                                              "enum":  [
+                                                                                                                                           "RESET_TO_MAX",
+                                                                                                                                           "KEEP_MAX",
+                                                                                                                                           "NONE"
+                                                                                                                                       ]
+                                                                                                                          },
+                                                                                                       "ownership_mode":  {
+                                                                                                                              "type":  "string",
+                                                                                                                              "enum":  [
+                                                                                                                                           "GLOBAL",
+                                                                                                                                           "BY_SOURCE",
+                                                                                                                                           "BY_SOURCE_INSTANCE"
+                                                                                                                                       ]
+                                                                                                                          }
+                                                                                                   }
+                                                                                },
+                                                                      "effects":  {
+                                                                                      "type":  "array",
+                                                                                      "items":  {
+                                                                                                    "type":  "object",
+                                                                                                    "required":  [
+                                                                                                                     "kind",
+                                                                                                                     "stat",
+                                                                                                                     "op"
+                                                                                                                 ],
+                                                                                                    "properties":  {
+                                                                                                                       "kind":  {
+                                                                                                                                    "type":  "string",
+                                                                                                                                    "const":  "modifier"
+                                                                                                                                },
+                                                                                                                       "stat":  {
+                                                                                                                                    "type":  "string"
+                                                                                                                                },
+                                                                                                                       "op":  {
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                                       "phase":  {
+                                                                                                                                     "type":  "string"
+                                                                                                                                 },
+                                                                                                                       "priority":  {
+                                                                                                                                        "type":  "integer"
+                                                                                                                                    },
+                                                                                                                       "value":  {
+                                                                                                                                     "type":  "number"
+                                                                                                                                 },
+                                                                                                                       "layer":  {
+                                                                                                                                     "type":  "integer"
+                                                                                                                                 },
+                                                                                                                       "expr":  {
+                                                                                                                                    "type":  "string"
+                                                                                                                                },
+                                                                                                                       "clamp_min":  {
+                                                                                                                                         "type":  "number"
+                                                                                                                                     },
+                                                                                                                       "clamp_max":  {
+                                                                                                                                         "type":  "number"
+                                                                                                                                     }
+                                                                                                                   }
+                                                                                                }
+                                                                                  },
+                                                                      "triggers":  {
+                                                                                       "type":  "array",
+                                                                                       "items":  {
+                                                                                                     "type":  "object",
+                                                                                                     "required":  [
+                                                                                                                      "event_type",
+                                                                                                                      "event_phase",
+                                                                                                                      "action"
+                                                                                                                  ],
+                                                                                                     "properties":  {
+                                                                                                                        "event_type":  {
+                                                                                                                                           "type":  "string"
+                                                                                                                                       },
+                                                                                                                        "event_phase":  {
+                                                                                                                                            "type":  "string"
+                                                                                                                                        },
+                                                                                                                        "scope":  {
+                                                                                                                                      "type":  "string"
+                                                                                                                                  },
+                                                                                                                        "filters":  {
+                                                                                                                                        "type":  "object",
+                                                                                                                                        "properties":  {
+                                                                                                                                                           "tag_mask_any":  {
+                                                                                                                                                                                "oneOf": [
+                                                                                                                                                                                    { "type": "integer" },
+                                                                                                                                                                                    { "type": "array", "items": { "type": "string" } }
+                                                                                                                                                                                ]
+                                                                                                                                                                            },
+                                                                                                                                                           "command_kind_any":  {
+                                                                                                                                                                                    "type":  "array",
+                                                                                                                                                                                    "items":  {
+                                                                                                                                                                                                  "type":  "string"
+                                                                                                                                                                                              }
+                                                                                                                                                                                },
+                                                                                                                                                           "item_id":  {
+                                                                                                                                                                           "type":  "integer"
+                                                                                                                                                                       },
+                                                                                                                                                           "require_hit":  {
+                                                                                                                                                                               "type":  "boolean"
+                                                                                                                                                                           },
+                                                                                                                                                           "require_crit":  {
+                                                                                                                                                                                "type":  "boolean"
+                                                                                                                                                                            },
+                                                                                                                                                           "require_shield_absorbed":  {
+                                                                                                                                                                                           "type":  "boolean"
+                                                                                                                                                                                       },
+                                                                                                                                                           "min_absorbed_shield":  {
+                                                                                                                                                                                       "type":  "number"
+                                                                                                                                                                                   },
+                                                                                                                                                           "min_final_damage":  {
+                                                                                                                                                                                    "type":  "number"
+                                                                                                                                                                                },
+                                                                                                                                                           "damage_type_any":  {
+                                                                                                                                                                                   "type":  "array",
+                                                                                                                                                                                   "items":  {
+                                                                                                                                                                                                 "type":  "string"
+                                                                                                                                                                                             }
+                                                                                                                                                                               },
+                                                                                                                                                           "element_any":  {
+                                                                                                                                                                               "type":  "array",
+                                                                                                                                                                               "items":  {
+                                                                                                                                                                                             "type":  "string"
+                                                                                                                                                                                         }
+                                                                                                                                                                           },
+                                                                                                                                                           "skill_id":  {
+                                                                                                                                                                            "type":  "integer"
+                                                                                                                                                                        },
+                                                                                                                                                           "stat_threshold":  {
+                                                                                                                                                                                  "type":  "object",
+                                                                                                                                                                                  "properties":  {
+                                                                                                                                                                                                     "stat":  {
+                                                                                                                                                                                                                  "type":  "string"
+                                                                                                                                                                                                              },
+                                                                                                                                                                                                     "op":  {
+                                                                                                                                                                                                                "type":  "string"
+                                                                                                                                                                                                            },
+                                                                                                                                                                                                     "value":  {
+                                                                                                                                                                                                                   "type":  "number"
+                                                                                                                                                                                                               }
+                                                                                                                                                                                                 }
+                                                                                                                                                                              },
+                                                                                                                                                           "require_not_bonus_damage":  {
+                                                                                                                                                                                            "type":  "boolean"
+                                                                                                                                                                                        },
+                                                                                                                                                           "actor_id":  {
+                                                                                                                                                                            "type":  "integer"
+                                                                                                                                                                        },
+                                                                                                                                                           "source_id":  {
+                                                                                                                                                                             "type":  "integer"
+                                                                                                                                                                         }
+                                                                                                                                                       }
+                                                                                                                                    },
+                                                                                                                        "action":  {
+                                                                                                                                       "type":  "object",
+                                                                                                                                       "required":  [
+                                                                                                                                                        "kind"
+                                                                                                                                                    ],
+                                                                                                                                       "properties":  {
+                                                                                                                                                          "kind":  {
+                                                                                                                                                                       "type":  "string"
+                                                                                                                                                                   },
+                                                                                                                                                          "value":  {
+                                                                                                                                                                        "type":  "number"
+                                                                                                                                                                    },
+                                                                                                                                                          "ratio":  {
+                                                                                                                                                                        "type":  "number"
+                                                                                                                                                                    },
+                                                                                                                                                          "expr":  {
+                                                                                                                                                                       "type":  "string"
+                                                                                                                                                                   },
+                                                                                                                                                          "buff_id":  {
+                                                                                                                                                                          "type":  "string"
+                                                                                                                                                                      },
+                                                                                                                                                          "chance":  {
+                                                                                                                                                                         "type":  "number"
+                                                                                                                                                                     },
+                                                                                                                                                          "stat":  {
+                                                                                                                                                                       "type":  "string"
+                                                                                                                                                                   },
+                                                                                                                                                          "tag":  {
+                                                                                                                                                                      "type":  "string"
+                                                                                                                                                                  },
+                                                                                                                                                          "tags":  {
+                                                                                                                                                                       "type":  "array",
+                                                                                                                                                                       "items":  {
+                                                                                                                                                                                     "type":  "string"
+                                                                                                                                                                                 }
+                                                                                                                                                                   },
+                                                                                                                                                          "delta":  {
+                                                                                                                                                                        "type":  "integer"
+                                                                                                                                                                    },
+                                                                                                                                                          "source_entity_id":  {
+                                                                                                                                                                                   "type":  "integer"
+                                                                                                                                                                               }
+                                                                                                                                                      }
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                                 }
+                                                                                   },
+                                                                      "conditions":  {
+                                                                                         "type":  "array",
+                                                                                         "items":  {
+                                                                                                       "type":  "object",
+                                                                                                      "required":  [
+                                                                                                                    ],
+                                                                                                       "properties":  {
+                                                                                                                          "condition_type":  {
+                                                                                                                                                 "type":  "string"
+                                                                                                                                             },
+                                                                                                                          "type":  {
+                                                                                                                                                 "type":  "string"
+                                                                                                                                             },
+                                                                                                                          "stat":  {
+                                                                                                                                       "type":  "string"
+                                                                                                                                   },
+                                                                                                                          "op":  {
+                                                                                                                                     "type":  "string"
+                                                                                                                                 },
+                                                                                                                          "value":  {
+                                                                                                                                        "type":  "number"
+                                                                                                                                    },
+                                                                                                                          "tag":  {
+                                                                                                                                      "type":  "string"
+                                                                                                                                  },
+                                                                                                                          "set_id":  {
+                                                                                                                                         "type":  "string"
+                                                                                                                                     },
+                                                                                                                          "count":  {
+                                                                                                                                        "type":  "integer"
+                                                                                                                                    }
+                                                                                                                      }
+                                                                                                   }
+                                                                                     },
+                                                                      "dot":  {
+                                                                                  "type":  "object",
+                                                                                  "required":  [
+                                                                                                   "base_ratio",
+                                                                                                   "read_source_stat"
+                                                                                               ],
+                                                                                  "properties":  {
+                                                                                                     "base_ratio":  {
+                                                                                                                        "type":  "number"
+                                                                                                                    },
+                                                                                                     "read_source_stat":  {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                     "tick_phase":  {
+                                                                                                                        "type":  "string"
+                                                                                                                    },
+                                                                                                     "max_stack":  {
+                                                                                                                       "type":  "integer"
+                                                                                                                   }
+                                                                                                 }
+                                                                              },
+                                                                      "dispel":  {
+                                                                                     "type":  "object",
+                                                                                     "properties":  {
+                                                                                                        "mode":  {
+                                                                                                                     "type":  "string"
+                                                                                                                 },
+                                                                                                        "tag":  {
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                        "include_implicit":  {
+                                                                                                                                 "type":  "boolean"
+                                                                                                                             }
+                                                                                                    }
+                                                                                 },
+                                                                      "undispellable":  {
+                                                                                            "type":  "boolean"
+                                                                                        }
+                                                                  }
+                                               }
+                                 }
+                   }
+}

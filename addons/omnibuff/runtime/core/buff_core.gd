@@ -148,11 +148,10 @@ func _init(dataset: OmniCompiledDataset, enums_runtime: OmniEnumsRuntime = null)
 		event_index = OmniEventIndex.new(1)
 
 static func _ownership_key(bdid: int, ownership_mode: String, source_entity_id: int) -> int:
-	# 说明：最小实现使用 int key；若未来 entity_id 可能超过 65535，可改为 String key。
 	var k := 0
 	if ownership_mode == "BY_SOURCE_INSTANCE":
 		k = source_entity_id
-	return (bdid << 16) ^ (k & 0xffff)
+	return (bdid * 1000003) ^ k
 
 func apply_buff(stats: OmniStatsComponent, buff_id_str: String, source_entity_id: int) -> int:
 	## 施加一个 buff（生命周期 A1：叠加/归属）
