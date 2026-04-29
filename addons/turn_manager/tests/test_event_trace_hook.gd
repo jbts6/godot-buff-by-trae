@@ -94,4 +94,4 @@ func test_context_has_event_traces_field() -> void:
 
 func test_no_context_no_crash_on_trace() -> void:
 	var tm = TurnManager.new()
-	tm._on_buff_event_trace(1, 0, 0, PackedInt32Array())
+	tm._on_buff_event_trace(1, "TEST_EVENT", "TEST_PHASE", PackedInt32Array())
