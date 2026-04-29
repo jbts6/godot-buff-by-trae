@@ -15,11 +15,6 @@ run/main_scene="res://demo/auto_battle/auto_battle.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
-[autoload]
-
-OmniBuff="*uid://bl8yrdx6miv75"
-TurnSkillRuntime="*uid://ywf31i4edohi"
-
 [display]
 
 window/size/viewport_width=2304

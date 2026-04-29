@@ -45,7 +45,7 @@ func _spawn_units() -> void:
 
 	var configs = [
 		{"id": 1, "camp": "ally", "cell": Vector2i(0, 1), "pos": Vector2(240, 200), "name": "Hero",
-		 "hp": 220.0, "mp": 80.0, "atk": 55.0, "def": 22.0, "spd": 10.0,
+		 "hp": 1220.0, "mp": 80.0, "atk": 155.0, "def": 22.0, "spd": 10.0,
 		 "skills": ["act_hero_strike", "act_hero_whirlwind"],
 		 "passives": ["pas_hero_battle_haste"]},
 		{"id": 2, "camp": "ally", "cell": Vector2i(0, 2), "pos": Vector2(240, 340), "name": "Ally",
