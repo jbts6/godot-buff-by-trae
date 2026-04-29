@@ -4,7 +4,7 @@ const BattleUnit = preload("res://demo/auto_battle/battle_unit.gd")
 
 var ds = null
 var enums_rt = null
-var _units: Array = []
+var _units: Array[Node] = []
 var _unit_map: Dictionary = {}
 var _turn_manager: TurnManager
 var _battle_active: bool = false
