@@ -2,6 +2,11 @@ extends Node2D
 
 const BattleUnit = preload("res://demo/auto_battle/battle_unit.gd")
 
+@onready var _btn_start: Button = %BtnStart
+@onready var _btn_reset: Button = %BtnReset
+@onready var _status_label: Label = %StatusLabel
+@onready var _battle_log: RichTextLabel = %BattleLog
+
 var ds = null
 var enums_rt = null
 var _units: Array[Node] = []
@@ -16,18 +21,13 @@ var _max_hp_id: int = -1
 var _speed_id: int = -1
 var _auto_step_delay: float = 0.6
 var _skill_rt = null
-
-var _btn_start: Button
-var _btn_reset: Button
-var _status_label: Label
-var _battle_log: RichTextLabel
-var _arena_bg: ColorRect
 var _log_lines: Array = []
 var _unit_nodes: Dictionary = {}
 
 func _ready() -> void:
+	_btn_start.pressed.connect(_on_start_pressed)
+	_btn_reset.pressed.connect(_on_reset_pressed)
 	_load_dataset()
-	_build_ui()
 	_spawn_units()
 
 func _load_dataset() -> void:
@@ -37,100 +37,6 @@ func _load_dataset() -> void:
 	_hp_id = int(ds.stat_id("HP"))
 	_max_hp_id = int(ds.stat_id("MAX_HP"))
 	_speed_id = int(ds.stat_id("SPEED"))
-
-func _build_ui() -> void:
-	_arena_bg = ColorRect.new()
-	_arena_bg.color = Color(0.08, 0.08, 0.14)
-	_arena_bg.size = Vector2(960, 540)
-	_arena_bg.position = Vector2(0, 0)
-	add_child(_arena_bg)
-
-	var grid_lines = Node2D.new()
-	for r in range(3):
-		for c in range(3):
-			var cell_bg = ColorRect.new()
-			cell_bg.size = Vector2(90, 90)
-			cell_bg.position = Vector2(200 + c * 100, 80 + r * 120)
-			cell_bg.color = Color(0.12, 0.12, 0.2, 0.5)
-			grid_lines.add_child(cell_bg)
-			var lbl = Label.new()
-			lbl.text = "(%d,%d)" % [c, r]
-			lbl.position = Vector2(200 + c * 100 + 30, 80 + r * 120 + 38)
-			lbl.add_theme_font_size_override("font_size", 9)
-			lbl.modulate.a = 0.3
-			grid_lines.add_child(lbl)
-	add_child(grid_lines)
-
-	var ally_label = Label.new()
-	ally_label.text = "<< ALLY"
-	ally_label.position = Vector2(80, 230)
-	ally_label.add_theme_font_size_override("font_size", 14)
-	ally_label.modulate = Color(0.3, 0.7, 1.0, 0.6)
-	add_child(ally_label)
-
-	var enemy_label = Label.new()
-	enemy_label.text = "ENEMY >>"
-	enemy_label.position = Vector2(830, 230)
-	enemy_label.add_theme_font_size_override("font_size", 14)
-	enemy_label.modulate = Color(1.0, 0.3, 0.2, 0.6)
-	add_child(enemy_label)
-
-	var canvas = CanvasLayer.new()
-	canvas.layer = 10
-	add_child(canvas)
-
-	var top_bar = HBoxContainer.new()
-	top_bar.anchors_preset = Control.PRESET_TOP_WIDE
-	top_bar.offset_top = 8
-	top_bar.offset_left = 12
-	top_bar.offset_right = -12
-	canvas.add_child(top_bar)
-
-	_btn_start = Button.new()
-	_btn_start.text = "Start Battle"
-	_btn_start.custom_minimum_size = Vector2(120, 36)
-	_btn_start.pressed.connect(_on_start_pressed)
-	top_bar.add_child(_btn_start)
-
-	_btn_reset = Button.new()
-	_btn_reset.text = "Reset"
-	_btn_reset.custom_minimum_size = Vector2(80, 36)
-	_btn_reset.pressed.connect(_on_reset_pressed)
-	top_bar.add_child(_btn_reset)
-
-	_status_label = Label.new()
-	_status_label.text = "Ready — Press Start"
-	_status_label.add_theme_font_size_override("font_size", 16)
-	_status_label.custom_minimum_size = Vector2(300, 36)
-	top_bar.add_child(_status_label)
-
-	var spacer = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_bar.add_child(spacer)
-
-	var team_label = Label.new()
-	team_label.text = "[Blue=Ally  Red=Enemy]  Turn-Based"
-	team_label.add_theme_font_size_override("font_size", 12)
-	top_bar.add_child(team_label)
-
-	var bottom_bar = VBoxContainer.new()
-	bottom_bar.anchors_preset = Control.PRESET_BOTTOM_WIDE
-	bottom_bar.offset_bottom = -8
-	bottom_bar.offset_left = 12
-	bottom_bar.offset_right = -12
-	bottom_bar.offset_top = -160
-	canvas.add_child(bottom_bar)
-
-	var log_label = Label.new()
-	log_label.text = "Battle Log:"
-	log_label.add_theme_font_size_override("font_size", 12)
-	bottom_bar.add_child(log_label)
-
-	_battle_log = RichTextLabel.new()
-	_battle_log.bbcode_enabled = true
-	_battle_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_battle_log.add_theme_font_size_override("normal_font_size", 12)
-	bottom_bar.add_child(_battle_log)
 
 func _spawn_units() -> void:
 	_units.clear()
