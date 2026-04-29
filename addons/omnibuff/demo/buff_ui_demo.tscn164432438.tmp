@@ -1,0 +1,112 @@
+[gd_scene format=3 uid="uid://36gpljkvblbs"]
+
+[ext_resource type="Script" uid="uid://f1n6ccldvf03" path="res://addons/omnibuff/demo/buff_ui_demo.gd" id="1"]
+
+[node name="OmniBuffUiDemo" type="Control" unique_id=1358998131]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="." unique_id=271884497]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+
+[node name="VBox" type="VBoxContainer" parent="Margin" unique_id=1073657841]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox" unique_id=1095262988]
+unique_name_in_owner = true
+layout_mode = 2
+text = "状态："
+
+[node name="Buttons" type="HBoxContainer" parent="Margin/VBox" unique_id=1836832557]
+layout_mode = 2
+
+[node name="BtnReset" type="Button" parent="Margin/VBox/Buttons" unique_id=1816101121]
+unique_name_in_owner = true
+layout_mode = 2
+text = "重置"
+
+[node name="DatasetSelect" type="OptionButton" parent="Margin/VBox/Buttons" unique_id=1543824427]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="BtnLoad" type="Button" parent="Margin/VBox/Buttons" unique_id=1174453198]
+unique_name_in_owner = true
+layout_mode = 2
+text = "加载"
+
+[node name="BtnRunSelected" type="Button" parent="Margin/VBox/Buttons" unique_id=1469784779]
+unique_name_in_owner = true
+layout_mode = 2
+text = "运行选中"
+
+[node name="BtnRunAll" type="Button" parent="Margin/VBox/Buttons" unique_id=331188609]
+unique_name_in_owner = true
+layout_mode = 2
+text = "运行全部"
+
+[node name="BtnToggleHud" type="Button" parent="Margin/VBox/Buttons" unique_id=1450889067]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Debug HUD"
+
+[node name="BtnCopyLog" type="Button" parent="Margin/VBox/Buttons" unique_id=1827364926]
+unique_name_in_owner = true
+layout_mode = 2
+text = "复制日志"
+
+[node name="BtnClearLog" type="Button" parent="Margin/VBox/Buttons" unique_id=1330061166]
+unique_name_in_owner = true
+layout_mode = 2
+text = "清空日志"
+
+[node name="Main" type="HSplitContainer" parent="Margin/VBox" unique_id=1553051645]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Left" type="VBoxContainer" parent="Margin/VBox/Main" unique_id=1948536520]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ScenarioLabel" type="Label" parent="Margin/VBox/Main/Left" unique_id=1969934126]
+layout_mode = 2
+text = "Scenarios"
+
+[node name="ScenarioList" type="ItemList" parent="Margin/VBox/Main/Left" unique_id=1193380961]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Right" type="VBoxContainer" parent="Margin/VBox/Main" unique_id=1523624123]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ErrorList" type="ItemList" parent="Margin/VBox/Main/Right" unique_id=861635900]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="LogBox" type="RichTextLabel" parent="Margin/VBox/Main/Right" unique_id=803866688]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+focus_mode = 2
+bbcode_enabled = true
+selection_enabled = true

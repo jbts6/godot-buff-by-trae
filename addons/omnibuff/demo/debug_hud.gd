@@ -405,7 +405,7 @@ func _enum_name_from_int(enums_rt: Variant, enum_name: String, code: int) -> Str
 		return str(code)
 	if not (enums_rt is OmniEnumsRuntime):
 		return str(code)
-	var name := enums_rt.reverse_name(enum_name, code)
+	var  name: String = enums_rt.reverse_name(enum_name, code)
 	if name != "":
 		return name
 	return str(code)
