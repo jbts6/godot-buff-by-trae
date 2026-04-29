@@ -9,6 +9,7 @@ var stats
 var buffs
 var _hp_stat_id: int = -1
 var _speed_stat_id: int = -1
+var _max_hp_stat_id: int = -1
 var _is_dead_flag: bool = false
 
 var _home_pos: Vector2
@@ -30,6 +31,7 @@ func setup(eid: int, c: String, grid_cell: Vector2i, dataset, enums_runtime, wor
 	stats = OmniStatsComponent.new(eid, dataset)
 	buffs = OmniBuffCore.new(dataset, enums_runtime)
 	_hp_stat_id = int(dataset.stat_id("HP"))
+	_max_hp_stat_id = int(dataset.stat_id("MAX_HP"))
 	_speed_stat_id = int(dataset.stat_id("SPEED"))
 	_build_visuals()
 
@@ -103,9 +105,8 @@ func _build_visuals() -> void:
 func refresh_hp_bar() -> void:
 	if stats == null or _hp_stat_id < 0 or _hp_bar == null:
 		return
-	var max_hp_id = stats.core.dataset.stat_id("MAX_HP")
 	var cur_hp = float(stats.get_final(_hp_stat_id))
-	var max_hp = float(stats.get_final(max_hp_id)) if max_hp_id >= 0 else cur_hp
+	var max_hp = float(stats.get_final(_max_hp_stat_id)) if _max_hp_stat_id >= 0 else cur_hp
 	if max_hp <= 0.0:
 		max_hp = 1.0
 	_hp_bar.max_value = max_hp
