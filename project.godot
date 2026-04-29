@@ -11,9 +11,14 @@ config_version=5
 [application]
 
 config/name="GodotBuff"
-run/main_scene="uid://36gpljkvblbs"
+run/main_scene="res://demo/auto_battle/auto_battle.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+OmniBuff="*uid://bl8yrdx6miv75"
+TurnSkillRuntime="*uid://ywf31i4edohi"
 
 [display]
 

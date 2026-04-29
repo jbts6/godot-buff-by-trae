@@ -152,6 +152,9 @@ func _on_start_pressed() -> void:
 	_btn_start.disabled = true
 	_btn_start.text = "Fighting..."
 	_status_label.text = "Battle in progress..."
+	for u in _units:
+		if is_instance_valid(u):
+			u.set_battle_active(true)
 	_log("[color=yellow]--- Battle Started ---[/color]")
 
 func _on_reset_pressed() -> void:
@@ -164,6 +167,7 @@ func _on_reset_pressed() -> void:
 	_battle_log.clear()
 	for u in _units:
 		if is_instance_valid(u):
+			u.set_battle_active(false)
 			u.queue_free()
 	_units.clear()
 	_spawn_units()
@@ -181,6 +185,9 @@ func _on_hit_dealt(attacker, target, damage) -> void:
 func _end_battle(winner: String) -> void:
 	_battle_active = false
 	_battle_over = true
+	for u in _units:
+		if is_instance_valid(u):
+			u.set_battle_active(false)
 	_btn_start.disabled = false
 	_btn_start.text = "Start Battle"
 	if winner == "ally":

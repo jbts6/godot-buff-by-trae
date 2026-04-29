@@ -14,10 +14,10 @@ var replay
 
 var max_hp: float = 100.0
 var move_speed: float = 120.0
-var attack_range: float = 40.0
+var attack_range: float = 36.0
 var attack_cooldown: float = 0.8
 var attack_damage: float = 10.0
-var chase_range: float = 300.0
+var chase_range: float = 2000.0
 
 var _hp: float = 100.0
 var _target = null
@@ -25,14 +25,13 @@ var _attack_timer: float = 0.0
 var _is_dead: bool = false
 var _flash_timer: float = 0.0
 var _state: String = "idle"
+var _battle_active: bool = false
 
 var _body: ColorRect
 var _hp_bar: ProgressBar
 var _name_label: Label
 var _dmg_label: Label
 var _collision_shape: CollisionShape2D
-var _attack_area: Area2D
-var _attack_shape: CollisionShape2D
 
 func setup(eid: int, c: String, dataset, enums_runtime, start_pos: Vector2) -> void:
 	entity_id = eid
@@ -57,6 +56,12 @@ func setup(eid: int, c: String, dataset, enums_runtime, start_pos: Vector2) -> v
 	_hp = max_hp
 	_build_visuals()
 
+func set_battle_active(active: bool) -> void:
+	_battle_active = active
+	if not active:
+		velocity = Vector2.ZERO
+		_state = "idle"
+
 func _build_visuals() -> void:
 	_collision_shape = CollisionShape2D.new()
 	var shape = RectangleShape2D.new()
@@ -79,14 +84,6 @@ func _build_visuals() -> void:
 	icon.position = Vector2(-12, -12)
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	add_child(icon)
-
-	_attack_area = Area2D.new()
-	_attack_shape = CollisionShape2D.new()
-	var atk_shape = RectangleShape2D.new()
-	atk_shape.size = Vector2(attack_range * 2, attack_range * 2)
-	_attack_shape.shape = atk_shape
-	_attack_area.add_child(_attack_shape)
-	add_child(_attack_area)
 
 	_hp_bar = ProgressBar.new()
 	_hp_bar.min_value = 0.0
@@ -123,7 +120,7 @@ func _build_visuals() -> void:
 	add_child(_dmg_label)
 
 func _physics_process(delta: float) -> void:
-	if _is_dead:
+	if _is_dead or ds == null or not _battle_active:
 		return
 
 	_attack_timer = max(0.0, _attack_timer - delta)
@@ -134,7 +131,6 @@ func _physics_process(delta: float) -> void:
 			_body.color = Color(0.2, 0.6, 1.0) if camp == "ally" else Color(1.0, 0.3, 0.2)
 
 	_update_ai()
-	_update_state()
 
 	match _state:
 		"chase":
@@ -156,9 +152,6 @@ func _update_ai() -> void:
 		_state = "attack"
 	else:
 		_state = "chase"
-
-func _update_state() -> void:
-	pass
 
 func _find_nearest_enemy():
 	var best = null
@@ -268,6 +261,7 @@ func _show_damage_number(dmg: int) -> void:
 func _die() -> void:
 	_is_dead = true
 	_state = "dead"
+	velocity = Vector2.ZERO
 	_body.color = Color(0.3, 0.3, 0.3)
 	_body.modulate.a = 0.5
 	_hp_bar.visible = false

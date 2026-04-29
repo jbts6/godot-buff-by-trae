@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://vuwg1hk0codk"]
 
-[ext_resource type="Script" path="res://demo/auto_battle/auto_battle.gd" id="1"]
+[ext_resource type="Script" uid="uid://5iygv85vts21" path="res://demo/auto_battle/auto_battle.gd" id="1"]
 
-[node name="AutoBattle" type="Node2D"]
+[node name="AutoBattle" type="Node2D" unique_id=1392420588]
 script = ExtResource("1")
