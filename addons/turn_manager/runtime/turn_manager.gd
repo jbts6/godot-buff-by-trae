@@ -28,17 +28,17 @@ enum State {
 
 var _state: int = State.IDLE
 var _context: BattleContext
-var _units: Array[Node] = []
-var _turn_queue: Array[Node] = []
+var _units: Array = []
+var _turn_queue: Array = []
 var _round_index: int = 0
 var _turn_index: int = 1
-var _current_actor: Node = null
+var _current_actor = null
 var _current_command: TurnCommand = null
 var _victory_condition: VictoryCondition
 var resource_snapshot_by_entity: Dictionary = {}
 var cooldown_by_entity: Dictionary = {} # eid -> {skill_id:String : turns_remaining:int}
 
-func setup(context: BattleContext, units: Array[Node]) -> void:
+func setup(context: BattleContext, units: Array) -> void:
 	_context = context
 	_units = units
 	

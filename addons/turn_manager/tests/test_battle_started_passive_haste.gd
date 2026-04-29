@@ -91,7 +91,8 @@ func test_battle_started_triggers_hero_haste_passive_and_outspeeds_boss() -> voi
 		rt.ensure_ready()
 	rt.grid.set_units(units)
 	rt.omnibuff.setup(ds, enums_rt, runtime_dict)
-	rt.passive_manager.register_unit_passives(hero, ["pas_hero_battle_haste"])
+	var hero_passives: Array[String] = ["pas_hero_battle_haste"]
+	rt.passive_manager.register_unit_passives(hero, hero_passives)
 
 	var ctx = BattleContext.new()
 	ctx.build_from_autoload()

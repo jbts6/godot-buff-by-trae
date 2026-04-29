@@ -73,7 +73,7 @@ func test_event_traces_recorded_on_buff_event() -> void:
 	tm.setup(ctx, [u1])
 
 	a_buffs.apply_buff(a_stats, "buff_atk_flat_20", 12001)
-	a_buffs.emit_event(0, 0, PackedInt32Array([1]))
+	a_buffs.emit_event("TEST_EVENT", "TEST_PHASE", ctx)
 
 	assert_true(ctx.event_traces.size() > 0)
 	var trace = ctx.event_traces[0]
