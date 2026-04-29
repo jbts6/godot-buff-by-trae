@@ -552,7 +552,7 @@ func _clean_up_dead() -> void:
 	_turn_queue = new_q
 
 
-func _on_buff_event_trace(entity_id: int, event_type: String, phase: String, hit_inst_ids: PackedInt32Array) -> void:
+func _on_buff_event_trace(entity_id, event_type, phase, hit_inst_ids) -> void:
 	if _context == null:
 		return
 	if _context.event_traces.size() < 500:
