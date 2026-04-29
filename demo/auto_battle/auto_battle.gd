@@ -214,7 +214,8 @@ func _on_start_pressed() -> void:
 	var hero = _unit_map.get(1)
 	var ally = _unit_map.get(2)
 	if hero != null:
-		_skill_rt.passive_manager.register_unit_passives(hero, ["pas_hero_battle_haste"])
+		var hero_passives: Array[String] = ["pas_hero_battle_haste"]
+		_skill_rt.passive_manager.register_unit_passives(hero, hero_passives)
 	if ally != null:
 		_skill_rt.aura_manager.register_aura(ally, "aur_ally_guard")
 	_skill_rt.aura_manager.refresh_all()
